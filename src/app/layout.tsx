@@ -8,8 +8,12 @@ export const metadata: Metadata = {
   title: "MiTurnoListo",
   description: "Appointment management for service businesses.",
   icons: {
-    icon: "/branding/favicon.ico",
-    shortcut: "/branding/favicon.ico"
+    icon: [
+      { url: "/branding/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/branding/favicon-192x192.png", sizes: "192x192", type: "image/png" }
+    ],
+    shortcut: "/branding/favicon-32x32.png",
+    apple: "/branding/apple-touch-icon.png"
   }
 };
 

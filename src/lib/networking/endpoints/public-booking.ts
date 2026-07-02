@@ -1,0 +1,81 @@
+"use client";
+
+import {
+  Appointment,
+  BusinessPaymentSettings,
+  Employee,
+  Locale,
+  Service,
+  ThemeId
+} from "@/features/scheduling/types";
+
+export type PublicBookingPayload = {
+  appointments: Appointment[];
+  businessName: string;
+  employees: Employee[];
+  locale: Locale;
+  paymentSettings: BusinessPaymentSettings;
+  service: Service;
+  theme: ThemeId;
+};
+
+export type CreatePublicBookingInput = {
+  customer: {
+    email: string;
+    fullName: string;
+    phone: string;
+  };
+  employeeId: string;
+  partySize: number;
+  paymentMethod: Exclude<Appointment["paymentMethod"], "mixed">;
+  timeZone: string;
+  slot: {
+    date: string;
+    endTime: string;
+    startTime: string;
+  };
+};
+
+export async function getPublicBookingPayload(serviceId: string) {
+  const response = await fetch(`/api/public-booking/${serviceId}`, {
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, "Unable to load the public booking page."));
+  }
+
+  return response.json() as Promise<PublicBookingPayload>;
+}
+
+export async function createPublicBooking(serviceId: string, payload: CreatePublicBookingInput) {
+  const response = await fetch(`/api/public-booking/${serviceId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, "Unable to create the booking."));
+  }
+
+  return response.json() as Promise<{ appointmentId: string }>;
+}
+
+async function getErrorMessage(response: Response, fallbackMessage: string) {
+  try {
+    const payload = await response.json() as {
+      error?: string;
+    };
+
+    if (payload.error?.trim()) {
+      return payload.error;
+    }
+  } catch {
+    return fallbackMessage;
+  }
+
+  return fallbackMessage;
+}

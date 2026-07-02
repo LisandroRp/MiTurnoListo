@@ -40,6 +40,9 @@ const periodIds: PeriodId[] = ["today", "yesterday", "thisWeek", "lastWeek", "th
 export function StatisticsView({ appointments, employees, services, messages, referenceDate }: StatisticsViewProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodId>("thisMonth");
   const filteredAppointments = appointments.filter((appointment) => matchesPeriod(appointment.date, selectedPeriod, referenceDate));
+  const latestAppointments = filteredAppointments
+    .slice()
+    .sort((left, right) => `${right.date}${right.startTime}`.localeCompare(`${left.date}${left.startTime}`));
   const confirmedAppointments = filteredAppointments.filter((appointment) => appointment.status === "confirmed");
   const pendingAppointments = filteredAppointments.filter((appointment) => appointment.status === "pending");
   const cancelledAppointments = filteredAppointments.filter((appointment) => appointment.status === "cancelled");
@@ -346,24 +349,53 @@ export function StatisticsView({ appointments, employees, services, messages, re
         title={messages.statistics.panels.latestAppointments}
         description={messages.statistics.panels.latestAppointmentsHint}
       >
-        {filteredAppointments.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] border-collapse text-sm">
-              <thead className="bg-surface-strong text-left text-muted">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">{messages.home.customer}</th>
-                  <th className="px-4 py-3 font-semibold">{messages.home.service}</th>
-                  <th className="px-4 py-3 font-semibold">{messages.home.employee}</th>
-                  <th className="px-4 py-3 font-semibold">{messages.home.time}</th>
-                  <th className="px-4 py-3 font-semibold">{messages.home.status}</th>
-                  <th className="px-4 py-3 font-semibold">{messages.statistics.cards.estimatedRevenue}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-subtle">
-                {filteredAppointments
-                  .slice()
-                  .sort((left, right) => `${right.date}${right.startTime}`.localeCompare(`${left.date}${left.startTime}`))
-                  .map((appointment) => {
+        {latestAppointments.length > 0 ? (
+          <>
+            <div className="grid gap-3 sm:hidden">
+              {latestAppointments.map((appointment) => {
+                const service = services.find((item) => item.id === appointment.serviceId);
+                const employee = employees.find((item) => item.id === appointment.employeeId);
+
+                return (
+                  <div key={appointment.id} className="rounded-xl border border-subtle bg-input p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-primary">{appointment.customerName}</p>
+                        <p className="mt-1 text-sm text-muted">{service?.name ?? "-"}</p>
+                      </div>
+                      <Badge tone={statusToneMap[appointment.status]}>{messages.statuses[appointment.status]}</Badge>
+                    </div>
+
+                    <div className="mt-4 grid gap-3">
+                      <MiniStat label={messages.home.employee} value={employee?.name ?? "-"} />
+                      <MiniStat
+                        label={messages.home.time}
+                        value={`${appointment.date} · ${appointment.startTime} - ${appointment.endTime}`}
+                      />
+                      <MiniStat
+                        label={messages.statistics.cards.estimatedRevenue}
+                        value={formatCurrency(appointment.revenue)}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full min-w-[760px] border-collapse text-sm">
+                <thead className="bg-surface-strong text-left text-muted">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">{messages.home.customer}</th>
+                    <th className="px-4 py-3 font-semibold">{messages.home.service}</th>
+                    <th className="px-4 py-3 font-semibold">{messages.home.employee}</th>
+                    <th className="px-4 py-3 font-semibold">{messages.home.time}</th>
+                    <th className="px-4 py-3 font-semibold">{messages.home.status}</th>
+                    <th className="px-4 py-3 font-semibold">{messages.statistics.cards.estimatedRevenue}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-subtle">
+                  {latestAppointments.map((appointment) => {
                     const service = services.find((item) => item.id === appointment.serviceId);
                     const employee = employees.find((item) => item.id === appointment.employeeId);
 
@@ -382,9 +414,10 @@ export function StatisticsView({ appointments, employees, services, messages, re
                       </tr>
                     );
                   })}
-              </tbody>
-            </table>
-          </div>
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : (
           <EmptyState message={messages.statistics.empty} />
         )}
@@ -428,12 +461,12 @@ function MetricBar({
 }) {
   return (
     <div className="rounded-xl border border-subtle bg-input p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <p className="font-semibold text-primary">{label}</p>
           <p className="mt-1 text-sm text-muted">{helper}</p>
         </div>
-        <span className="text-sm font-semibold text-primary">{value}</span>
+        <span className="text-sm font-semibold text-primary sm:text-right">{value}</span>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-strong">
         <div className={cx("h-full rounded-full transition-all", toneClass)} style={{ width: `${progress}%` }} />

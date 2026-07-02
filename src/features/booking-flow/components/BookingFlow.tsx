@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
 import { FiArrowLeft, FiCheckCircle, FiClock, FiMail, FiMapPin, FiPhone, FiShield, FiUser } from "react-icons/fi";
 
+import { BrandMark } from "@/components/composed/BrandMark";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -91,7 +92,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   const messages = schedulingMessages[locale];
   const copy = messages.bookingFlow;
   const theme: ThemeId = isPreview ? previewTheme : publicPayload?.theme ?? "coral";
-  const businessName = isPreview ? profile.businessName : publicPayload?.businessName ?? "MyAgenda";
+  const businessName = isPreview ? profile.businessName : publicPayload?.businessName ?? "MiTurnoListo";
   const service = isPreview ? previewServices.find((item) => item.id === serviceId) : publicPayload?.service;
   const employees = isPreview ? previewEmployees : publicPayload?.employees ?? [];
   const appointments = isPreview ? previewAppointments : publicPayload?.appointments ?? [];
@@ -267,7 +268,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
             ) : (
               <Link href="/" className="inline-flex w-fit cursor-pointer items-center gap-2 text-sm font-semibold text-muted hover:text-primary">
                 <FiArrowLeft aria-hidden="true" />
-                MyAgenda
+                <BrandMark variant="full" size="sm" />
               </Link>
             )}
             <div className="grid gap-2">

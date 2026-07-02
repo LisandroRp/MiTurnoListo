@@ -4,8 +4,8 @@ import { createContext, ReactNode, useContext, useEffect, useState } from "react
 
 import { getSupabaseBrowserClient } from "@/lib/networking/clients/supabase-browser";
 
-const persistentSessionKey = "myagenda_persist_session";
-const transientSessionKey = "myagenda_transient_session";
+const persistentSessionKey = "miturnolisto_persist_session";
+const transientSessionKey = "miturnolisto_transient_session";
 
 type AuthStatus = "loading" | "authenticated" | "guest";
 

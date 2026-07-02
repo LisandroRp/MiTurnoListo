@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { FiArrowLeft, FiEye, FiEyeOff, FiLock, FiMail } from "react-icons/fi";
 
+import { BrandMark } from "@/components/composed/BrandMark";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -64,7 +65,8 @@ export function LoginForm() {
           Volver
         </Link>
         <div className="max-w-xl">
-          <Badge tone="brand">Supabase Auth</Badge>
+          <BrandMark variant="full" size="xl" priority />
+          <Badge tone="brand" className="mt-4">Supabase Auth</Badge>
           <h1 className="mt-5 text-5xl font-bold leading-tight text-primary">
             Entra y deja que la agenda trabaje por vos.
           </h1>
@@ -88,7 +90,10 @@ export function LoginForm() {
           </Link>
           <Card className="bg-sidebar p-6 sm:p-8">
             <div>
-              <Badge tone="brand">MyAgenda</Badge>
+              <Link href="/" className="w-fit">
+                <BrandMark variant="compact" size="lg" priority />
+              </Link>
+              <Badge tone="brand" className="mt-4">Acceso al dashboard</Badge>
               <h2 className="mt-4 text-3xl font-bold text-primary">Login</h2>
               <p className="mt-2 text-sm leading-6 text-muted">
                 Inicia sesion con el usuario real que configuraste en Supabase.

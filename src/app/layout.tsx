@@ -5,8 +5,12 @@ import { AuthProvider } from "@/features/auth/components/AuthProvider";
 import { SchedulingProvider } from "@/features/scheduling/components/SchedulingProvider";
 
 export const metadata: Metadata = {
-  title: "MyAgenda",
-  description: "Appointment management for service businesses."
+  title: "MiTurnoListo",
+  description: "Appointment management for service businesses.",
+  icons: {
+    icon: "/branding/favicon.ico",
+    shortcut: "/branding/favicon.ico"
+  }
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

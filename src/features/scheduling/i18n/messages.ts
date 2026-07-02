@@ -2,7 +2,7 @@ import { Locale } from "@/features/scheduling/types";
 
 export const messages = {
   es: {
-    appName: "MyAgenda",
+    appName: "MiTurnoListo",
     businessType: "Gestor de turnos",
     nav: {
       home: "Inicio",
@@ -374,7 +374,7 @@ export const messages = {
     }
   },
   en: {
-    appName: "MyAgenda",
+    appName: "MiTurnoListo",
     businessType: "Appointment manager",
     nav: {
       home: "Home",

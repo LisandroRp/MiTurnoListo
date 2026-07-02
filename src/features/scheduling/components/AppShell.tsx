@@ -4,6 +4,7 @@ import { ReactNode, useState } from "react";
 import { usePathname } from "next/navigation";
 import { FiBarChart2, FiCalendar, FiCreditCard, FiGrid, FiHome, FiMenu, FiPlusCircle, FiSettings, FiUsers } from "react-icons/fi";
 
+import { BrandMark } from "@/components/composed/BrandMark";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ToastViewport } from "@/components/ui/Toast";
@@ -52,7 +53,7 @@ export function AppShell({ children }: AppShellProps) {
     return (
       <main className={`theme-${theme} grid min-h-screen place-items-center bg-shell p-6 text-primary`}>
         <Card className="w-full max-w-sm text-center">
-          <p className="text-sm font-semibold text-muted">MyAgenda</p>
+          <BrandMark variant="full" size="md" align="center" className="mx-auto" priority />
           <h1 className="mt-2 text-xl font-bold text-primary">Preparando tu espacio...</h1>
         </Card>
       </main>
@@ -63,7 +64,7 @@ export function AppShell({ children }: AppShellProps) {
     return (
       <main className={`theme-${theme} grid min-h-screen place-items-center bg-shell p-6 text-primary`}>
         <Card className="w-full max-w-md text-center">
-          <p className="text-sm font-semibold text-muted">MyAgenda</p>
+          <BrandMark variant="full" size="md" align="center" className="mx-auto" priority />
           <h1 className="mt-2 text-xl font-bold text-primary">No pudimos cargar tu espacio</h1>
           <p className="mt-3 text-sm leading-6 text-muted">{loadError}</p>
         </Card>
@@ -126,12 +127,15 @@ export function AppShell({ children }: AppShellProps) {
           >
             <FiMenu />
           </Button>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-muted">{messages.appName}</p>
-            <h1 className="truncate text-base font-bold text-primary">{activeNavigationItem.label}</h1>
+          <div className="flex min-w-0 items-center gap-3">
+            <BrandMark variant="compact" size="sm" priority />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-muted">{messages.appName}</p>
+              <h1 className="truncate text-base font-bold text-primary">{activeNavigationItem.label}</h1>
+            </div>
           </div>
         </header>
-        <div className="mx-auto grid min-w-0 max-w-[1440px] gap-6 px-4 py-5 sm:px-6 lg:px-8">
+        <div className="mx-auto grid min-w-0 overflow-auto max-w-[1440px] gap-6 px-4 py-5 sm:px-6 lg:px-8">
           {children}
         </div>
       </main>

@@ -2,6 +2,7 @@ import { IconType } from "react-icons";
 import { FiChevronLeft, FiChevronRight, FiLogOut, FiX } from "react-icons/fi";
 import Link from "next/link";
 
+import { BrandMark } from "@/components/composed/BrandMark";
 import { Button } from "@/components/ui/Button";
 import { cx } from "@/components/ui/utils";
 import { Messages } from "@/features/scheduling/i18n/messages";
@@ -43,17 +44,35 @@ export function NavigationSidebar({
       className={cx(
         "flex shrink-0 flex-col border-r border-subtle bg-sidebar transition-all duration-200",
         isMobile ? "min-h-screen" : "h-screen",
-        shouldCollapse ? "w-20" : "w-72"
+        shouldCollapse ? "w-24" : "w-72"
       )}
     >
-      <div className="flex h-20 items-center justify-between border-b border-subtle px-4">
-        <div className={cx("min-w-0", shouldCollapse ? "sr-only" : "")}>
-          <p className="text-lg font-bold text-primary">{messages.appName}</p>
-          <p className="text-xs text-muted">{messages.businessType}</p>
-        </div>
+      <div
+        className={cx(
+          "relative border-b border-subtle",
+          shouldCollapse ? "grid place-items-center px-2 pt-5 pb-4" : "flex h-24 items-center gap-3 px-5"
+        )}
+      >
+        <Link
+          href="/inicio"
+          className={cx(
+            "min-w-0",
+            shouldCollapse ? "grid h-full w-full place-items-center" : "flex flex-1 items-center"
+          )}
+          onClick={onNavigate}
+        >
+          <BrandMark
+            variant={shouldCollapse ? "compact" : "full"}
+            size={shouldCollapse ? "md" : "md"}
+            className={shouldCollapse ? "my-2" : "h-11 w-40 sm:h-12 sm:w-44"}
+            priority={mode === "desktop"}
+          />
+          <span className="sr-only">{messages.appName}</span>
+        </Link>
         <Button
           size="icon"
           variant="ghost"
+          className={cx(shouldCollapse ? "" : "shrink-0")}
           aria-label={
             isMobile
               ? messages.actions.closeMenu

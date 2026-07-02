@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FiArrowRight, FiBarChart2, FiCalendar, FiCheckCircle, FiClock, FiUsers } from "react-icons/fi";
 
+import { BrandMark } from "@/components/composed/BrandMark";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { cx } from "@/components/ui/utils";
@@ -44,8 +45,8 @@ export function PublicLanding() {
     <main className="min-h-screen bg-page text-primary">
       <header className="sticky top-0 z-30 border-b border-subtle bg-sidebar/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="text-lg font-bold text-primary">
-            MyAgenda
+          <Link href="/" className="block">
+            <BrandMark variant="full" size="md" priority />
           </Link>
           <nav className="flex items-center gap-2">
             <Link href="#planes" className="hidden cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-muted hover:bg-surface-strong hover:text-primary sm:inline-flex">

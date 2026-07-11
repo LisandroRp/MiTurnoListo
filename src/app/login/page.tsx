@@ -2,12 +2,12 @@ import { Suspense } from "react";
 
 import { BrandMark } from "@/components/composed/BrandMark";
 import { Card } from "@/components/ui/Card";
-import { LoginForm } from "@/features/auth/components/LoginForm";
+import { AuthPanel } from "@/features/auth/components/AuthPanel";
 
 export default function LoginPage() {
   return (
     <Suspense fallback={<LoginFallback />}>
-      <LoginForm />
+      <AuthPanel />
     </Suspense>
   );
 }

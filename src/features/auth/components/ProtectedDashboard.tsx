@@ -14,7 +14,7 @@ export function ProtectedDashboard({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (status === "guest") {
+    if (status !== "authenticated" && status !== "loading") {
       router.replace(`/login?next=${encodeURIComponent(pathname)}`);
     }
   }, [pathname, router, status]);

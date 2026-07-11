@@ -16,6 +16,7 @@ type ProfileViewProps = {
   locale: Locale;
   theme: ThemeId;
   themeOptions: ThemeId[];
+  onRequestPasswordReset: (email: string) => Promise<void>;
   onLocaleChange: (locale: Locale) => void;
   onThemeChange: (theme: ThemeId) => void;
   onSubscriptionTierChange: (tier: SubscriptionTier) => void;
@@ -27,12 +28,14 @@ export function ProfileView({
   locale,
   theme,
   themeOptions,
+  onRequestPasswordReset,
   onLocaleChange,
   onThemeChange,
   onSubscriptionTierChange
 }: ProfileViewProps) {
   const plansRef = useRef<HTMLDivElement>(null);
   const [pendingTier, setPendingTier] = useState<SubscriptionTier | null>(null);
+  const [isRequestingPasswordReset, setIsRequestingPasswordReset] = useState(false);
   const isProPlan = profile.subscriptionTier === "pro";
 
   function scrollToPlans() {
@@ -58,6 +61,16 @@ export function ProfileView({
 
     onSubscriptionTierChange(pendingTier);
     closeModal();
+  }
+
+  async function handlePasswordReset() {
+    if (!profile.email) {
+      return;
+    }
+
+    setIsRequestingPasswordReset(true);
+    await onRequestPasswordReset(profile.email);
+    setIsRequestingPasswordReset(false);
   }
 
   return (
@@ -159,7 +172,13 @@ export function ProfileView({
             </div>
             <div className="mt-5 flex flex-col gap-3 rounded-lg border border-subtle bg-input p-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted">{messages.profile.passwordHint}</p>
-              <Button variant="secondary" icon={<FiLock />} disabled>
+              <Button
+                variant="secondary"
+                icon={<FiLock />}
+                isLoading={isRequestingPasswordReset}
+                disabled={!profile.email}
+                onClick={() => void handlePasswordReset()}
+              >
                 {messages.actions.changePassword}
               </Button>
             </div>

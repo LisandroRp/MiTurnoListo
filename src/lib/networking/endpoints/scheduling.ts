@@ -135,14 +135,15 @@ export async function loadSchedulingSnapshot() {
     )
   );
   const appointments = mapAppointments(appointmentResult.data ?? [], timeZone);
+  const focusedDate = getDefaultFocusedDate(appointments, timeZone);
   const profile = mapProfile(userProfileResult.data, businessResult.data, user.email ?? "");
 
   return {
     appointments,
     businessId,
-    dashboardMetrics: buildDashboardMetrics(appointments, employees),
+    dashboardMetrics: buildDashboardMetrics(appointments, employees, focusedDate),
     employees,
-    focusedDate: getDefaultFocusedDate(appointments, timeZone),
+    focusedDate,
     locale: membership.locale,
     paymentSettings,
     profile,

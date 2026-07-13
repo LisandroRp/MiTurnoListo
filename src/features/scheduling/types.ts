@@ -105,7 +105,10 @@ export type DashboardMetric = {
   id: string;
   labelKey: "revenue" | "activeEmployees" | "bookedAppointments" | "cancelledAppointments";
   value: string;
-  trend: string;
+  trendValue: number | null;
+  trendFormat: "currency" | "count" | "current";
+  trendTone: "success" | "danger" | "neutral";
+  trendContextKey: "monthComparison" | "currentTeam";
 };
 
 export type ToastMessage = {

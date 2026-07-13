@@ -4,6 +4,7 @@ import { SectionHeader } from "@/components/composed/SectionHeader";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Appointment, DashboardMetric, Employee, Service } from "@/features/scheduling/types";
 import { Messages } from "@/features/scheduling/i18n/messages";
+import { formatCurrency } from "@/features/scheduling/utils/format";
 import { cx } from "@/components/ui/utils";
 
 type DashboardViewProps = {
@@ -26,17 +27,22 @@ export function DashboardView({ messages, metrics, employees, services, appointm
         description={messages.home.description}
       />
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((metric) => (
-          <Card key={metric.id}>
-            <p className="text-sm text-muted">{messages.metrics[metric.labelKey]}</p>
-            <div className="mt-3 flex items-end justify-between gap-3">
-              <p className="text-3xl font-bold text-primary">{metric.value}</p>
-              <Badge tone="brand">{metric.trend}</Badge>
-            </div>
-          </Card>
-        ))}
-      </section>
+      <div className="grid gap-3">
+        <p className="text-xs font-semibold text-muted">{messages.metrics.contexts.monthComparison}</p>
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {metrics.map((metric) => (
+            <Card key={metric.id}>
+              <p className="text-sm text-muted">{messages.metrics[metric.labelKey]}</p>
+              <div className="mt-3 flex items-end justify-between gap-3">
+                <p className="text-3xl font-bold text-primary">{metric.value}</p>
+                {metric.trendFormat !== "current" ? (
+                  <Badge tone={metric.trendTone}>{formatMetricTrend(metric, messages)}</Badge>
+                ) : null}
+              </div>
+            </Card>
+          ))}
+        </section>
+      </div>
 
       <section className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
         <Card className="overflow-hidden p-0">
@@ -97,4 +103,23 @@ export function DashboardView({ messages, metrics, employees, services, appointm
       </section>
     </div>
   );
+}
+
+function formatMetricTrend(metric: DashboardMetric, messages: Messages) {
+  if (metric.trendFormat === "current" || metric.trendValue === null) {
+    return messages.metrics.current;
+  }
+
+  if (metric.trendValue === 0) {
+    return messages.metrics.noChange;
+  }
+
+  const prefix = metric.trendValue > 0 ? "+" : "-";
+  const absoluteValue = Math.abs(metric.trendValue);
+
+  if (metric.trendFormat === "currency") {
+    return `${prefix}${formatCurrency(absoluteValue)}`;
+  }
+
+  return `${prefix}${absoluteValue}`;
 }

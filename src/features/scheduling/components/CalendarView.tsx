@@ -359,7 +359,7 @@ function DateGroupedCalendar({
 
   return (
     <div className="max-w-full min-w-0 overflow-x-auto">
-      <div className="flex min-w-0 snap-x snap-mandatory gap-3 p-5">
+      <div className="flex min-h-[440px] min-w-0 snap-x snap-mandatory items-stretch gap-3 p-5">
         {dates.map((date) => {
           const dayAppointments = appointments.filter((appointment) => appointment.date === date);
 
@@ -367,7 +367,7 @@ function DateGroupedCalendar({
             <div
               key={date}
               ref={date === focusedDate ? focusedDateRef : undefined}
-              className="w-[86vw] shrink-0 snap-start rounded-lg border border-subtle bg-input p-4 sm:w-[28rem] lg:w-[32rem]"
+              className="flex h-full w-[86vw] shrink-0 snap-start flex-col rounded-lg border border-subtle bg-input p-4 sm:w-[28rem] lg:w-[32rem]"
             >
               <div className="flex items-center justify-between gap-3">
                 <button
@@ -379,7 +379,7 @@ function DateGroupedCalendar({
                 </button>
                 <span className="text-xs font-semibold text-muted">{dayAppointments.length} {messages.calendar.appointments}</span>
               </div>
-              <div className="mt-3 grid gap-2">
+              <div className="mt-3 grid flex-1 content-start gap-2">
                 {dayAppointments.length > 0 ? dayAppointments.map((appointment) => {
                   const employee = employees.find((item) => item.id === appointment.employeeId);
                   const service = services.find((item) => item.id === appointment.serviceId);

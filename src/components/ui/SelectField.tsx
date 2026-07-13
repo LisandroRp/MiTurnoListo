@@ -1,4 +1,5 @@
 import { SelectHTMLAttributes } from "react";
+import { FiChevronDown } from "react-icons/fi";
 
 import { cx } from "@/components/ui/utils";
 
@@ -18,21 +19,24 @@ export function SelectField({ label, options, className, id, ...props }: SelectF
   return (
     <label className="grid gap-2 text-sm font-medium text-primary" htmlFor={fieldId}>
       {label}
-      <select
-        {...props}
-        id={fieldId}
-        className={cx(
-          "h-11 w-full cursor-pointer rounded-lg border border-subtle bg-input px-3 text-sm text-primary outline-none transition-colors",
-          "focus:border-brand focus:ring-2 focus:ring-focus",
-          className
-        )}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      <span className="relative">
+        <select
+          {...props}
+          id={fieldId}
+          className={cx(
+            "h-11 w-full cursor-pointer appearance-none rounded-lg border border-subtle bg-input px-3 pr-10 text-sm text-primary outline-none transition-colors",
+            "focus:border-brand focus:ring-2 focus:ring-focus",
+            className
+          )}
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <FiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-base text-muted" aria-hidden="true" />
+      </span>
     </label>
   );
 }

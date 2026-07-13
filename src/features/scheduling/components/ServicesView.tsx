@@ -1,6 +1,8 @@
 import { ChangeEvent, ReactNode, useRef, useState } from "react";
-import { FiEdit2, FiInfo, FiPlus, FiTrash2 } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight, FiCheck, FiCopy, FiEdit2, FiInfo, FiPlus, FiTrash2 } from "react-icons/fi";
 
+import { SectionHeader } from "@/components/composed/SectionHeader";
+import { StepProgress } from "@/components/composed/StepProgress";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -10,8 +12,7 @@ import { SelectField } from "@/components/ui/SelectField";
 import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
-import { SectionHeader } from "@/components/composed/SectionHeader";
-import { AvailabilityEditor } from "@/features/scheduling/components/AvailabilityEditor";
+import { AvailabilityEditor, dayKeys } from "@/features/scheduling/components/AvailabilityEditor";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { Employee, PaymentMethod, Service, ServiceSchedule, TimeRange } from "@/features/scheduling/types";
@@ -29,8 +30,10 @@ type ServicesViewProps = {
 };
 
 type ServicesMode = "grid" | "form";
+type ServiceWizardStep = "details" | "booking" | "staff" | "schedule" | "review";
 
 const paymentMethods: PaymentMethod[] = ["cash", "card", "transfer", "mixed"];
+const serviceWizardStepOrder: ServiceWizardStep[] = ["details", "booking", "staff", "schedule", "review"];
 
 export function ServicesView({
   messages,
@@ -45,22 +48,51 @@ export function ServicesView({
   const [mode, setMode] = useState<ServicesMode>("grid");
   const [draft, setDraft] = useState<Service>(() => createNewServiceDraft(employees.map((employee) => employee.id)));
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const [savingVisibilityId, setSavingVisibilityId] = useState<string | null>(null);
+
+  const currentStep = serviceWizardStepOrder[currentStepIndex] ?? "details";
+  const stepItems = serviceWizardStepOrder.map((step) => ({
+    id: step,
+    label: messages.services.steps[step]
+  }));
 
   function startCreate() {
     setDraft(createNewServiceDraft(employees.map((employee) => employee.id)));
     setEditingId(null);
+    setCurrentStepIndex(0);
+    setValidationMessage(null);
     setMode("form");
   }
 
   function startEdit(service: Service) {
     setDraft({ ...service, schedule: structuredClone(service.schedule), employeeIds: [...service.employeeIds] });
     setEditingId(service.id);
+    setCurrentStepIndex(0);
+    setValidationMessage(null);
+    setMode("form");
+  }
+
+  function startDuplicate(service: Service) {
+    setDraft({
+      ...service,
+      id: globalThis.crypto.randomUUID(),
+      name: `${service.name} ${messages.services.copySuffix}`,
+      schedule: structuredClone(service.schedule),
+      employeeIds: [...service.employeeIds]
+    });
+    setEditingId(null);
+    setCurrentStepIndex(0);
+    setValidationMessage(null);
     setMode("form");
   }
 
   function returnToGrid() {
     setMode("grid");
     setEditingId(null);
+    setCurrentStepIndex(0);
+    setValidationMessage(null);
   }
 
   function handleTextChange(field: keyof Service) {
@@ -69,9 +101,9 @@ export function ServicesView({
     };
   }
 
-  function handleNumberChange(field: keyof Service) {
+  function handleNumericTextChange(field: keyof Service) {
     return (event: ChangeEvent<HTMLInputElement>) => {
-      setDraft((current) => ({ ...current, [field]: Number(event.target.value) }));
+      setDraft((current) => ({ ...current, [field]: parseNumericInput(event.target.value) }));
     };
   }
 
@@ -86,6 +118,23 @@ export function ServicesView({
         ? current.employeeIds.filter((id) => id !== employeeId)
         : [...current.employeeIds, employeeId]
     }));
+  }
+
+  async function toggleServiceVisibility(service: Service) {
+    if (savingVisibilityId) {
+      return;
+    }
+
+    setSavingVisibilityId(service.id);
+
+    await onSaveService({
+      ...service,
+      schedule: structuredClone(service.schedule),
+      employeeIds: [...service.employeeIds],
+      isVisible: !service.isVisible
+    });
+
+    setSavingVisibilityId(null);
   }
 
   function addRange(day: keyof ServiceSchedule) {
@@ -122,8 +171,36 @@ export function ServicesView({
     }));
   }
 
+  function goToStep(index: number) {
+    setCurrentStepIndex(index);
+    setValidationMessage(null);
+  }
+
+  function goToPreviousStep() {
+    setCurrentStepIndex((current) => Math.max(current - 1, 0));
+    setValidationMessage(null);
+  }
+
+  function goToNextStep() {
+    const stepValidationMessage = getServiceStepValidationMessage(currentStep, draft, messages);
+
+    if (stepValidationMessage) {
+      setValidationMessage(stepValidationMessage);
+      onValidationWarning();
+      return;
+    }
+
+    setValidationMessage(null);
+    setCurrentStepIndex((current) => Math.min(current + 1, serviceWizardStepOrder.length - 1));
+  }
+
   async function submitForm() {
-    if (!draft.name.trim() || draft.price <= 0 || draft.durationMinutes <= 0 || draft.capacity <= 0 || draft.employeeIds.length === 0) {
+    const invalidStepIndex = serviceWizardStepOrder.findIndex((step) => getServiceStepValidationMessage(step, draft, messages));
+
+    if (invalidStepIndex >= 0) {
+      const invalidStep = serviceWizardStepOrder[invalidStepIndex] ?? "details";
+      setCurrentStepIndex(invalidStepIndex);
+      setValidationMessage(getServiceStepValidationMessage(invalidStep, draft, messages));
       onValidationWarning();
       return;
     }
@@ -143,16 +220,44 @@ export function ServicesView({
           title={editingId ? messages.services.formTitleEdit : messages.services.formTitleCreate}
           description={messages.services.formDisclaimer}
           actions={
-            <>
-              <Button variant="secondary" onClick={returnToGrid}>{messages.actions.cancel}</Button>
-              <Button onClick={submitForm}>{messages.actions.save}</Button>
-            </>
+            <Button variant="secondary" onClick={returnToGrid}>{messages.actions.cancel}</Button>
           }
         />
 
+        <StepProgress steps={stepItems} currentStepIndex={currentStepIndex} onStepSelect={goToStep} />
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
+          {currentStepIndex > 0 ? (
+            <Button variant="secondary" icon={<FiArrowLeft />} onClick={goToPreviousStep}>
+              {messages.actions.back}
+            </Button>
+          ) : (
+            <Button variant="secondary" onClick={returnToGrid}>
+              {messages.actions.cancel}
+            </Button>
+          )}
+
+          {currentStep === "review" ? (
+            <Button icon={<FiCheck />} onClick={submitForm}>
+              {messages.actions.save}
+            </Button>
+          ) : (
+            <Button icon={<FiArrowRight />} onClick={goToNextStep}>
+              {messages.actions.continue}
+            </Button>
+          )}
+        </div>
+
+        {validationMessage ? (
+          <div className="rounded-lg border border-danger bg-danger-soft p-4 text-sm font-semibold text-danger">
+            {validationMessage}
+          </div>
+        ) : null}
+
         <div className="grid gap-5">
-          <FormSection title={messages.services.detailsSection} description={messages.services.detailsSectionHint}>
-            <div className="grid items-start gap-4 lg:grid-cols-2">
+          {currentStep === "details" ? (
+            <FormSection title={messages.services.detailsSection} description={messages.services.detailsSectionHint}>
+            <div className="grid items-start gap-4">
               <TextField label={messages.services.name} value={draft.name} onChange={handleTextChange("name")} />
               <ImageUploadField
                 label={messages.services.imageUrl}
@@ -172,15 +277,17 @@ export function ServicesView({
               checked={draft.isVisible}
               onChange={handleVisibilityChange}
             />
-          </FormSection>
+            </FormSection>
+          ) : null}
 
-          <FormSection title={messages.services.bookingSection} description={messages.services.bookingSectionHint}>
+          {currentStep === "booking" ? (
+            <FormSection title={messages.services.bookingSection} description={messages.services.bookingSectionHint}>
             <div className="grid gap-4 lg:grid-cols-3">
-              <TextField label={messages.services.price} type="number" min={0} value={draft.price} onChange={handleNumberChange("price")} />
-              <TextField label={messages.services.duration} type="number" min={5} value={draft.durationMinutes} onChange={handleNumberChange("durationMinutes")} />
-              <TextField label={messages.services.capacity} type="number" min={1} value={draft.capacity} onChange={handleNumberChange("capacity")} />
-              <TextField label={messages.services.deposit} type="number" min={0} value={draft.deposit} onChange={handleNumberChange("deposit")} />
-              <TextField label={messages.services.leadTime} type="number" min={0} value={draft.reservationLeadMinutes} onChange={handleNumberChange("reservationLeadMinutes")} />
+              <TextField label={messages.services.price} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.price, true)} onChange={handleNumericTextChange("price")} />
+              <TextField label={messages.services.duration} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.durationMinutes)} onChange={handleNumericTextChange("durationMinutes")} />
+              <TextField label={messages.services.capacity} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.capacity)} onChange={handleNumericTextChange("capacity")} />
+              <TextField label={messages.services.deposit} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.deposit, true)} onChange={handleNumericTextChange("deposit")} />
+              <TextField label={messages.services.leadTime} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.reservationLeadMinutes)} onChange={handleNumericTextChange("reservationLeadMinutes")} />
               <SelectField
                 label={messages.services.paymentMethod}
                 value={draft.paymentMethod}
@@ -188,9 +295,11 @@ export function ServicesView({
                 options={paymentMethods.map((method) => ({ value: method, label: messages.paymentMethods[method] }))}
               />
             </div>
-          </FormSection>
+            </FormSection>
+          ) : null}
 
-          <FormSection title={messages.services.staffSection} description={messages.services.staffSectionHint}>
+          {currentStep === "staff" ? (
+            <FormSection title={messages.services.staffSection} description={messages.services.staffSectionHint}>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {employees.map((employee) => {
                 const isSelected = draft.employeeIds.includes(employee.id);
@@ -214,9 +323,11 @@ export function ServicesView({
                 );
               })}
             </div>
-          </FormSection>
+            </FormSection>
+          ) : null}
 
-          <FormSection title={messages.services.scheduleSection} description={messages.services.scheduleSectionHint}>
+          {currentStep === "schedule" ? (
+            <FormSection title={messages.services.scheduleSection} description={messages.services.scheduleSectionHint}>
             <AvailabilityEditor
               messages={messages}
               schedule={draft.schedule}
@@ -224,7 +335,16 @@ export function ServicesView({
               onUpdateRange={updateRange}
               onRemoveRange={removeRange}
             />
-          </FormSection>
+            </FormSection>
+          ) : null}
+
+          {currentStep === "review" ? (
+            <ServiceReview
+              messages={messages}
+              service={draft}
+              employees={employees}
+            />
+          ) : null}
         </div>
       </div>
     );
@@ -267,9 +387,12 @@ export function ServicesView({
                   <h2 className="text-lg font-bold text-primary">{service.name}</h2>
                   <p className="mt-1 line-clamp-2 text-sm text-muted">{service.description}</p>
                 </div>
-                <Badge tone={service.isVisible ? "success" : "neutral"}>
-                  {service.isVisible ? messages.services.visible : messages.services.hidden}
-                </Badge>
+                <VisibilitySwitch
+                  messages={messages}
+                  isVisible={service.isVisible}
+                  isLoading={savingVisibilityId === service.id}
+                  onToggle={() => void toggleServiceVisibility(service)}
+                />
               </div>
 
               <dl className="grid grid-cols-2 gap-3 text-sm">
@@ -282,6 +405,9 @@ export function ServicesView({
               <div className="mt-auto grid gap-2 border-t border-subtle pt-4">
                 <Button className="w-full" variant="secondary" size="sm" icon={<FiEdit2 />} onClick={() => startEdit(service)}>
                   {messages.actions.edit}
+                </Button>
+                <Button className="w-full" variant="secondary" size="sm" icon={<FiCopy />} onClick={() => startDuplicate(service)}>
+                  {messages.actions.duplicate}
                 </Button>
                 <Button className="w-full" variant="danger" size="sm" icon={<FiTrash2 />} onClick={() => void onDeleteService(service.id)}>
                   {messages.actions.delete}
@@ -308,6 +434,132 @@ function ServiceFact({ label, value }: { label: string; value: string }) {
   );
 }
 
+function VisibilitySwitch({
+  messages,
+  isVisible,
+  isLoading,
+  onToggle
+}: {
+  messages: Messages;
+  isVisible: boolean;
+  isLoading: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isVisible}
+      disabled={isLoading}
+      aria-busy={isLoading}
+      onClick={onToggle}
+      className={cx(
+        "inline-flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-full border px-2.5 text-xs font-bold transition-all",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+        "disabled:cursor-not-allowed disabled:opacity-55",
+        isVisible ? "border-success bg-success-soft text-success" : "border-subtle bg-input text-muted",
+        isLoading ? "animate-pulse" : ""
+      )}
+    >
+      <span
+        className={cx(
+          "relative h-4 w-8 rounded-full transition-colors",
+          isVisible ? "bg-success" : "bg-muted"
+        )}
+      >
+        <span
+          className={cx(
+            "absolute top-0.5 h-3 w-3 rounded-full bg-surface transition-transform",
+            isVisible ? "-translate-x-3.5" : "translate-x-0.5"
+          )}
+        />
+      </span>
+      <span className="min-w-12 text-left">
+        {isLoading ? messages.services.savingVisibility : isVisible ? messages.services.visible : messages.services.hidden}
+      </span>
+    </button>
+  );
+}
+
+function ServiceReview({ messages, service, employees }: { messages: Messages; service: Service; employees: Employee[] }) {
+  const assignedEmployees = employees.filter((employee) => service.employeeIds.includes(employee.id));
+  const scheduleRangeCount = getScheduleRangeCount(service.schedule);
+
+  return (
+    <FormSection title={messages.services.reviewSection} description={messages.services.reviewSectionHint}>
+      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+        <div
+          className="min-h-56 rounded-lg bg-surface-strong bg-cover bg-center"
+          style={{ backgroundImage: service.imageUrl ? `url(${service.imageUrl})` : undefined }}
+        />
+        <div className="grid gap-4">
+          <div>
+            <Badge tone={service.isVisible ? "success" : "neutral"}>
+              {service.isVisible ? messages.services.visible : messages.services.hidden}
+            </Badge>
+            <h2 className="mt-3 text-2xl font-bold text-primary">{service.name || messages.services.untitledService}</h2>
+            <p className="mt-2 text-sm leading-6 text-muted">{service.description || messages.services.emptyDescription}</p>
+          </div>
+
+          <dl className="grid grid-cols-2 gap-3 text-sm">
+            <ServiceFact label={messages.services.price} value={formatCurrency(service.price)} />
+            <ServiceFact label={messages.services.duration} value={`${service.durationMinutes} ${messages.services.minutes}`} />
+            <ServiceFact label={messages.services.capacity} value={`${service.capacity} ${messages.services.people}`} />
+            <ServiceFact label={messages.services.deposit} value={formatCurrency(service.deposit)} />
+            <ServiceFact label={messages.services.paymentMethod} value={messages.paymentMethods[service.paymentMethod]} />
+            <ServiceFact label={messages.services.schedule} value={`${scheduleRangeCount} ${messages.services.ranges}`} />
+          </dl>
+        </div>
+      </div>
+
+      <div className="grid gap-3">
+        <h3 className="text-sm font-bold text-primary">{messages.services.assignedStaff}</h3>
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {assignedEmployees.map((employee) => (
+            <div key={employee.id} className="flex items-center gap-3 rounded-lg border border-subtle bg-input p-3">
+              <span className={cx("h-3 w-3 rounded-full", employeeColorClasses[employee.color])} />
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-primary">{employee.name}</span>
+                <span className="block truncate text-xs text-muted">{employee.role}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-3">
+        <h3 className="text-sm font-bold text-primary">{messages.services.schedule}</h3>
+        {scheduleRangeCount > 0 ? (
+          <div className="grid gap-2">
+            {dayKeys.map((day) => {
+              const ranges = service.schedule[day] ?? [];
+
+              if (ranges.length === 0) {
+                return null;
+              }
+
+              return (
+                <div key={day} className="rounded-lg border border-subtle bg-input p-3">
+                  <p className="text-sm font-semibold text-primary">{messages.days[day]}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {ranges.map((range) => (
+                      <span key={range.id} className="rounded-lg border border-subtle bg-surface px-3 py-1 text-sm font-semibold text-primary">
+                        {range.start} - {range.end}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="rounded-lg border border-subtle bg-input p-3 text-sm text-muted">{messages.services.emptySchedule}</p>
+        )}
+      </div>
+    </FormSection>
+  );
+}
+
 function FormSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return (
     <Card className="grid gap-5">
@@ -318,4 +570,34 @@ function FormSection({ title, description, children }: { title: string; descript
       <div className="grid gap-4">{children}</div>
     </Card>
   );
+}
+
+function getServiceStepValidationMessage(step: ServiceWizardStep, service: Service, messages: Messages) {
+  if (step === "details" && !service.name.trim()) {
+    return messages.services.validation.details;
+  }
+
+  if (step === "booking" && (service.price <= 0 || service.durationMinutes <= 0 || service.capacity <= 0 || service.deposit < 0 || service.reservationLeadMinutes < 0)) {
+    return messages.services.validation.booking;
+  }
+
+  if (step === "staff" && service.employeeIds.length === 0) {
+    return messages.services.validation.staff;
+  }
+
+  return null;
+}
+
+function getScheduleRangeCount(schedule: ServiceSchedule) {
+  return Object.values(schedule).reduce((total, ranges) => total + ranges.length, 0);
+}
+
+function formatNumericInputValue(value: number, hideZero = false) {
+  return hideZero && value === 0 ? "" : String(value);
+}
+
+function parseNumericInput(value: string) {
+  const digits = value.replace(/\D/g, "");
+
+  return digits ? Number(digits) : 0;
 }

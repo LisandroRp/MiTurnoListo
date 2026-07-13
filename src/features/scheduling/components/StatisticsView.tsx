@@ -2,8 +2,8 @@ import { ReactNode, useState } from "react";
 import { FiActivity, FiBarChart2, FiClock, FiDollarSign, FiTrendingUp, FiUsers } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { SelectField } from "@/components/ui/SelectField";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
@@ -39,7 +39,12 @@ const periodIds: PeriodId[] = ["today", "yesterday", "thisWeek", "lastWeek", "th
 
 export function StatisticsView({ appointments, employees, services, messages, referenceDate }: StatisticsViewProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodId>("thisMonth");
-  const filteredAppointments = appointments.filter((appointment) => matchesPeriod(appointment.date, selectedPeriod, referenceDate));
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("all");
+  const selectedEmployee = employees.find((employee) => employee.id === selectedEmployeeId);
+  const filteredAppointments = appointments.filter((appointment) => (
+    matchesPeriod(appointment.date, selectedPeriod, referenceDate) &&
+    (selectedEmployeeId === "all" || appointment.employeeId === selectedEmployeeId)
+  ));
   const latestAppointments = filteredAppointments
     .slice()
     .sort((left, right) => `${right.date}${right.startTime}`.localeCompare(`${left.date}${left.startTime}`));
@@ -176,31 +181,45 @@ export function StatisticsView({ appointments, employees, services, messages, re
         eyebrow={messages.statistics.eyebrow}
         title={messages.statistics.title}
         description={messages.statistics.description}
-        actions={
-          <div className="flex flex-wrap gap-2">
-            {periodIds.map((periodId) => (
-              <Button
-                key={periodId}
-                variant={selectedPeriod === periodId ? "primary" : "secondary"}
-                size="sm"
-                onClick={() => setSelectedPeriod(periodId)}
-              >
-                {messages.statistics.periods[periodId]}
-              </Button>
-            ))}
-          </div>
-        }
       />
 
       <Card className="bg-brand-soft">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <p className="text-xs font-semibold uppercase text-brand-strong">{messages.statistics.analysisPeriod}</p>
             <h2 className="mt-1 text-lg font-bold text-primary">{messages.statistics.periods[selectedPeriod]}</h2>
+            <p className="mt-1 text-sm text-muted">
+              {selectedEmployee ? selectedEmployee.name : messages.statistics.allEmployees}
+            </p>
+            <div className="mt-3">
+              <Badge tone="brand">
+                {filteredAppointments.length} {messages.statistics.bookings}
+              </Badge>
+            </div>
           </div>
-          <Badge tone="brand">
-            {filteredAppointments.length} {messages.statistics.bookings}
-          </Badge>
+          <div className="grid gap-3 sm:grid-cols-2 lg:w-[28rem]">
+            <SelectField
+              label={messages.statistics.periodFilter}
+              value={selectedPeriod}
+              onChange={(event) => setSelectedPeriod(event.target.value as PeriodId)}
+              options={periodIds.map((periodId) => ({
+                value: periodId,
+                label: messages.statistics.periods[periodId]
+              }))}
+            />
+            <SelectField
+              label={messages.statistics.employeeFilter}
+              value={selectedEmployeeId}
+              onChange={(event) => setSelectedEmployeeId(event.target.value)}
+              options={[
+                { value: "all", label: messages.statistics.allEmployees },
+                ...employees.map((employee) => ({
+                  value: employee.id,
+                  label: employee.name
+                }))
+              ]}
+            />
+          </div>
         </div>
       </Card>
 

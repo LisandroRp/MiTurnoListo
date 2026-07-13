@@ -218,38 +218,89 @@ export function mapPaymentSettings(row: PaymentSettingsRow | null): BusinessPaym
   };
 }
 
-export function buildDashboardMetrics(appointments: Appointment[], employees: Employee[]): DashboardMetric[] {
-  const bookedAppointments = appointments.filter((appointment) => appointment.status !== "cancelled");
-  const confirmedAppointments = appointments.filter((appointment) => appointment.status === "confirmed");
-  const cancelledAppointments = appointments.filter((appointment) => appointment.status === "cancelled");
+export function buildDashboardMetrics(appointments: Appointment[], employees: Employee[], referenceDate: string): DashboardMetric[] {
+  const currentMonthAppointments = appointments.filter((appointment) => matchesMonth(appointment.date, referenceDate, 0));
+  const previousMonthAppointments = appointments.filter((appointment) => matchesMonth(appointment.date, referenceDate, -1));
+  const bookedAppointments = currentMonthAppointments.filter((appointment) => appointment.status !== "cancelled");
+  const previousBookedAppointments = previousMonthAppointments.filter((appointment) => appointment.status !== "cancelled");
+  const cancelledAppointments = currentMonthAppointments.filter((appointment) => appointment.status === "cancelled");
+  const previousCancelledAppointments = previousMonthAppointments.filter((appointment) => appointment.status === "cancelled");
   const estimatedRevenue = bookedAppointments.reduce((total, appointment) => total + appointment.revenue, 0);
+  const previousEstimatedRevenue = previousBookedAppointments.reduce((total, appointment) => total + appointment.revenue, 0);
+  const revenueDelta = estimatedRevenue - previousEstimatedRevenue;
+  const bookedDelta = bookedAppointments.length - previousBookedAppointments.length;
+  const cancelledDelta = cancelledAppointments.length - previousCancelledAppointments.length;
 
   return [
     {
       id: "revenue",
       labelKey: "revenue",
       value: formatCurrency(estimatedRevenue),
-      trend: String(confirmedAppointments.length)
+      trendValue: revenueDelta,
+      trendFormat: "currency",
+      trendTone: getDeltaTone(revenueDelta),
+      trendContextKey: "monthComparison"
     },
     {
       id: "employees",
       labelKey: "activeEmployees",
       value: String(employees.length),
-      trend: String(employees.length)
+      trendValue: null,
+      trendFormat: "current",
+      trendTone: "neutral",
+      trendContextKey: "currentTeam"
     },
     {
       id: "booked",
       labelKey: "bookedAppointments",
       value: String(bookedAppointments.length),
-      trend: String(bookedAppointments.length)
+      trendValue: bookedDelta,
+      trendFormat: "count",
+      trendTone: getDeltaTone(bookedDelta),
+      trendContextKey: "monthComparison"
     },
     {
       id: "cancelled",
       labelKey: "cancelledAppointments",
       value: String(cancelledAppointments.length),
-      trend: String(cancelledAppointments.length)
+      trendValue: cancelledDelta,
+      trendFormat: "count",
+      trendTone: getInverseDeltaTone(cancelledDelta),
+      trendContextKey: "monthComparison"
     }
   ];
+}
+
+function matchesMonth(dateValue: string, referenceDate: string, monthOffset: number) {
+  const date = new Date(`${dateValue}T12:00:00`);
+  const reference = new Date(`${referenceDate}T12:00:00`);
+  reference.setMonth(reference.getMonth() + monthOffset);
+
+  return date.getFullYear() === reference.getFullYear() && date.getMonth() === reference.getMonth();
+}
+
+function getDeltaTone(delta: number): DashboardMetric["trendTone"] {
+  if (delta > 0) {
+    return "success";
+  }
+
+  if (delta < 0) {
+    return "danger";
+  }
+
+  return "neutral";
+}
+
+function getInverseDeltaTone(delta: number): DashboardMetric["trendTone"] {
+  if (delta > 0) {
+    return "danger";
+  }
+
+  if (delta < 0) {
+    return "success";
+  }
+
+  return "neutral";
 }
 
 export function getDefaultFocusedDate(appointments: Appointment[], timeZone: string) {

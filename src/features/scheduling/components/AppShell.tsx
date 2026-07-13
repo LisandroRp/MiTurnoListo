@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { FiBarChart2, FiCalendar, FiCreditCard, FiGrid, FiHome, FiMenu, FiPlusCircle, FiSettings, FiUsers } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
+import { WorkspaceLoadingState } from "@/components/composed/WorkspaceLoadingState";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ToastViewport } from "@/components/ui/Toast";
@@ -50,14 +51,7 @@ export function AppShell({ children }: AppShellProps) {
   const activeNavigationItem = navigationItems.find((item) => item.id === activeView) ?? navigationItems[0];
 
   if (isLoading) {
-    return (
-      <main className={`theme-${theme} grid min-h-screen place-items-center bg-shell p-6 text-primary`}>
-        <Card className="w-full max-w-sm text-center">
-          <BrandMark variant="full" size="md" align="center" className="mx-auto" priority />
-          <h1 className="mt-2 text-xl font-bold text-primary">Preparando tu espacio...</h1>
-        </Card>
-      </main>
-    );
+    return <WorkspaceLoadingState theme={theme} />;
   }
 
   if (loadError) {

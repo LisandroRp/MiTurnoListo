@@ -18,6 +18,7 @@ export const messages = {
       addService: "Agregar servicio",
       addEmployee: "Agregar personal",
       edit: "Editar",
+      duplicate: "Duplicar",
       delete: "Eliminar",
       cancel: "Cancelar",
       save: "Guardar cambios",
@@ -56,6 +57,9 @@ export const messages = {
       title: "Estadisticas del negocio",
       description: "Mira reservas, ingresos y tendencias para entender rapidamente como viene la agenda.",
       analysisPeriod: "Periodo de analisis",
+      periodFilter: "Tiempo",
+      employeeFilter: "Empleado",
+      allEmployees: "Todos",
       periods: {
         today: "Hoy",
         yesterday: "Ayer",
@@ -97,7 +101,13 @@ export const messages = {
       revenue: "Ganancias estimadas",
       activeEmployees: "Empleados trabajando",
       bookedAppointments: "Turnos tomados",
-      cancelledAppointments: "Turnos cancelados"
+      cancelledAppointments: "Turnos cancelados",
+      current: "Actual",
+      noChange: "Sin cambios",
+      contexts: {
+        monthComparison: "Este mes vs mes anterior",
+        currentTeam: "Equipo cargado"
+      }
     },
     calendar: {
       eyebrow: "Agenda",
@@ -123,6 +133,7 @@ export const messages = {
       description: "Crea, edita y oculta los servicios que los clientes van a poder reservar.",
       visible: "Visible",
       hidden: "Oculto",
+      savingVisibility: "Guardando",
       price: "Precio",
       duration: "Duracion",
       capacity: "Capacidad",
@@ -139,6 +150,7 @@ export const messages = {
       scheduleSectionHint: "Marca las franjas disponibles para reservar este servicio.",
       formTitleCreate: "Nuevo servicio",
       formTitleEdit: "Editar servicio",
+      copySuffix: "(copia)",
       name: "Nombre",
       descriptionLabel: "Descripcion",
       imageUrl: "Imagen",
@@ -152,7 +164,25 @@ export const messages = {
       disclaimerTitle: "Antes de publicar servicios",
       disclaimerDescription: "Para crear una agenda real, primero carga el personal disponible. Cada servicio necesita al menos una persona que pueda tomar esos turnos.",
       formDisclaimer: "Estos horarios definen cuando el servicio se puede reservar. Despues los vamos a cruzar con la disponibilidad del personal.",
-      assignedStaff: "Personal disponible"
+      assignedStaff: "Personal disponible",
+      reviewSection: "Revision final",
+      reviewSectionHint: "Chequea que el servicio este listo antes de guardarlo.",
+      untitledService: "Servicio sin nombre",
+      emptyDescription: "Sin descripcion cargada.",
+      emptySchedule: "Todavia no cargaste horarios para este servicio.",
+      ranges: "franjas",
+      steps: {
+        details: "Datos",
+        booking: "Reserva",
+        staff: "Personal",
+        schedule: "Horarios",
+        review: "Revision"
+      },
+      validation: {
+        details: "Carga un nombre para continuar.",
+        booking: "Revisa precio, duracion, capacidad, anticipo y anticipacion antes de continuar.",
+        staff: "Selecciona al menos una persona para tomar este servicio."
+      }
     },
     personnel: {
       eyebrow: "Equipo",
@@ -166,15 +196,30 @@ export const messages = {
       detailsSectionHint: "Carga la informacion basica que identifica a esta persona.",
       scheduleSection: "Horarios disponibles",
       scheduleSectionHint: "Define en que dias y horarios puede tomar turnos.",
+      reviewSection: "Revision final",
+      reviewSectionHint: "Chequea que el integrante este listo antes de guardarlo.",
       descriptionLabel: "Descripcion",
       imageUrl: "Foto",
       imageUploadHint: "Acepta PNG, JPG o WEBP. Maximo 3 MB.",
       imageRequirements: "Usa una foto reconocible del profesional para que el cliente lo identifique rapido.",
       schedule: "Disponibilidad",
       requiredHint: "Nombre, rol y al menos una franja horaria son recomendables antes de asignar servicios.",
+      untitledEmployee: "Integrante sin nombre",
+      emptyRole: "Sin rol cargado",
+      emptyDescription: "Sin descripcion cargada.",
+      emptySchedule: "Todavia no cargaste horarios para este integrante.",
+      ranges: "franjas",
       empty: "Todavia no hay personal cargado.",
       disclaimerTitle: "El personal alimenta Servicios y Calendario",
-      disclaimerDescription: "Cuando agregues un integrante, su disponibilidad queda lista para usarla al configurar servicios y turnos."
+      disclaimerDescription: "Cuando agregues un integrante, su disponibilidad queda lista para usarla al configurar servicios y turnos.",
+      steps: {
+        details: "Datos",
+        schedule: "Horarios",
+        review: "Revision"
+      },
+      validation: {
+        details: "Carga nombre y rol para continuar."
+      }
     },
     profile: {
       eyebrow: "Cuenta",
@@ -359,7 +404,7 @@ export const messages = {
       cash: "Efectivo",
       card: "Tarjeta",
       transfer: "Transferencia",
-      mixed: "Mixto"
+      mixed: "Todos los anteriores"
     },
     themes: {
       coral: "Coral",
@@ -393,6 +438,7 @@ export const messages = {
       addService: "Add service",
       addEmployee: "Add personnel",
       edit: "Edit",
+      duplicate: "Duplicate",
       delete: "Delete",
       cancel: "Cancel",
       save: "Save changes",
@@ -431,6 +477,9 @@ export const messages = {
       title: "Business statistics",
       description: "Track bookings, revenue and trends to quickly understand how your schedule is performing.",
       analysisPeriod: "Analysis period",
+      periodFilter: "Time",
+      employeeFilter: "Employee",
+      allEmployees: "All",
       periods: {
         today: "Today",
         yesterday: "Yesterday",
@@ -472,7 +521,13 @@ export const messages = {
       revenue: "Estimated revenue",
       activeEmployees: "Employees working",
       bookedAppointments: "Booked appointments",
-      cancelledAppointments: "Cancelled appointments"
+      cancelledAppointments: "Cancelled appointments",
+      current: "Current",
+      noChange: "No change",
+      contexts: {
+        monthComparison: "This month vs previous month",
+        currentTeam: "Loaded team"
+      }
     },
     calendar: {
       eyebrow: "Schedule",
@@ -498,6 +553,7 @@ export const messages = {
       description: "Create, edit and hide the services customers will be able to book.",
       visible: "Visible",
       hidden: "Hidden",
+      savingVisibility: "Saving",
       price: "Price",
       duration: "Duration",
       capacity: "Capacity",
@@ -514,6 +570,7 @@ export const messages = {
       scheduleSectionHint: "Set the available booking ranges for this service.",
       formTitleCreate: "New service",
       formTitleEdit: "Edit service",
+      copySuffix: "(copy)",
       name: "Name",
       descriptionLabel: "Description",
       imageUrl: "Image",
@@ -527,7 +584,25 @@ export const messages = {
       disclaimerTitle: "Before publishing services",
       disclaimerDescription: "To create a real schedule, add available personnel first. Every service needs at least one person who can take those appointments.",
       formDisclaimer: "These hours define when the service can be booked. Later we will match them against staff availability.",
-      assignedStaff: "Available personnel"
+      assignedStaff: "Available personnel",
+      reviewSection: "Final review",
+      reviewSectionHint: "Check that the service is ready before saving it.",
+      untitledService: "Untitled service",
+      emptyDescription: "No description added.",
+      emptySchedule: "No schedule ranges have been added for this service yet.",
+      ranges: "ranges",
+      steps: {
+        details: "Details",
+        booking: "Booking",
+        staff: "Personnel",
+        schedule: "Schedule",
+        review: "Review"
+      },
+      validation: {
+        details: "Add a name to continue.",
+        booking: "Review price, duration, capacity, deposit and lead time before continuing.",
+        staff: "Select at least one person who can take this service."
+      }
     },
     personnel: {
       eyebrow: "Team",
@@ -541,15 +616,30 @@ export const messages = {
       detailsSectionHint: "Add the core information that identifies this person.",
       scheduleSection: "Available hours",
       scheduleSectionHint: "Define which days and hours this person can take appointments.",
+      reviewSection: "Final review",
+      reviewSectionHint: "Check that the team member is ready before saving.",
       descriptionLabel: "Description",
       imageUrl: "Photo",
       imageUploadHint: "Accepts PNG, JPG or WEBP. Up to 3 MB.",
       imageRequirements: "Use a recognizable professional photo so customers can identify the staff member quickly.",
       schedule: "Availability",
       requiredHint: "Name, role and at least one time range are recommended before assigning services.",
+      untitledEmployee: "Untitled team member",
+      emptyRole: "No role added",
+      emptyDescription: "No description added.",
+      emptySchedule: "No schedule ranges have been added for this team member yet.",
+      ranges: "ranges",
       empty: "No personnel has been created yet.",
       disclaimerTitle: "Personnel feeds Services and Calendar",
-      disclaimerDescription: "When you add a team member, their availability becomes ready for services and appointments."
+      disclaimerDescription: "When you add a team member, their availability becomes ready for services and appointments.",
+      steps: {
+        details: "Details",
+        schedule: "Schedule",
+        review: "Review"
+      },
+      validation: {
+        details: "Add a name and role to continue."
+      }
     },
     profile: {
       eyebrow: "Account",
@@ -734,7 +824,7 @@ export const messages = {
       cash: "Cash",
       card: "Card",
       transfer: "Transfer",
-      mixed: "Mixed"
+      mixed: "All previous options"
     },
     themes: {
       coral: "Coral",

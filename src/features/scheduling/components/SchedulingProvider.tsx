@@ -35,7 +35,10 @@ type SchedulingContextValue = {
     id: string;
     labelKey: "revenue" | "activeEmployees" | "bookedAppointments" | "cancelledAppointments";
     value: string;
-    trend: string;
+    trendValue: number | null;
+    trendFormat: "currency" | "count" | "current";
+    trendTone: "success" | "danger" | "neutral";
+    trendContextKey: "monthComparison" | "currentTeam";
   }[];
   employees: Employee[];
   focusedDate: string;

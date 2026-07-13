@@ -1,14 +1,15 @@
 import { ChangeEvent, ReactNode, useRef, useState } from "react";
-import { FiEdit2, FiInfo, FiPlus, FiTrash2 } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight, FiCheck, FiEdit2, FiInfo, FiPlus, FiTrash2 } from "react-icons/fi";
 
+import { SectionHeader } from "@/components/composed/SectionHeader";
+import { StepProgress } from "@/components/composed/StepProgress";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ImageUploadField } from "@/components/ui/ImageUploadField";
 import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
-import { SectionHeader } from "@/components/composed/SectionHeader";
-import { AvailabilityEditor } from "@/features/scheduling/components/AvailabilityEditor";
+import { AvailabilityEditor, dayKeys } from "@/features/scheduling/components/AvailabilityEditor";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { Employee, ServiceSchedule, TimeRange } from "@/features/scheduling/types";
@@ -24,6 +25,9 @@ type PersonnelViewProps = {
 };
 
 type PersonnelMode = "grid" | "form";
+type PersonnelWizardStep = "details" | "schedule" | "review";
+
+const personnelWizardStepOrder: PersonnelWizardStep[] = ["details", "schedule", "review"];
 
 function getInitials(name: string) {
   return name
@@ -46,22 +50,36 @@ export function PersonnelView({
   const [mode, setMode] = useState<PersonnelMode>("grid");
   const [draft, setDraft] = useState<Employee>(() => createNewEmployeeDraft());
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
+
+  const currentStep = personnelWizardStepOrder[currentStepIndex] ?? "details";
+  const stepItems = personnelWizardStepOrder.map((step) => ({
+    id: step,
+    label: messages.personnel.steps[step]
+  }));
 
   function startCreate() {
     setDraft(createNewEmployeeDraft());
     setEditingId(null);
+    setCurrentStepIndex(0);
+    setValidationMessage(null);
     setMode("form");
   }
 
   function startEdit(employee: Employee) {
     setDraft({ ...employee, schedule: structuredClone(employee.schedule) });
     setEditingId(employee.id);
+    setCurrentStepIndex(0);
+    setValidationMessage(null);
     setMode("form");
   }
 
   function returnToGrid() {
     setMode("grid");
     setEditingId(null);
+    setCurrentStepIndex(0);
+    setValidationMessage(null);
   }
 
   function handleTextChange(field: keyof Employee) {
@@ -109,8 +127,36 @@ export function PersonnelView({
     }));
   }
 
+  function goToStep(index: number) {
+    setCurrentStepIndex(index);
+    setValidationMessage(null);
+  }
+
+  function goToPreviousStep() {
+    setCurrentStepIndex((current) => Math.max(current - 1, 0));
+    setValidationMessage(null);
+  }
+
+  function goToNextStep() {
+    const stepValidationMessage = getPersonnelStepValidationMessage(currentStep, draft, messages);
+
+    if (stepValidationMessage) {
+      setValidationMessage(stepValidationMessage);
+      onValidationWarning();
+      return;
+    }
+
+    setValidationMessage(null);
+    setCurrentStepIndex((current) => Math.min(current + 1, personnelWizardStepOrder.length - 1));
+  }
+
   async function submitForm() {
-    if (!draft.name.trim() || !draft.role.trim()) {
+    const invalidStepIndex = personnelWizardStepOrder.findIndex((step) => getPersonnelStepValidationMessage(step, draft, messages));
+
+    if (invalidStepIndex >= 0) {
+      const invalidStep = personnelWizardStepOrder[invalidStepIndex] ?? "details";
+      setCurrentStepIndex(invalidStepIndex);
+      setValidationMessage(getPersonnelStepValidationMessage(invalidStep, draft, messages));
       onValidationWarning();
       return;
     }
@@ -130,15 +176,43 @@ export function PersonnelView({
           title={editingId ? messages.personnel.formTitleEdit : messages.personnel.formTitleCreate}
           description={messages.personnel.requiredHint}
           actions={
-            <>
-              <Button variant="secondary" onClick={returnToGrid}>{messages.actions.cancel}</Button>
-              <Button onClick={submitForm}>{messages.actions.save}</Button>
-            </>
+            <Button variant="secondary" onClick={returnToGrid}>{messages.actions.cancel}</Button>
           }
         />
 
+        <StepProgress steps={stepItems} currentStepIndex={currentStepIndex} onStepSelect={goToStep} />
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
+          {currentStepIndex > 0 ? (
+            <Button variant="secondary" icon={<FiArrowLeft />} onClick={goToPreviousStep}>
+              {messages.actions.back}
+            </Button>
+          ) : (
+            <Button variant="secondary" onClick={returnToGrid}>
+              {messages.actions.cancel}
+            </Button>
+          )}
+
+          {currentStep === "review" ? (
+            <Button icon={<FiCheck />} onClick={submitForm}>
+              {messages.actions.save}
+            </Button>
+          ) : (
+            <Button icon={<FiArrowRight />} onClick={goToNextStep}>
+              {messages.actions.continue}
+            </Button>
+          )}
+        </div>
+
+        {validationMessage ? (
+          <div className="rounded-lg border border-danger bg-danger-soft p-4 text-sm font-semibold text-danger">
+            {validationMessage}
+          </div>
+        ) : null}
+
         <div className="grid gap-5">
-          <FormSection title={messages.personnel.detailsSection} description={messages.personnel.detailsSectionHint}>
+          {currentStep === "details" ? (
+            <FormSection title={messages.personnel.detailsSection} description={messages.personnel.detailsSectionHint}>
             <div className="grid gap-4 lg:grid-cols-2">
               <TextField label={messages.personnel.name} value={draft.name} onChange={handleTextChange("name")} />
               <TextField label={messages.personnel.role} value={draft.role} onChange={handleTextChange("role")} />
@@ -156,9 +230,11 @@ export function PersonnelView({
               />
             </div>
             <TextAreaField label={messages.personnel.descriptionLabel} value={draft.description} onChange={handleTextChange("description")} />
-          </FormSection>
+            </FormSection>
+          ) : null}
 
-          <FormSection title={messages.personnel.scheduleSection} description={messages.personnel.scheduleSectionHint}>
+          {currentStep === "schedule" ? (
+            <FormSection title={messages.personnel.scheduleSection} description={messages.personnel.scheduleSectionHint}>
             <AvailabilityEditor
               messages={messages}
               schedule={draft.schedule}
@@ -166,7 +242,15 @@ export function PersonnelView({
               onUpdateRange={updateRange}
               onRemoveRange={removeRange}
             />
-          </FormSection>
+            </FormSection>
+          ) : null}
+
+          {currentStep === "review" ? (
+            <PersonnelReview
+              messages={messages}
+              employee={{ ...draft, initials: getInitials(draft.name) }}
+            />
+          ) : null}
         </div>
       </div>
     );
@@ -233,6 +317,73 @@ export function PersonnelView({
   );
 }
 
+function PersonnelReview({ messages, employee }: { messages: Messages; employee: Employee }) {
+  const scheduleRangeCount = getScheduleRangeCount(employee.schedule);
+
+  return (
+    <FormSection title={messages.personnel.reviewSection} description={messages.personnel.reviewSectionHint}>
+      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+        <div
+          className="min-h-56 rounded-lg bg-surface-strong bg-cover bg-center"
+          style={{ backgroundImage: employee.imageUrl ? `url(${employee.imageUrl})` : undefined }}
+        />
+        <div className="grid content-start gap-4">
+          <div className="flex items-start gap-3">
+            <span className={cx("grid h-12 w-12 shrink-0 place-items-center rounded-full text-sm font-bold text-on-brand", employeeColorClasses[employee.color])}>
+              {employee.initials}
+            </span>
+            <div className="min-w-0">
+              <h2 className="truncate text-2xl font-bold text-primary">{employee.name || messages.personnel.untitledEmployee}</h2>
+              <p className="mt-1 text-sm font-semibold text-muted">{employee.role || messages.personnel.emptyRole}</p>
+            </div>
+          </div>
+          <p className="text-sm leading-6 text-muted">{employee.description || messages.personnel.emptyDescription}</p>
+          <ServiceFact label={messages.personnel.schedule} value={`${scheduleRangeCount} ${messages.personnel.ranges}`} />
+        </div>
+      </div>
+
+      <div className="grid gap-3">
+        <h3 className="text-sm font-bold text-primary">{messages.personnel.schedule}</h3>
+        {scheduleRangeCount > 0 ? (
+          <div className="grid gap-2">
+            {dayKeys.map((day) => {
+              const ranges = employee.schedule[day] ?? [];
+
+              if (ranges.length === 0) {
+                return null;
+              }
+
+              return (
+                <div key={day} className="rounded-lg border border-subtle bg-input p-3">
+                  <p className="text-sm font-semibold text-primary">{messages.days[day]}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {ranges.map((range) => (
+                      <span key={range.id} className="rounded-lg border border-subtle bg-surface px-3 py-1 text-sm font-semibold text-primary">
+                        {range.start} - {range.end}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="rounded-lg border border-subtle bg-input p-3 text-sm text-muted">{messages.personnel.emptySchedule}</p>
+        )}
+      </div>
+    </FormSection>
+  );
+}
+
+function ServiceFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-input p-3 text-sm">
+      <dt className="text-xs text-muted">{label}</dt>
+      <dd className="mt-1 font-semibold text-primary">{value}</dd>
+    </div>
+  );
+}
+
 function FormSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return (
     <Card className="grid gap-5">
@@ -243,4 +394,16 @@ function FormSection({ title, description, children }: { title: string; descript
       <div className="grid gap-4">{children}</div>
     </Card>
   );
+}
+
+function getPersonnelStepValidationMessage(step: PersonnelWizardStep, employee: Employee, messages: Messages) {
+  if (step === "details" && (!employee.name.trim() || !employee.role.trim())) {
+    return messages.personnel.validation.details;
+  }
+
+  return null;
+}
+
+function getScheduleRangeCount(schedule: ServiceSchedule) {
+  return Object.values(schedule).reduce((total, ranges) => total + ranges.length, 0);
 }

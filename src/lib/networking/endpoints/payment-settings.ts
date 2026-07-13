@@ -1,7 +1,7 @@
 "use client";
 
 import { BusinessPaymentSettings } from "@/features/scheduling/types";
-import { getSupabaseBrowserClient } from "@/lib/networking/clients/supabase-browser";
+import { getAccessToken } from "@/lib/networking/endpoints/auth";
 
 export async function getPaymentSettings(businessId: string) {
   const accessToken = await getAccessToken();
@@ -40,15 +40,4 @@ export async function savePaymentSettings(
   }
 
   return response.json() as Promise<BusinessPaymentSettings>;
-}
-
-async function getAccessToken() {
-  const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase.auth.getSession();
-
-  if (error || !data.session?.access_token) {
-    throw new Error("Missing authenticated session.");
-  }
-
-  return data.session.access_token;
 }

@@ -3,14 +3,23 @@
 import { createContext, ReactNode, useContext, useEffect, useEffectEvent, useState } from "react";
 import type { AuthChangeEvent } from "@supabase/supabase-js";
 
+import {
+  clearSupabaseBrowserAuthStorage,
+  clearSupabaseSessionPersistence,
+  hasSupabaseSessionPersistence,
+  setSupabaseSessionPersistence
+} from "@/lib/networking/clients/supabase-browser-storage";
 import { getSupabaseBrowserClient } from "@/lib/networking/clients/supabase-browser";
+import { bootstrapWorkspace } from "@/lib/networking/endpoints/auth";
 
-const persistentSessionKey = "miturnolisto_persist_session";
-const transientSessionKey = "miturnolisto_transient_session";
 const passwordRecoverySessionKey = "miturnolisto_password_recovery";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 
 type AuthStatus = "loading" | "authenticated" | "guest" | "recovery";
+
+type LoginResult =
+  | { status: "authenticated" }
+  | { status: "error"; message: string };
 
 type SignUpResult =
   | { status: "authenticated" }
@@ -29,7 +38,7 @@ type AuthContextValue = {
   status: AuthStatus;
   userId: string | null;
   userEmail: string | null;
-  login: (email: string, password: string, rememberSession: boolean) => Promise<boolean>;
+  login: (email: string, password: string, rememberSession: boolean) => Promise<LoginResult>;
   signUp: (email: string, password: string, rememberSession: boolean) => Promise<SignUpResult>;
   requestPasswordReset: (email: string) => Promise<PasswordResetRequestResult>;
   updatePassword: (password: string) => Promise<PasswordUpdateResult>;
@@ -45,16 +54,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userId: null
   });
 
-  function clearSessionFlags() {
-    window.localStorage.removeItem(persistentSessionKey);
-    window.sessionStorage.removeItem(transientSessionKey);
+  function clearRecoverySession() {
     window.sessionStorage.removeItem(passwordRecoverySessionKey);
   }
 
   function markPasswordRecoverySession() {
-    window.localStorage.removeItem(persistentSessionKey);
-    window.sessionStorage.removeItem(transientSessionKey);
     window.sessionStorage.setItem(passwordRecoverySessionKey, "true");
+  }
+
+  function clearLocalAuthStorage() {
+    clearSupabaseBrowserAuthStorage();
+    clearRecoverySession();
+  }
+
+  function clearAllAuthState() {
+    clearLocalAuthStorage();
+    clearSupabaseSessionPersistence();
   }
 
   function getPasswordResetRedirectUrl() {
@@ -72,34 +87,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const syncAuthState = useEffectEvent(async () => {
-    const supabase = getSupabaseBrowserClient();
-    const {
-      data: { session }
-    } = await supabase.auth.getSession();
+    const hasRecoveryReturn = hasPasswordRecoveryReturn();
+    const hasStoredPasswordRecoverySession = window.sessionStorage.getItem(passwordRecoverySessionKey) === "true";
+    const hasRememberedSession = hasSupabaseSessionPersistence();
 
-    if (!session?.user) {
+    if (!hasRecoveryReturn && !hasStoredPasswordRecoverySession && !hasRememberedSession) {
+      clearAllAuthState();
       setAuthState({ status: "guest", userEmail: null, userId: null });
       return;
     }
 
-    if (hasPasswordRecoveryReturn()) {
+    const supabase = getSupabaseBrowserClient();
+    const {
+      data: { session },
+      error: sessionError
+    } = await supabase.auth.getSession();
+
+    if (sessionError || !session?.access_token) {
+      clearAllAuthState();
+      setAuthState({ status: "guest", userEmail: null, userId: null });
+      return;
+    }
+
+    if (hasRecoveryReturn) {
       markPasswordRecoverySession();
     }
 
-    const hasPersistentSession = window.localStorage.getItem(persistentSessionKey) === "true";
-    const hasTransientSession = window.sessionStorage.getItem(transientSessionKey) === "true";
-    const hasPasswordRecoverySession = window.sessionStorage.getItem(passwordRecoverySessionKey) === "true";
+    const hasPasswordRecoverySession = hasRecoveryReturn || hasStoredPasswordRecoverySession;
 
-    if (!hasPersistentSession && !hasTransientSession && !hasPasswordRecoverySession) {
-      await supabase.auth.signOut();
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser(session.access_token);
+
+    if (userError || !user) {
+      clearAllAuthState();
       setAuthState({ status: "guest", userEmail: null, userId: null });
       return;
     }
 
     setAuthState({
       status: hasPasswordRecoverySession ? "recovery" : "authenticated",
-      userEmail: session.user.email ?? null,
-      userId: session.user.id
+      userEmail: user.email ?? null,
+      userId: user.id
     });
   });
 
@@ -110,12 +140,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (event === "SIGNED_OUT") {
-      clearSessionFlags();
+      clearAllAuthState();
       return;
     }
 
     if (event === "SIGNED_IN") {
-      window.sessionStorage.removeItem(passwordRecoverySessionKey);
+      clearRecoverySession();
     }
   });
 
@@ -138,7 +168,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  async function login(email: string, password: string, rememberSession: boolean) {
+  async function login(email: string, password: string, rememberSession: boolean): Promise<LoginResult> {
+    setSupabaseSessionPersistence(rememberSession);
     const supabase = getSupabaseBrowserClient();
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
@@ -147,30 +178,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error || !data.user) {
       setAuthState({ status: "guest", userEmail: null, userId: null });
-      clearSessionFlags();
-      return false;
+      clearLocalAuthStorage();
+      return {
+        status: "error",
+        message: "Credenciales incorrectas. Revisa tu usuario de Supabase e intenta otra vez."
+      };
     }
 
-    window.sessionStorage.removeItem(passwordRecoverySessionKey);
-
-    if (rememberSession) {
-      window.localStorage.setItem(persistentSessionKey, "true");
-      window.sessionStorage.removeItem(transientSessionKey);
-    } else {
-      window.localStorage.removeItem(persistentSessionKey);
-      window.sessionStorage.setItem(transientSessionKey, "true");
+    try {
+      await bootstrapWorkspace(data.session?.access_token);
+    } catch (bootstrapError) {
+      await signOutLocally();
+      return {
+        status: "error",
+        message: getErrorMessage(bootstrapError, "No pudimos preparar tu espacio. Intenta otra vez.")
+      };
     }
 
+    clearRecoverySession();
     setAuthState({
       status: "authenticated",
       userEmail: data.user.email ?? null,
       userId: data.user.id
     });
 
-    return true;
+    return { status: "authenticated" };
   }
 
   async function signUp(email: string, password: string, rememberSession: boolean): Promise<SignUpResult> {
+    setSupabaseSessionPersistence(rememberSession);
     const supabase = getSupabaseBrowserClient();
     const normalizedEmail = email.trim().toLowerCase();
     const { data, error } = await supabase.auth.signUp({
@@ -180,7 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) {
       setAuthState({ status: "guest", userEmail: null, userId: null });
-      clearSessionFlags();
+      clearLocalAuthStorage();
       return {
         status: "error",
         message: error.message || "No pudimos crear la cuenta. Intenta otra vez."
@@ -188,7 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (data.user && !data.session && data.user.identities && data.user.identities.length === 0) {
-      clearSessionFlags();
+      clearLocalAuthStorage();
       setAuthState({ status: "guest", userEmail: null, userId: null });
 
       return {
@@ -198,14 +234,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (data.session?.user) {
-      if (rememberSession) {
-        window.localStorage.setItem(persistentSessionKey, "true");
-        window.sessionStorage.removeItem(transientSessionKey);
-      } else {
-        window.localStorage.removeItem(persistentSessionKey);
-        window.sessionStorage.setItem(transientSessionKey, "true");
+      try {
+        await bootstrapWorkspace(data.session.access_token);
+      } catch (bootstrapError) {
+        await signOutLocally();
+        return {
+          status: "error",
+          message: getErrorMessage(bootstrapError, "No pudimos preparar tu espacio. Intenta otra vez.")
+        };
       }
 
+      clearRecoverySession();
       setAuthState({
         status: "authenticated",
         userEmail: data.session.user.email ?? null,
@@ -216,7 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (data.user) {
-      clearSessionFlags();
+      clearLocalAuthStorage();
       setAuthState({ status: "guest", userEmail: null, userId: null });
 
       return {
@@ -269,18 +308,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    clearSessionFlags();
-    await supabase.auth.signOut();
+    await signOutLocally();
     setAuthState({ status: "guest", userEmail: null, userId: null });
 
     return { status: "success" };
   }
 
   async function logout() {
-    const supabase = getSupabaseBrowserClient();
-    await supabase.auth.signOut();
-    clearSessionFlags();
+    await signOutLocally();
     setAuthState({ status: "guest", userEmail: null, userId: null });
+  }
+
+  async function signOutLocally() {
+    const supabase = getSupabaseBrowserClient();
+    await supabase.auth.signOut({ scope: "local" });
+    clearAllAuthState();
   }
 
   return (
@@ -309,4 +351,12 @@ export function useAuth() {
   }
 
   return context;
+}
+
+function getErrorMessage(error: unknown, fallbackMessage: string) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallbackMessage;
 }

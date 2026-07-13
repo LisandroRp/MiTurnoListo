@@ -31,11 +31,11 @@ export function LoginForm({ nextPath, defaultEmail = "", forgotPasswordHref }: L
     setIsSubmitting(true);
     setErrorMessage("");
 
-    const isAuthenticated = await login(email, password, rememberSession);
+    const result = await login(email, password, rememberSession);
     setIsSubmitting(false);
 
-    if (!isAuthenticated) {
-      setErrorMessage("Credenciales incorrectas. Revisa tu usuario de Supabase e intenta otra vez.");
+    if (result.status === "error") {
+      setErrorMessage(result.message);
       return;
     }
 

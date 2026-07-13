@@ -1,0 +1,154 @@
+import { NextRequest, NextResponse } from "next/server";
+
+import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
+
+type BootstrapPayload = {
+  timeZone?: string;
+};
+
+const defaultLocale = "es";
+const defaultTheme = "coral";
+const defaultSubscriptionTier = "free";
+const fallbackTimeZone = "UTC";
+
+export async function POST(request: NextRequest) {
+  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+
+  if (!token) {
+    return NextResponse.json({ error: "Missing authorization token." }, { status: 401 });
+  }
+
+  const payload = await request.json().catch(() => ({})) as BootstrapPayload;
+  const timeZone = payload.timeZone?.trim() || fallbackTimeZone;
+  const supabase = getSupabaseAdminClient();
+  const {
+    data: { user },
+    error: authError
+  } = await supabase.auth.getUser(token);
+
+  if (authError || !user?.id || !user.email) {
+    return NextResponse.json({ error: "Invalid session." }, { status: 401 });
+  }
+
+  const seed = buildDefaultSeed(user.email);
+  const { data: membership, error: membershipError } = await supabase
+    .from("business_memberships")
+    .select("business_id, role, locale, theme")
+    .eq("user_id", user.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (membershipError) {
+    return NextResponse.json({ error: "Unable to inspect the workspace membership." }, { status: 500 });
+  }
+
+  const businessId = membership?.business_id ?? crypto.randomUUID();
+  const { data: profile, error: profileError } = await supabase
+    .from("user_profiles")
+    .select("id")
+    .eq("id", user.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (profileError) {
+    return NextResponse.json({ error: "Unable to inspect the user profile." }, { status: 500 });
+  }
+
+  if (!profile) {
+    const { error: insertProfileError } = await supabase
+      .from("user_profiles")
+      .insert({
+        id: user.id,
+        first_name: seed.profileName,
+        last_name: "",
+        avatar_url: null
+      });
+
+    if (insertProfileError) {
+      return NextResponse.json({ error: "Unable to create the user profile." }, { status: 500 });
+    }
+  }
+
+  const { data: business, error: businessError } = await supabase
+    .from("businesses")
+    .select("id")
+    .eq("id", businessId)
+    .limit(1)
+    .maybeSingle();
+
+  if (businessError) {
+    return NextResponse.json({ error: "Unable to inspect the business." }, { status: 500 });
+  }
+
+  if (!business) {
+    const { error: insertBusinessError } = await supabase
+      .from("businesses")
+      .insert({
+        id: businessId,
+        name: seed.businessName,
+        address: null,
+        subscription_tier: defaultSubscriptionTier,
+        timezone: timeZone
+      });
+
+    if (insertBusinessError) {
+      return NextResponse.json({ error: "Unable to create the business." }, { status: 500 });
+    }
+  }
+
+  if (!membership) {
+    const { error: insertMembershipError } = await supabase
+      .from("business_memberships")
+      .insert({
+        business_id: businessId,
+        user_id: user.id,
+        role: "owner",
+        locale: defaultLocale,
+        theme: defaultTheme
+      });
+
+    if (insertMembershipError) {
+      return NextResponse.json({ error: "Unable to create the workspace membership." }, { status: 500 });
+    }
+  } else if (!membership.locale || !membership.theme) {
+    const { error: updateMembershipError } = await supabase
+      .from("business_memberships")
+      .update({
+        locale: membership.locale ?? defaultLocale,
+        theme: membership.theme ?? defaultTheme
+      })
+      .eq("business_id", businessId)
+      .eq("user_id", user.id);
+
+    if (updateMembershipError) {
+      return NextResponse.json({ error: "Unable to complete the workspace membership." }, { status: 500 });
+    }
+  }
+
+  return NextResponse.json({
+    businessId,
+    role: membership?.role ?? "owner"
+  });
+}
+
+function buildDefaultSeed(email: string) {
+  const localPart = email.split("@")[0]?.trim() || "nuevo-negocio";
+  const normalizedLabel = localPart
+    .replace(/[._-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const profileName = normalizedLabel ? toTitleCase(normalizedLabel) : "Nuevo Negocio";
+
+  return {
+    businessName: profileName,
+    profileName
+  };
+}
+
+function toTitleCase(value: string) {
+  return value
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`)
+    .join(" ");
+}

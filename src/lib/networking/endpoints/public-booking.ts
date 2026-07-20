@@ -61,7 +61,10 @@ export async function createPublicBooking(serviceId: string, payload: CreatePubl
     throw new Error(await getErrorMessage(response, "Unable to create the booking."));
   }
 
-  return response.json() as Promise<{ appointmentId: string }>;
+  return response.json() as Promise<{
+    appointmentId: string;
+    checkoutUrl?: string;
+  }>;
 }
 
 async function getErrorMessage(response: Response, fallbackMessage: string) {

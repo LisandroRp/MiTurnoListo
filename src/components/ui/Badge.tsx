@@ -11,7 +11,7 @@ type BadgeProps = {
 };
 
 const toneClasses: Record<BadgeTone, string> = {
-  neutral: "bg-muted text-muted-strong",
+  neutral: "bg-muted text-white",
   success: "bg-success-soft text-success",
   warning: "bg-warning-soft text-warning",
   danger: "bg-danger-soft text-danger",

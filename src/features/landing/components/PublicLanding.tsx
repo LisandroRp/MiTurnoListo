@@ -6,10 +6,10 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { cx } from "@/components/ui/utils";
 
-const stats = [
-  { value: "+38%", label: "mas turnos confirmados" },
-  { value: "12 h", label: "ahorradas por semana" },
-  { value: "-64%", label: "menos mensajes manuales" }
+const dashboardPreviewItems = [
+  { title: "Turnos del dia", description: "Agenda, horarios y estado de cada reserva en una vista simple." },
+  { title: "Equipo disponible", description: "Personal y servicios conectados para evitar cruces de horarios." },
+  { title: "Datos del negocio", description: "Ingresos estimados, cancelaciones y actividad para decidir mejor." }
 ];
 
 const features = [
@@ -23,14 +23,14 @@ const plans = [
   {
     name: "Gratis",
     price: "$0",
-    description: "Para probar la app y ordenar los primeros turnos.",
-    perks: ["Hasta 2 empleados", "5 servicios activos", "Calendario basico"]
+    description: "Para empezar a ordenar tus primeros turnos.",
+    perks: ["Hasta 2 empleados", "5 servicios visibles", "15 turnos por mes"]
   },
   {
     name: "Premium",
     price: "$25.000",
     description: "Para negocios que viven de la agenda y necesitan orden diario.",
-    perks: ["Empleados ilimitados", "Servicios ilimitados", "Metricas, temas y soporte prioritario"],
+    perks: ["Turnos ilimitados", "Empleados y servicios ilimitados", "Estadisticas y pagos online"],
     highlighted: true
   }
 ];
@@ -52,10 +52,7 @@ export function PublicLanding() {
             <Link href="#planes" className="hidden cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-muted hover:bg-surface-strong hover:text-primary sm:inline-flex">
               Planes
             </Link>
-            <Link href="/login" className={cx(ctaSecondary, "hidden sm:inline-flex")}>Login</Link>
-            <Link href="/login" className={ctaPrimary}>
-              Probar demo <FiArrowRight />
-            </Link>
+            <Link href="/login" className={cx(ctaPrimary, "hidden sm:inline-flex")}>Login</Link>
           </nav>
         </div>
       </header>
@@ -72,7 +69,7 @@ export function PublicLanding() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/login" className={cx(ctaPrimary, ctaLarge)}>
-              Entrar a la demo <FiArrowRight />
+              Entrar al panel <FiArrowRight />
             </Link>
             <Link href="#planes" className={cx(ctaSecondary, ctaLarge)}>Ver planes</Link>
           </div>
@@ -80,15 +77,15 @@ export function PublicLanding() {
 
         <Card className={cx("grid gap-4 bg-sidebar", landingCardHover)}>
           <div className="rounded-lg bg-brand-soft p-5">
-            <p className="text-sm font-semibold text-brand-strong">Resumen de hoy</p>
-            <p className="mt-3 text-4xl font-bold text-primary">$187.500</p>
-            <p className="mt-1 text-sm text-muted">ganancias estimadas antes del cierre</p>
+            <p className="text-sm font-semibold text-brand-strong">Panel operativo</p>
+            <p className="mt-3 text-3xl font-bold text-primary">Todo lo importante, en un lugar</p>
+            <p className="mt-2 text-sm leading-6 text-muted">Una vista pensada para abrir la app y entender agenda, equipo y servicios sin revisar chats.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-            {stats.map((stat) => (
-              <div key={stat.label} className={cx("rounded-lg border border-subtle bg-input p-4", landingCardHover)}>
-                <p className="text-2xl font-bold text-primary">{stat.value}</p>
-                <p className="mt-1 text-sm text-muted">{stat.label}</p>
+            {dashboardPreviewItems.map((item) => (
+              <div key={item.title} className={cx("rounded-lg border border-subtle bg-input p-4", landingCardHover)}>
+                <p className="text-base font-bold text-primary">{item.title}</p>
+                <p className="mt-1 text-sm leading-6 text-muted">{item.description}</p>
               </div>
             ))}
           </div>
@@ -118,7 +115,15 @@ export function PublicLanding() {
         </div>
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           {plans.map((plan) => (
-            <Card key={plan.name} className={cx("h-full", landingCardHover, plan.highlighted ? "border-brand bg-brand-soft" : "")}>
+            <Card
+              key={plan.name}
+              className={cx(
+                "relative h-full overflow-hidden",
+                landingCardHover,
+                plan.highlighted ? "border-brand bg-brand-soft shadow-lg ring-2 ring-brand/20" : ""
+              )}
+            >
+              {plan.highlighted ? <div className="absolute inset-x-0 top-0 h-1.5 bg-brand" /> : null}
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-xl font-bold text-primary">{plan.name}</h3>
@@ -126,7 +131,7 @@ export function PublicLanding() {
                 </div>
                 {plan.highlighted ? <Badge tone="brand">Popular</Badge> : null}
               </div>
-              <p className="mt-6 text-4xl font-bold text-primary">{plan.price}</p>
+              <p className={cx("mt-6 text-4xl font-bold", plan.highlighted ? "text-brand-strong" : "text-primary")}>{plan.price}</p>
               <p className="text-sm text-muted">ARS / mes</p>
               <ul className="mt-6 grid gap-3">
                 {plan.perks.map((perk) => (

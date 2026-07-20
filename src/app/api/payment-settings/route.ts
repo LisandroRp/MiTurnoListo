@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { isFreePlan } from "@/features/scheduling/plan-limits";
 import { BusinessPaymentSettings } from "@/features/scheduling/types";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 import { mapPaymentSettings } from "@/lib/networking/mappers/scheduling";
@@ -51,6 +52,19 @@ export async function PUT(request: NextRequest) {
   }
 
   const supabase = getSupabaseAdminClient();
+  const tierResult = await getSubscriptionTier(supabase, body.businessId);
+
+  if ("response" in tierResult) {
+    return tierResult.response;
+  }
+
+  if (isFreePlan(tierResult.subscriptionTier)) {
+    return NextResponse.json(
+      { error: "El plan Free no permite configurar metodos de pago." },
+      { status: 402 }
+    );
+  }
+
   const { data: currentSettings } = await supabase
     .from("business_payment_settings")
     .select("mercadopago_access_token")
@@ -58,7 +72,13 @@ export async function PUT(request: NextRequest) {
     .limit(1)
     .maybeSingle();
 
-  const nextAccessToken = body.settings.mercadoPago.accessToken.trim() || currentSettings?.mercadopago_access_token || null;
+  const nextPublicKey = normalizeMercadoPagoCredential(body.settings.mercadoPago.publicKey);
+  const nextAccessToken = normalizeMercadoPagoCredential(body.settings.mercadoPago.accessToken) || currentSettings?.mercadopago_access_token || null;
+  const nextTransfers = {
+    accountHolder: normalizeTransferValue(body.settings.transfers.accountHolder),
+    cbu: normalizeTransferValue(body.settings.transfers.cbu),
+    alias: normalizeTransferValue(body.settings.transfers.alias)
+  };
 
   const { error } = await supabase
     .from("business_payment_settings")
@@ -66,18 +86,18 @@ export async function PUT(request: NextRequest) {
       business_id: body.businessId,
       allow_cash: true,
       allow_transfer: Boolean(
-        body.settings.transfers.accountHolder.trim() &&
-        body.settings.transfers.cbu.trim() &&
-        body.settings.transfers.alias.trim()
+        nextTransfers.accountHolder &&
+        nextTransfers.cbu &&
+        nextTransfers.alias
       ),
       allow_mercadopago: Boolean(
-        body.settings.mercadoPago.publicKey.trim() &&
+        nextPublicKey &&
         (nextAccessToken ?? "").trim()
       ),
-      transfer_account_holder: body.settings.transfers.accountHolder || null,
-      transfer_cbu: body.settings.transfers.cbu || null,
-      transfer_alias: body.settings.transfers.alias || null,
-      mercadopago_public_key: body.settings.mercadoPago.publicKey || null,
+      transfer_account_holder: nextTransfers.accountHolder || null,
+      transfer_cbu: nextTransfers.cbu || null,
+      transfer_alias: nextTransfers.alias || null,
+      mercadopago_public_key: nextPublicKey || null,
       mercadopago_access_token: nextAccessToken
     });
 
@@ -88,11 +108,41 @@ export async function PUT(request: NextRequest) {
   return NextResponse.json({
     mercadoPago: {
       accessToken: "",
-      publicKey: body.settings.mercadoPago.publicKey,
-      isConfigured: Boolean(body.settings.mercadoPago.publicKey.trim() && (nextAccessToken ?? "").trim())
+      publicKey: nextPublicKey,
+      isConfigured: Boolean(nextPublicKey && (nextAccessToken ?? "").trim())
     },
-    transfers: body.settings.transfers
+    transfers: nextTransfers
   } satisfies BusinessPaymentSettings);
+}
+
+function normalizeMercadoPagoCredential(value: string) {
+  const trimmedValue = value.trim();
+
+  if (
+    trimmedValue === "APP_USR-XXXXXXXXXXXXXXXXXXXX" ||
+    trimmedValue === "APP_USR-00000000-0000-0000-0000-000000000000"
+  ) {
+    return "";
+  }
+
+  return trimmedValue;
+}
+
+function normalizeTransferValue(value: string) {
+  const trimmedValue = value.trim();
+
+  if (
+    trimmedValue === "Nombre del Titular" ||
+    trimmedValue === "Account holder name" ||
+    trimmedValue === "Introducir CBU (22 digitos)" ||
+    trimmedValue === "Enter CBU (22 digits)" ||
+    trimmedValue === "Introducir alias de la cuenta" ||
+    trimmedValue === "Enter account alias"
+  ) {
+    return "";
+  }
+
+  return trimmedValue;
 }
 
 async function authenticateRequest(
@@ -143,4 +193,26 @@ async function authenticateRequest(
   }
 
   return { userId: user.id };
+}
+
+async function getSubscriptionTier(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  businessId: string
+) {
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("subscription_tier")
+    .eq("id", businessId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return {
+      response: NextResponse.json({ error: "Business not found." }, { status: 404 })
+    };
+  }
+
+  return {
+    subscriptionTier: data.subscription_tier as string
+  };
 }

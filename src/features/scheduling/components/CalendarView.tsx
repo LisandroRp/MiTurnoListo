@@ -7,6 +7,7 @@ import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { Messages } from "@/features/scheduling/i18n/messages";
+import { freePlanLimits, getMonthlyAppointmentUsage, isFreePlan } from "@/features/scheduling/plan-limits";
 import { Appointment, CalendarMode, Employee, Service } from "@/features/scheduling/types";
 import { getDateLabel } from "@/features/scheduling/utils/format";
 
@@ -22,6 +23,7 @@ type CalendarViewProps = {
   employees: Employee[];
   services: Service[];
   appointments: Appointment[];
+  subscriptionTier: string;
   mode: CalendarMode;
   focusedDate: string;
   selectedEmployeeIds: string[];
@@ -40,6 +42,7 @@ export function CalendarView({
   employees,
   services,
   appointments,
+  subscriptionTier,
   mode,
   focusedDate,
   selectedEmployeeIds,
@@ -54,13 +57,17 @@ export function CalendarView({
   const filteredEmployeeOptions = employees.filter((employee) =>
     employee.name.toLowerCase().includes(employeeQuery.toLowerCase())
   );
+  const safeFocusedDate = getSafeFocusedDate(focusedDate);
   const visibleAppointments = appointments.filter((appointment) => selectedEmployeeIds.includes(appointment.employeeId));
-  const weekDates = getWeekDates(focusedDate);
-  const monthDates = getMonthDates(focusedDate);
-  const periodLabel = getPeriodLabel(focusedDate, mode);
+  const monthlyAppointmentUsage = getMonthlyAppointmentUsage(appointments);
+  const shouldShowFreeLimit = isFreePlan(subscriptionTier);
+  const hasReachedFreeLimit = monthlyAppointmentUsage >= freePlanLimits.monthlyAppointments;
+  const weekDates = getWeekDates(safeFocusedDate);
+  const monthDates = getMonthDates(safeFocusedDate);
+  const periodLabel = getPeriodLabel(safeFocusedDate, mode);
 
   function movePeriod(direction: "previous" | "next") {
-    const currentDate = new Date(`${focusedDate}T12:00:00`);
+    const currentDate = new Date(`${safeFocusedDate}T12:00:00`);
     const nextDate = new Date(currentDate);
     const multiplier = direction === "next" ? 1 : -1;
 
@@ -100,6 +107,30 @@ export function CalendarView({
           </div>
         }
       />
+
+      {shouldShowFreeLimit ? (
+        <Card className={cx("border-brand bg-brand-soft", hasReachedFreeLimit ? "ring-2 ring-brand/20" : "")}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-brand-strong">
+                {hasReachedFreeLimit ? messages.calendar.freeLimitReachedTitle : messages.calendar.freeLimitTitle}
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-primary">
+                {formatLimitMessage(
+                  hasReachedFreeLimit
+                    ? messages.calendar.freeLimitReachedDescription
+                    : messages.calendar.freeLimitDescription,
+                  monthlyAppointmentUsage,
+                  freePlanLimits.monthlyAppointments
+                )}
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-surface px-3 py-1 text-sm font-bold text-brand-strong">
+              {monthlyAppointmentUsage}/{freePlanLimits.monthlyAppointments}
+            </span>
+          </div>
+        </Card>
+      ) : null}
 
       <section className="min-w-0">
         <Card className="min-h-[680px] min-w-0 overflow-visible p-0">
@@ -149,10 +180,10 @@ export function CalendarView({
           {mode === "day" ? (
             <DayCalendar
               messages={messages}
-              focusedDate={focusedDate}
+              focusedDate={safeFocusedDate}
               employees={visibleEmployees}
               services={services}
-              appointments={visibleAppointments.filter((appointment) => appointment.date === focusedDate)}
+              appointments={visibleAppointments.filter((appointment) => appointment.date === safeFocusedDate)}
               onDeleteAppointment={onDeleteAppointment}
             />
           ) : null}
@@ -161,7 +192,7 @@ export function CalendarView({
             <DateGroupedCalendar
               messages={messages}
               dates={weekDates}
-              focusedDate={focusedDate}
+              focusedDate={safeFocusedDate}
               services={services}
               employees={employees}
               appointments={visibleAppointments}
@@ -178,7 +209,7 @@ export function CalendarView({
               messages={messages}
               dates={monthDates}
               appointments={visibleAppointments}
-              focusedDate={focusedDate}
+              focusedDate={safeFocusedDate}
               onDateClick={(date) => {
                 onFocusedDateChange(date);
                 onModeChange("week");
@@ -265,6 +296,10 @@ function EmployeeDropdown({
   );
 }
 
+function formatLimitMessage(message: string, count: number, limit: number) {
+  return message.replace("{count}", String(count)).replace("{limit}", String(limit));
+}
+
 type CalendarContentProps = {
   messages: Messages;
   focusedDate?: string;
@@ -348,6 +383,7 @@ function DateGroupedCalendar({
   onDeleteAppointment
 }: DateGroupedCalendarProps) {
   const focusedDateRef = useRef<HTMLDivElement>(null);
+  const todayDate = getTodayDateValue();
 
   useEffect(() => {
     focusedDateRef.current?.scrollIntoView({
@@ -362,12 +398,17 @@ function DateGroupedCalendar({
       <div className="flex min-h-[440px] min-w-0 snap-x snap-mandatory items-stretch gap-3 p-5">
         {dates.map((date) => {
           const dayAppointments = appointments.filter((appointment) => appointment.date === date);
+          const isFocused = focusedDate === date;
+          const isToday = todayDate === date;
 
           return (
             <div
               key={date}
-              ref={date === focusedDate ? focusedDateRef : undefined}
-              className="flex h-full w-[86vw] shrink-0 snap-start flex-col rounded-lg border border-subtle bg-input p-4 sm:w-[28rem] lg:w-[32rem]"
+              ref={isFocused ? focusedDateRef : undefined}
+              className={cx(
+                "flex h-full w-[86vw] shrink-0 snap-start flex-col rounded-lg border p-4 sm:w-[28rem] lg:w-[32rem]",
+                isToday ? "border-brand bg-surface-strong" : "border-subtle bg-input"
+              )}
             >
               <div className="flex items-center justify-between gap-3">
                 <button
@@ -508,12 +549,15 @@ function MonthCalendar({
   focusedDate: string;
   onDateClick: (date: string) => void;
 }) {
+  const todayDate = getTodayDateValue();
+
   return (
     <div className="max-w-full min-w-0 overflow-x-auto">
       <div className="grid min-w-[980px] grid-cols-7 gap-px bg-subtle p-px">
         {dates.map((date) => {
           const dayAppointments = appointments.filter((appointment) => appointment.date === date);
           const isFocused = focusedDate === date;
+          const isToday = todayDate === date;
 
           return (
             <button
@@ -521,7 +565,8 @@ function MonthCalendar({
               type="button"
               onClick={() => onDateClick(date)}
               className={cx(
-                "min-h-28 cursor-pointer bg-surface p-3 text-left transition-all hover:bg-surface-strong",
+                "min-h-28 cursor-pointer p-3 text-left transition-all hover:bg-surface-strong",
+                isToday ? "bg-surface-strong shadow-inner" : "bg-surface",
                 isFocused ? "ring-2 ring-brand ring-inset" : ""
               )}
             >
@@ -543,6 +588,25 @@ function EmptyCalendar({ messages }: { messages: Messages }) {
       <p className="max-w-sm text-sm text-muted">{messages.calendar.noAppointments}</p>
     </div>
   );
+}
+
+function getSafeFocusedDate(focusedDate: string) {
+  const candidate = new Date(`${focusedDate}T12:00:00`);
+
+  if (Number.isNaN(candidate.getTime())) {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  return focusedDate;
+}
+
+function getTodayDateValue() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function getWeekDates(focusedDate: string) {

@@ -9,6 +9,7 @@ export default function CalendarSectionPage() {
     employees,
     services,
     appointments,
+    profile,
     calendarMode,
     focusedDate,
     selectedEmployeeIds,
@@ -26,6 +27,7 @@ export default function CalendarSectionPage() {
       employees={employees}
       services={services}
       appointments={appointments}
+      subscriptionTier={profile.subscriptionTier}
       mode={calendarMode}
       focusedDate={focusedDate}
       selectedEmployeeIds={selectedEmployeeIds}

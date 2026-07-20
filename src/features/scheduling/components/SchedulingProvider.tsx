@@ -98,6 +98,10 @@ const emptyPaymentSettings: BusinessPaymentSettings = {
   }
 };
 
+function getTodayDateValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function SchedulingProvider({ children }: { children: ReactNode }) {
   const toastCounter = useRef(1);
   const { status: authStatus } = useAuth();
@@ -105,7 +109,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("es");
   const [theme, setThemeState] = useState<ThemeId>("coral");
   const [calendarMode, setCalendarMode] = useState<CalendarMode>("day");
-  const [focusedDate, setFocusedDate] = useState("");
+  const [focusedDate, setFocusedDate] = useState(() => getTodayDateValue());
   const [employeeQuery, setEmployeeQuery] = useState("");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
@@ -125,7 +129,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     setBusinessId(null);
     setLocaleState("es");
     setThemeState("coral");
-    setFocusedDate("");
+    setFocusedDate(getTodayDateValue());
     setEmployeeQuery("");
     setSelectedEmployeeIds([]);
     setEmployeeList([]);

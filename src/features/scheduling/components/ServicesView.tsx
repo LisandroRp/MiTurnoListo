@@ -226,27 +226,16 @@ export function ServicesView({
 
         <StepProgress steps={stepItems} currentStepIndex={currentStepIndex} onStepSelect={goToStep} />
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
-          {currentStepIndex > 0 ? (
-            <Button variant="secondary" icon={<FiArrowLeft />} onClick={goToPreviousStep}>
-              {messages.actions.back}
-            </Button>
-          ) : (
-            <Button variant="secondary" onClick={returnToGrid}>
-              {messages.actions.cancel}
-            </Button>
-          )}
-
-          {currentStep === "review" ? (
-            <Button icon={<FiCheck />} onClick={submitForm}>
-              {messages.actions.save}
-            </Button>
-          ) : (
-            <Button icon={<FiArrowRight />} onClick={goToNextStep}>
-              {messages.actions.continue}
-            </Button>
-          )}
-        </div>
+        <WizardActions
+          className="flex"
+          currentStep={currentStep}
+          currentStepIndex={currentStepIndex}
+          messages={messages}
+          onCancel={returnToGrid}
+          onPrevious={goToPreviousStep}
+          onNext={goToNextStep}
+          onSubmit={submitForm}
+        />
 
         {validationMessage ? (
           <div className="rounded-lg border border-danger bg-danger-soft p-4 text-sm font-semibold text-danger">
@@ -430,6 +419,50 @@ function ServiceFact({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg bg-input p-3">
       <dt className="text-xs text-muted">{label}</dt>
       <dd className="mt-1 font-semibold text-primary">{value}</dd>
+    </div>
+  );
+}
+
+function WizardActions({
+  className,
+  currentStep,
+  currentStepIndex,
+  messages,
+  onCancel,
+  onPrevious,
+  onNext,
+  onSubmit
+}: {
+  className?: string;
+  currentStep: ServiceWizardStep;
+  currentStepIndex: number;
+  messages: Messages;
+  onCancel: () => void;
+  onPrevious: () => void;
+  onNext: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className={cx("flex-row gap-3 sm:justify-between", className)}>
+      {currentStepIndex > 0 ? (
+        <Button className="w-1/2 sm:w-auto" variant="secondary" icon={<FiArrowLeft />} onClick={onPrevious}>
+          {messages.actions.back}
+        </Button>
+      ) : (
+        <Button className="w-1/2 sm:w-auto" variant="secondary" onClick={onCancel}>
+          {messages.actions.cancel}
+        </Button>
+      )}
+
+      {currentStep === "review" ? (
+        <Button className="w-1/2 sm:w-auto" icon={<FiCheck />} onClick={onSubmit}>
+          {messages.actions.save}
+        </Button>
+      ) : (
+        <Button className="w-1/2 sm:w-auto" icon={<FiArrowRight />} onClick={onNext}>
+          {messages.actions.continue}
+        </Button>
+      )}
     </div>
   );
 }

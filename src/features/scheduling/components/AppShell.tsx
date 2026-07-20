@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { FiBarChart2, FiCalendar, FiCreditCard, FiGrid, FiHome, FiMenu, FiPlusCircle, FiSettings, FiUsers } from "react-icons/fi";
 
@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/Card";
 import { ToastViewport } from "@/components/ui/Toast";
 import { useAuth } from "@/features/auth/components/AuthProvider";
 import { NavigationItem, NavigationSidebar } from "@/features/scheduling/components/NavigationSidebar";
+import { freePlanLimits, getMonthlyAppointmentUsage, isFreePlan } from "@/features/scheduling/plan-limits";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
 
 type AppShellProps = {
@@ -20,8 +21,9 @@ type AppShellProps = {
 export function AppShell({ children }: AppShellProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const didShowFreeLimitToast = useRef(false);
   const { logout } = useAuth();
-  const { dismissToast, isLoading, loadError, messages, theme, toasts } = useScheduling();
+  const { appointments, dismissToast, isLoading, loadError, messages, profile, showToast, theme, toasts } = useScheduling();
   const pathname = usePathname();
   const activeView = pathname.startsWith("/calendario")
     ? "calendar"
@@ -49,6 +51,27 @@ export function AppShell({ children }: AppShellProps) {
     { id: "profile", label: messages.nav.profile, icon: FiSettings, href: "/perfil" }
   ];
   const activeNavigationItem = navigationItems.find((item) => item.id === activeView) ?? navigationItems[0];
+
+  useEffect(() => {
+    if (
+      didShowFreeLimitToast.current ||
+      isLoading ||
+      !isFreePlan(profile.subscriptionTier) ||
+      getMonthlyAppointmentUsage(appointments) < freePlanLimits.monthlyAppointments
+    ) {
+      return;
+    }
+
+    didShowFreeLimitToast.current = true;
+    showToast({
+      tone: "warning",
+      title: messages.toast.freeMonthlyLimitTitle,
+      description: messages.toast.freeMonthlyLimitDescription.replace(
+        "{limit}",
+        String(freePlanLimits.monthlyAppointments)
+      )
+    });
+  }, [appointments, isLoading, messages, profile.subscriptionTier, showToast]);
 
   if (isLoading) {
     return <WorkspaceLoadingState theme={theme} />;

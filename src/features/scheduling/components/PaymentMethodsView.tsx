@@ -2,7 +2,6 @@
 
 import { FormEvent, ReactNode, useEffect, useState } from "react";
 import {
-  FiAlertTriangle,
   FiAtSign,
   FiCreditCard,
   FiExternalLink,
@@ -30,33 +29,49 @@ type PaymentMethodsViewProps = {
 };
 
 const mercadoPagoDevelopersUrl = "https://www.mercadopago.com.ar/developers/es";
+const mercadoPagoPlaceholderValues = new Set([
+  "APP_USR-XXXXXXXXXXXXXXXXXXXX",
+  "APP_USR-00000000-0000-0000-0000-000000000000"
+]);
+const transferPlaceholderValues = new Set([
+  "Nombre del Titular",
+  "Account holder name",
+  "Introducir CBU (22 digitos)",
+  "Enter CBU (22 digits)",
+  "Introducir alias de la cuenta",
+  "Enter account alias"
+]);
 
 export function PaymentMethodsView({ messages, paymentSettings, onSave }: PaymentMethodsViewProps) {
   const copy = messages.adminPaymentMethods;
   const [activeTab, setActiveTab] = useState<PaymentTab>("mercadoPago");
-  const [accessToken, setAccessToken] = useState(paymentSettings.mercadoPago.accessToken);
-  const [publicKey, setPublicKey] = useState(paymentSettings.mercadoPago.publicKey);
-  const [accountHolder, setAccountHolder] = useState(paymentSettings.transfers.accountHolder);
-  const [cbu, setCbu] = useState(paymentSettings.transfers.cbu);
-  const [alias, setAlias] = useState(paymentSettings.transfers.alias);
+  const [accessToken, setAccessToken] = useState(normalizeMercadoPagoCredential(paymentSettings.mercadoPago.accessToken));
+  const [publicKey, setPublicKey] = useState(normalizeMercadoPagoCredential(paymentSettings.mercadoPago.publicKey));
+  const [accountHolder, setAccountHolder] = useState(normalizeTransferValue(paymentSettings.transfers.accountHolder));
+  const [cbu, setCbu] = useState(normalizeTransferValue(paymentSettings.transfers.cbu));
+  const [alias, setAlias] = useState(normalizeTransferValue(paymentSettings.transfers.alias));
 
   useEffect(() => {
-    setAccessToken(paymentSettings.mercadoPago.accessToken);
-    setPublicKey(paymentSettings.mercadoPago.publicKey);
-    setAccountHolder(paymentSettings.transfers.accountHolder);
-    setCbu(paymentSettings.transfers.cbu);
-    setAlias(paymentSettings.transfers.alias);
+    setAccessToken(normalizeMercadoPagoCredential(paymentSettings.mercadoPago.accessToken));
+    setPublicKey(normalizeMercadoPagoCredential(paymentSettings.mercadoPago.publicKey));
+    setAccountHolder(normalizeTransferValue(paymentSettings.transfers.accountHolder));
+    setCbu(normalizeTransferValue(paymentSettings.transfers.cbu));
+    setAlias(normalizeTransferValue(paymentSettings.transfers.alias));
   }, [paymentSettings]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await onSave({
       mercadoPago: {
-        accessToken,
-        publicKey,
+        accessToken: normalizeMercadoPagoCredential(accessToken),
+        publicKey: normalizeMercadoPagoCredential(publicKey),
         isConfigured: paymentSettings.mercadoPago.isConfigured
       },
-      transfers: { accountHolder, cbu, alias }
+      transfers: {
+        accountHolder: normalizeTransferValue(accountHolder),
+        cbu: normalizeTransferValue(cbu),
+        alias: normalizeTransferValue(alias)
+      }
     });
   }
 
@@ -96,7 +111,7 @@ export function PaymentMethodsView({ messages, paymentSettings, onSave }: Paymen
         )}
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted">{copy.demoDisclaimer}</p>
+          <p className="text-sm text-muted">{copy.paymentDataDisclaimer}</p>
           <Button type="submit" size="lg" icon={<FiSave />} className="sm:min-w-64">
             {messages.actions.savePaymentData}
           </Button>
@@ -104,6 +119,18 @@ export function PaymentMethodsView({ messages, paymentSettings, onSave }: Paymen
       </form>
     </div>
   );
+}
+
+function normalizeMercadoPagoCredential(value: string) {
+  const trimmedValue = value.trim();
+
+  return mercadoPagoPlaceholderValues.has(trimmedValue) ? "" : trimmedValue;
+}
+
+function normalizeTransferValue(value: string) {
+  const trimmedValue = value.trim();
+
+  return transferPlaceholderValues.has(trimmedValue) ? "" : trimmedValue;
 }
 
 function PaymentTabButton({
@@ -152,14 +179,6 @@ function MercadoPagoPanel({
     <Card className="overflow-hidden p-0">
       <PaymentPanelHeader icon={<FiCreditCard />} title={copy.mercadoPagoTitle} />
       <div className="grid gap-5 p-5 sm:p-6">
-        <div className="flex gap-4 rounded-xl border border-danger bg-danger-soft p-4 text-danger">
-          <FiAlertTriangle className="mt-1 shrink-0 text-xl" aria-hidden="true" />
-          <div>
-            <h3 className="text-lg font-bold">{copy.mercadoPagoWarningTitle}</h3>
-            <p className="mt-1 text-sm font-semibold leading-6">{copy.mercadoPagoWarningDescription}</p>
-          </div>
-        </div>
-
         <div className="rounded-xl border border-subtle bg-input p-5">
           <div className="flex items-center gap-3">
             <span className="grid h-11 w-11 place-items-center rounded-xl border border-subtle bg-surface text-xl text-brand-strong">
@@ -176,7 +195,7 @@ function MercadoPagoPanel({
               prefix={<FiLock />}
               helperText={
                 hasStoredAccessToken
-                  ? `${copy.accessTokenHint} Ya existe uno guardado en servidor; deja este campo vacio para conservarlo.`
+                  ? `${copy.accessTokenHint}`
                   : copy.accessTokenHint
               }
               onChange={(event) => onAccessTokenChange(event.target.value)}

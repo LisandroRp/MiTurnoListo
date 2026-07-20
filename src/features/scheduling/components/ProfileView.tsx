@@ -119,7 +119,7 @@ export function ProfileView({
             </div>
           </Card>
 
-          <div id="plans-section" ref={plansRef}>
+          <div id="planes" ref={plansRef}>
             <Card>
               <div className="flex flex-col gap-2 border-b border-subtle pb-4">
                 <h2 className="text-lg font-bold text-primary">{messages.profile.plans}</h2>

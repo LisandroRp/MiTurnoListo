@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { FiCheckCircle, FiMail } from "react-icons/fi";
 
@@ -10,10 +9,9 @@ import { useAuth } from "@/features/auth/components/AuthProvider";
 
 type ForgotPasswordFormProps = {
   defaultEmail?: string;
-  loginHref: string;
 };
 
-export function ForgotPasswordForm({ defaultEmail = "", loginHref }: ForgotPasswordFormProps) {
+export function ForgotPasswordForm({ defaultEmail = "" }: ForgotPasswordFormProps) {
   const { requestPasswordReset } = useAuth();
   const [email, setEmail] = useState(defaultEmail);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,10 +66,6 @@ export function ForgotPasswordForm({ defaultEmail = "", loginHref }: ForgotPassw
       <Button type="submit" size="lg" isLoading={isSubmitting} disabled={!email}>
         Enviar reset password
       </Button>
-
-      <Link href={loginHref} className="text-sm font-semibold text-brand-strong hover:text-brand">
-        Volver al login
-      </Link>
     </form>
   );
 }

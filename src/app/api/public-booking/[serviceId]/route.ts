@@ -4,6 +4,7 @@ import {
   getAvailablePaymentOptions,
   getAvailableSlotsForEmployee
 } from "@/features/booking-flow/utils/booking";
+import { freePlanLimits, getCurrentMonthRange, isFreePlan } from "@/features/scheduling/plan-limits";
 import { AppointmentStatus, PaymentMethod } from "@/features/scheduling/types";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 import {
@@ -13,6 +14,8 @@ import {
   mapServices
 } from "@/lib/networking/mappers/scheduling";
 import { buildIsoInTimeZone } from "@/lib/networking/utils/date-time";
+import { createMercadoPagoPreference } from "@/lib/mercadopago/checkout";
+import { notifyPlanLimitReached } from "@/lib/notifications/plan-limits";
 
 type RouteContext = {
   params: Promise<{
@@ -49,7 +52,7 @@ export async function GET(_: NextRequest, context: RouteContext) {
   ] = await Promise.all([
     supabase
       .from("businesses")
-      .select("name, timezone")
+      .select("name, timezone, subscription_tier")
       .eq("id", businessId)
       .limit(1)
       .single(),
@@ -101,6 +104,16 @@ export async function GET(_: NextRequest, context: RouteContext) {
     paymentSettingsResult.error
   ) {
     return NextResponse.json({ error: "Unable to load booking data." }, { status: 500 });
+  }
+
+  const limitResult = await getMonthlyAppointmentLimitStatus(
+    supabase,
+    businessId,
+    businessResult.data.subscription_tier
+  );
+
+  if ("response" in limitResult) {
+    return limitResult.response;
   }
 
   const assignedEmployeeIds = (serviceEmployeesResult.data ?? []).map((row) => row.employee_id);
@@ -204,7 +217,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     ] = await Promise.all([
       supabase
         .from("businesses")
-        .select("timezone")
+        .select("timezone, subscription_tier")
         .eq("id", service.business_id)
         .limit(1)
         .single(),
@@ -237,7 +250,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[]),
       supabase
         .from("business_payment_settings")
-        .select("allow_mercadopago, mercadopago_public_key, transfer_account_holder, transfer_cbu, transfer_alias")
+        .select("allow_mercadopago, mercadopago_public_key, mercadopago_access_token, transfer_account_holder, transfer_cbu, transfer_alias")
         .eq("business_id", service.business_id)
         .limit(1)
         .maybeSingle()
@@ -254,6 +267,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       !employeeResult.data
     ) {
       return NextResponse.json({ error: "Unable to validate the booking." }, { status: 500 });
+    }
+
+    const limitResult = await getMonthlyAppointmentLimitStatus(
+      supabase,
+      service.business_id,
+      businessResult.data.subscription_tier
+    );
+
+    if ("response" in limitResult) {
+      return limitResult.response;
     }
 
     const assignedEmployeeIds = (serviceEmployeesResult.data ?? []).map((row) => row.employee_id);
@@ -339,6 +362,29 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Unable to create the booking." }, { status: 500 });
     }
 
+    if (payload.paymentMethod === "card") {
+      const accessToken = paymentSettingsResult.data?.mercadopago_access_token?.trim();
+
+      if (!accessToken) {
+        return NextResponse.json({ error: "Mercado Pago is not configured for this business." }, { status: 409 });
+      }
+
+      const checkoutAmount = service.deposit_amount > 0 ? service.deposit_amount : service.price_amount;
+      const preference = await createMercadoPagoPreference({
+        accessToken,
+        amount: checkoutAmount,
+        appointmentId: appointment.id,
+        customer,
+        origin: request.nextUrl.origin,
+        serviceName: service.name
+      });
+
+      return NextResponse.json({
+        appointmentId: appointment.id,
+        checkoutUrl: preference.checkoutUrl
+      });
+    }
+
     return NextResponse.json({
       appointmentId: appointment.id
     });
@@ -415,4 +461,41 @@ function mapPaymentMethodToOption(paymentMethod: Exclude<PaymentMethod, "mixed">
   }
 
   return paymentMethod;
+}
+
+async function getMonthlyAppointmentLimitStatus(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  businessId: string,
+  subscriptionTier: string
+) {
+  if (!isFreePlan(subscriptionTier)) {
+    return { canBook: true };
+  }
+
+  const { start, end } = getCurrentMonthRange();
+  const { count, error } = await supabase
+    .from("appointments")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .gte("starts_at", start)
+    .lt("starts_at", end);
+
+  if (error) {
+    return {
+      response: NextResponse.json({ error: "Unable to validate booking limits." }, { status: 500 })
+    };
+  }
+
+  if ((count ?? 0) >= freePlanLimits.monthlyAppointments) {
+    await notifyPlanLimitReached({ businessId, limit: "monthlyAppointments" });
+
+    return {
+      response: NextResponse.json(
+        { error: `Este negocio alcanzo el limite de ${freePlanLimits.monthlyAppointments} turnos mensuales.` },
+        { status: 402 }
+      )
+    };
+  }
+
+  return { canBook: true };
 }

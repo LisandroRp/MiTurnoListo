@@ -235,7 +235,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
     setValidationMessage("");
 
     try {
-      await createPublicBooking(service.id, {
+      const bookingResult = await createPublicBooking(service.id, {
         customer: draft.customer,
         employeeId: selectedEmployee.id,
         partySize: draft.partySize,
@@ -247,6 +247,12 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
           endTime: selectedSlot.endTime
         }
       });
+
+      if (bookingResult.checkoutUrl) {
+        window.location.assign(bookingResult.checkoutUrl);
+        return;
+      }
+
       setCurrentStepIndex(stepOrder.length);
     } catch (error) {
       setValidationMessage(getErrorMessage(error, copy.submitError));

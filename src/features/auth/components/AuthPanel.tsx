@@ -15,8 +15,6 @@ import { LoginForm } from "@/features/auth/components/LoginForm";
 import { ResetPasswordForm } from "@/features/auth/components/ResetPasswordForm";
 import { SignUpForm } from "@/features/auth/components/SignUpForm";
 
-const defaultEmail = "lisandrorp1997@gmail.com";
-
 type AuthMode = "login" | "signup" | "forgot" | "recovery";
 
 const authCopy = {
@@ -24,11 +22,6 @@ const authCopy = {
     sideBadge: "Supabase Auth",
     sideTitle: "Entra y deja que la agenda trabaje por vos.",
     sideDescription: "Ahora el acceso usa tu usuario real y el panel ya apunta a la base de datos que cargaste en Supabase.",
-    sideFooterTitle: "Usuario sugerido",
-    sideFooterLines: [
-      `Email: ${defaultEmail}`,
-      "Password: la que creaste en Supabase Auth"
-    ],
     cardBadge: "Acceso al dashboard",
     cardTitle: "Login",
     cardDescription: "Inicia sesion con el usuario real que configuraste en Supabase.",
@@ -150,12 +143,14 @@ export function AuthPanel() {
             {copy.sideDescription}
           </p>
         </div>
-        <div className="grid gap-3 text-sm text-muted">
-          <p className="font-semibold text-primary">{copy.sideFooterTitle}</p>
-          {copy.sideFooterLines.map((line) => (
-            <p key={line}>{line}</p>
-          ))}
-        </div>
+        {"sideFooterTitle" in copy ? (
+          <div className="grid gap-3 text-sm text-muted">
+            <p className="font-semibold text-primary">{copy.sideFooterTitle}</p>
+            {copy.sideFooterLines.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
+        ) : <span />}
       </section>
 
       <section
@@ -185,13 +180,12 @@ export function AuthPanel() {
               {mode === "login" ? (
                 <LoginForm
                   nextPath={nextPath}
-                  defaultEmail={defaultEmail}
                   forgotPasswordHref={forgotPasswordHref}
                 />
               ) : mode === "signup" ? (
                 <SignUpForm nextPath={nextPath} />
               ) : mode === "forgot" ? (
-                <ForgotPasswordForm defaultEmail={defaultEmail} loginHref={loginHref} />
+                <ForgotPasswordForm />
               ) : (
                 <ResetPasswordForm forgotPasswordHref={forgotPasswordHref} loginHref={loginHref} />
               )}

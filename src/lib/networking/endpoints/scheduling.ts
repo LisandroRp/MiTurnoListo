@@ -9,12 +9,12 @@ import {
   mapAppointments,
   mapEmployees,
   mapProfile,
-  mapScheduleToAvailabilityRows,
   mapServices,
   themeOptions
 } from "@/lib/networking/mappers/scheduling";
+import { getAccessToken } from "@/lib/networking/endpoints/auth";
 import { getPaymentSettings, savePaymentSettings as savePaymentSettingsRequest } from "@/lib/networking/endpoints/payment-settings";
-import { buildIsoInTimeZone, getBrowserTimeZone } from "@/lib/networking/utils/date-time";
+import { getBrowserTimeZone } from "@/lib/networking/utils/date-time";
 
 type SchedulingSnapshot = {
   appointments: ReturnType<typeof mapAppointments>;
@@ -199,45 +199,11 @@ export async function updateSubscriptionTier(businessId: string, subscriptionTie
 }
 
 export async function saveEmployee(businessId: string, employee: EmployeeInput) {
-  const supabase = getSupabaseBrowserClient();
-  const { error: employeeError } = await supabase
-    .from("employees")
-    .upsert({
-      id: employee.id,
-      business_id: businessId,
-      name: employee.name,
-      role: employee.role,
-      description: employee.description,
-      image_url: employee.imageUrl || null,
-      color_token: employee.color,
-      is_active: true,
-      is_bookable: true
-    });
-
-  if (employeeError) {
-    throw new Error("Unable to save the employee.");
-  }
-
-  const { error: deleteError } = await supabase
-    .from("employee_weekly_availability")
-    .delete()
-    .eq("employee_id", employee.id);
-
-  if (deleteError) {
-    throw new Error("Unable to save the employee schedule.");
-  }
-
-  const availabilityRows = mapScheduleToAvailabilityRows(employee.schedule, "employee_id", employee.id);
-
-  if (availabilityRows.length > 0) {
-    const { error: insertError } = await supabase
-      .from("employee_weekly_availability")
-      .insert(availabilityRows);
-
-    if (insertError) {
-      throw new Error("Unable to save the employee schedule.");
-    }
-  }
+  await runSchedulingMutation({
+    action: "saveEmployee",
+    businessId,
+    employee
+  });
 }
 
 export async function deleteEmployee(employeeId: string) {
@@ -253,75 +219,11 @@ export async function deleteEmployee(employeeId: string) {
 }
 
 export async function saveService(businessId: string, service: ServiceInput) {
-  const supabase = getSupabaseBrowserClient();
-  const { error: serviceError } = await supabase
-    .from("services")
-    .upsert({
-      id: service.id,
-      business_id: businessId,
-      slug: buildSlug(service.name, service.id),
-      name: service.name,
-      description: service.description,
-      image_url: service.imageUrl || null,
-      price_amount: service.price,
-      deposit_amount: service.deposit,
-      currency_code: "ARS",
-      duration_minutes: service.durationMinutes,
-      capacity: service.capacity,
-      reservation_lead_minutes: service.reservationLeadMinutes,
-      payment_mode: service.paymentMethod,
-      is_public: service.isVisible,
-      is_active: true
-    });
-
-  if (serviceError) {
-    throw new Error("Unable to save the service.");
-  }
-
-  const { error: availabilityDeleteError } = await supabase
-    .from("service_weekly_availability")
-    .delete()
-    .eq("service_id", service.id);
-
-  if (availabilityDeleteError) {
-    throw new Error("Unable to save the service schedule.");
-  }
-
-  const { error: employeesDeleteError } = await supabase
-    .from("service_employees")
-    .delete()
-    .eq("service_id", service.id);
-
-  if (employeesDeleteError) {
-    throw new Error("Unable to save service assignments.");
-  }
-
-  const availabilityRows = mapScheduleToAvailabilityRows(service.schedule, "service_id", service.id);
-
-  if (availabilityRows.length > 0) {
-    const { error: availabilityInsertError } = await supabase
-      .from("service_weekly_availability")
-      .insert(availabilityRows);
-
-    if (availabilityInsertError) {
-      throw new Error("Unable to save the service schedule.");
-    }
-  }
-
-  if (service.employeeIds.length > 0) {
-    const { error: employeesInsertError } = await supabase
-      .from("service_employees")
-      .insert(
-        service.employeeIds.map((employeeId) => ({
-          service_id: service.id,
-          employee_id: employeeId
-        }))
-      );
-
-    if (employeesInsertError) {
-      throw new Error("Unable to save service assignments.");
-    }
-  }
+  await runSchedulingMutation({
+    action: "saveService",
+    businessId,
+    service
+  });
 }
 
 export async function deleteService(serviceId: string) {
@@ -357,129 +259,55 @@ export async function createDashboardAppointment({
   businessId: string;
   service: ServiceInput;
 }) {
-  const supabase = getSupabaseBrowserClient();
   const timeZone = getBrowserTimeZone();
-  const startsAt = buildIsoInTimeZone(appointment.date, appointment.startTime, timeZone);
-  const endsAt = buildIsoInTimeZone(appointment.date, appointment.endTime, timeZone);
-  const customerId = await upsertCustomer(supabase, businessId, {
-    email: appointment.customerEmail,
-    fullName: appointment.customerName,
-    phone: appointment.customerPhone
-  }, startsAt);
-
-  const { error } = await supabase
-    .from("appointments")
-    .insert({
-      business_id: businessId,
-      customer_id: customerId,
-      service_id: appointment.serviceId,
-      employee_id: appointment.employeeId,
-      source: "dashboard",
-      status: appointment.status,
-      starts_at: startsAt,
-      ends_at: endsAt,
-      party_size: appointment.partySize,
-      unit_price_amount: service.price,
-      total_amount: appointment.revenue,
-      deposit_amount: service.deposit,
-      selected_payment_method: appointment.paymentMethod === "mixed" ? "cash" : appointment.paymentMethod,
-      customer_name_snapshot: appointment.customerName,
-      customer_email_snapshot: appointment.customerEmail || null,
-      customer_phone_snapshot: appointment.customerPhone || null
-    });
-
-  if (error) {
-    throw new Error("Unable to create the appointment.");
-  }
+  await runSchedulingMutation({
+    action: "createAppointment",
+    businessId,
+    appointment,
+    service,
+    timeZone
+  });
 }
 
 export async function savePaymentSettings(businessId: string, settings: BusinessPaymentSettings) {
   return savePaymentSettingsRequest(businessId, settings);
 }
 
-async function upsertCustomer(
-  supabase: ReturnType<typeof getSupabaseBrowserClient>,
-  businessId: string,
-  customer: {
-    email: string;
-    fullName: string;
-    phone: string;
-  },
-  lastBookedAt: string
-) {
-  const trimmedEmail = customer.email.trim().toLowerCase();
-  const trimmedPhone = customer.phone.trim();
-  let customerId: string | null = null;
+async function runSchedulingMutation(payload: unknown) {
+  const accessToken = await getAccessToken();
 
-  if (trimmedEmail) {
-    const { data } = await supabase
-      .from("customers")
-      .select("id")
-      .eq("business_id", businessId)
-      .eq("email", trimmedEmail)
-      .limit(1)
-      .maybeSingle();
-
-    customerId = data?.id ?? null;
+  if (!accessToken) {
+    throw new Error("Authenticated session not found.");
   }
 
-  if (!customerId && trimmedPhone) {
-    const { data } = await supabase
-      .from("customers")
-      .select("id")
-      .eq("business_id", businessId)
-      .eq("phone", trimmedPhone)
-      .limit(1)
-      .maybeSingle();
+  const response = await fetch("/api/scheduling/mutations", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
 
-    customerId = data?.id ?? null;
+  if (!response.ok) {
+    throw new Error(await getMutationErrorMessage(response));
   }
-
-  const payload = {
-    business_id: businessId,
-    full_name: customer.fullName,
-    email: trimmedEmail || null,
-    phone: trimmedPhone || null,
-    notes: "",
-    last_booked_at: lastBookedAt
-  };
-
-  if (customerId) {
-    const { error } = await supabase
-      .from("customers")
-      .update(payload)
-      .eq("id", customerId);
-
-    if (error) {
-      throw new Error("Unable to update the customer.");
-    }
-
-    return customerId;
-  }
-
-  const { data, error } = await supabase
-    .from("customers")
-    .insert(payload)
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    throw new Error("Unable to create the customer.");
-  }
-
-  return data.id;
 }
 
-function buildSlug(name: string, fallbackId: string) {
-  const normalized = name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+async function getMutationErrorMessage(response: Response) {
+  try {
+    const payload = await response.json() as {
+      error?: string;
+    };
 
-  return normalized || fallbackId;
+    if (payload.error?.trim()) {
+      return payload.error;
+    }
+  } catch {
+    return "Unable to save changes.";
+  }
+
+  return "Unable to save changes.";
 }
 
 export function createNewEmployeeDraft() {

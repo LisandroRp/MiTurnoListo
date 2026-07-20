@@ -303,8 +303,8 @@ function getInverseDeltaTone(delta: number): DashboardMetric["trendTone"] {
   return "neutral";
 }
 
-export function getDefaultFocusedDate(appointments: Appointment[], timeZone: string) {
-  return appointments[0]?.date ?? formatDateParts(new Date(), timeZone);
+export function getDefaultFocusedDate(_appointments: Appointment[], timeZone: string) {
+  return formatDateParts(new Date(), timeZone);
 }
 
 export function mapScheduleToAvailabilityRows(

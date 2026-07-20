@@ -31,13 +31,15 @@ export function DashboardView({ messages, metrics, employees, services, appointm
         <p className="text-xs font-semibold text-muted">{messages.metrics.contexts.monthComparison}</p>
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {metrics.map((metric) => (
-            <Card key={metric.id}>
+            <Card key={metric.id} className="flex flex-col justify-between">
+              <div className="flex flex-wrap gap-2 flex-row justify-between">
               <p className="text-sm text-muted">{messages.metrics[metric.labelKey]}</p>
-              <div className="mt-3 flex items-end justify-between gap-3">
-                <p className="text-3xl font-bold text-primary">{metric.value}</p>
-                {metric.trendFormat !== "current" ? (
+                              {metric.trendFormat !== "current" ? (
                   <Badge tone={metric.trendTone}>{formatMetricTrend(metric, messages)}</Badge>
                 ) : null}
+                </div>
+              <div className="mt-3 flex items-end justify-between gap-3">
+                <p className="text-3xl font-bold text-primary">{metric.value}</p>
               </div>
             </Card>
           ))}

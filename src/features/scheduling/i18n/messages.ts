@@ -60,6 +60,10 @@ export const messages = {
       periodFilter: "Tiempo",
       employeeFilter: "Empleado",
       allEmployees: "Todos",
+      lockedBadge: "Plan Premium",
+      lockedTitle: "Desbloquea estadisticas avanzadas",
+      lockedDescription: "Las metricas, comparativas y rendimiento por empleado estan disponibles al activar el plan Premium.",
+      lockedAction: "Ver plan Premium",
       periods: {
         today: "Hoy",
         yesterday: "Ayer",
@@ -125,7 +129,11 @@ export const messages = {
       noAppointments: "No hay turnos para esta seleccion.",
       appointments: "turnos",
       enabled: "Activo",
-      disabled: "Oculto"
+      disabled: "Oculto",
+      freeLimitTitle: "Uso mensual del plan Free",
+      freeLimitDescription: "Llevas {count}/{limit} turnos este mes. Al llegar al limite, el flujo publico de reservas se bloquea hasta activar Premium o empezar el proximo mes.",
+      freeLimitReachedTitle: "Limite mensual alcanzado",
+      freeLimitReachedDescription: "Llegaste a {count}/{limit} turnos este mes. Los clientes no van a poder reservar nuevos turnos online hasta activar Premium o empezar el proximo mes."
     },
     services: {
       eyebrow: "Catalogo",
@@ -246,7 +254,7 @@ export const messages = {
       recommendedPlan: "Recomendado",
       freePlan: "Free",
       freePlanPrice: "$0 / mes",
-      freePlanDescription: "Ideal para arrancar, probar la app y ordenar una agenda chica.",
+      freePlanDescription: "Ideal para arrancar y ordenar una agenda chica.",
       proPlan: "Pro",
       proPlanPrice: "$25.000 / mes",
       proPlanDescription: "Pensado para negocios que viven del calendario y necesitan automatizar más.",
@@ -255,11 +263,12 @@ export const messages = {
         "Hasta 5 servicios visibles",
         "Hasta 15 turnos por mes",
         "Calendario y reservas manuales",
-        "Temas visuales basicos"
+        "Estadisticas y pagos avanzados bloqueados"
       ],
       proPlanFeatures: [
-        "Empleados y servicios ilimitados",
-        "Pagos online y reservas publicas",
+        "Turnos, empleados y servicios ilimitados",
+        "Estadisticas avanzadas",
+        "Metodos de pago online",
         "Flujo de reserva compartible por QR o link",
         "Prioridad para nuevas herramientas"
       ],
@@ -276,6 +285,10 @@ export const messages = {
       eyebrow: "Cobros",
       title: "Metodos de pago",
       description: "Configura como van a pagar tus clientes al reservar servicios.",
+      lockedBadge: "Plan Premium",
+      lockedTitle: "Desbloquea metodos de pago",
+      lockedDescription: "Los cobros por transferencia y Mercado Pago estan disponibles al activar el plan Premium.",
+      lockedAction: "Ver plan Premium",
       mercadoPagoTab: "Mercado Pago",
       transfersTab: "Transferencias",
       mercadoPagoTitle: "Configuracion de Mercado Pago",
@@ -302,7 +315,7 @@ export const messages = {
       alias: "Alias",
       aliasPlaceholder: "Introducir alias de la cuenta",
       paymentDataSaved: "Datos de pago guardados",
-      demoDisclaimer: "Estos datos se guardan en la base y se usan en el flujo publico de reservas."
+      paymentDataDisclaimer: "Estos datos se guardan en la base y se usan en el flujo publico de reservas."
     },
     bookingPreview: {
       eyebrow: "Vista previa",
@@ -389,6 +402,8 @@ export const messages = {
       appointmentDeleted: "Turno eliminado",
       employeeSaved: "Personal guardado",
       employeeDeleted: "Personal eliminado",
+      freeMonthlyLimitTitle: "Limite Free alcanzado",
+      freeMonthlyLimitDescription: "Ya usaste los {limit} turnos del mes. Las reservas online quedan bloqueadas hasta activar Premium o empezar el proximo mes.",
       formWarning: "Revisa los campos obligatorios",
       invalidImage: "No pudimos cargar la imagen",
       success: "Correcto",
@@ -480,6 +495,10 @@ export const messages = {
       periodFilter: "Time",
       employeeFilter: "Employee",
       allEmployees: "All",
+      lockedBadge: "Premium plan",
+      lockedTitle: "Unlock advanced statistics",
+      lockedDescription: "Metrics, comparisons and employee performance are available after activating the Premium plan.",
+      lockedAction: "View Premium plan",
       periods: {
         today: "Today",
         yesterday: "Yesterday",
@@ -545,7 +564,11 @@ export const messages = {
       noAppointments: "No appointments for this selection.",
       appointments: "appointments",
       enabled: "Enabled",
-      disabled: "Hidden"
+      disabled: "Hidden",
+      freeLimitTitle: "Free plan monthly usage",
+      freeLimitDescription: "You have used {count}/{limit} bookings this month. Once the limit is reached, public booking is blocked until Premium is activated or the next month starts.",
+      freeLimitReachedTitle: "Monthly limit reached",
+      freeLimitReachedDescription: "You reached {count}/{limit} bookings this month. Customers cannot book new online appointments until Premium is activated or the next month starts."
     },
     services: {
       eyebrow: "Catalog",
@@ -666,7 +689,7 @@ export const messages = {
       recommendedPlan: "Recommended",
       freePlan: "Free",
       freePlanPrice: "$0 / month",
-      freePlanDescription: "Great for getting started, testing the app and organizing a small schedule.",
+      freePlanDescription: "Great for getting started and organizing a small schedule.",
       proPlan: "Pro",
       proPlanPrice: "$25,000 / month",
       proPlanDescription: "Built for businesses that rely on their calendar and need stronger automation.",
@@ -675,11 +698,12 @@ export const messages = {
         "Up to 5 visible services",
         "Up to 15 bookings per month",
         "Calendar and manual bookings",
-        "Basic visual themes"
+        "Advanced statistics and payments locked"
       ],
       proPlanFeatures: [
-        "Unlimited employees and services",
-        "Online payments and public booking flow",
+        "Unlimited bookings, employees and services",
+        "Advanced statistics",
+        "Online payment methods",
         "Booking flow shareable by QR or link",
         "Priority access to new tools"
       ],
@@ -696,6 +720,10 @@ export const messages = {
       eyebrow: "Payments",
       title: "Payment methods",
       description: "Configure how customers will pay when booking services.",
+      lockedBadge: "Premium plan",
+      lockedTitle: "Unlock payment methods",
+      lockedDescription: "Bank transfer and Mercado Pago payment settings are available after activating the Premium plan.",
+      lockedAction: "View Premium plan",
       mercadoPagoTab: "Mercado Pago",
       transfersTab: "Transfers",
       mercadoPagoTitle: "Mercado Pago configuration",
@@ -722,7 +750,7 @@ export const messages = {
       alias: "Alias",
       aliasPlaceholder: "Enter account alias",
       paymentDataSaved: "Payment data saved",
-      demoDisclaimer: "This data is stored in the database and used in the public booking flow."
+      paymentDataDisclaimer: "This data is stored in the database and used in the public booking flow."
     },
     bookingPreview: {
       eyebrow: "Preview",
@@ -809,6 +837,8 @@ export const messages = {
       appointmentDeleted: "Appointment deleted",
       employeeSaved: "Personnel saved",
       employeeDeleted: "Personnel deleted",
+      freeMonthlyLimitTitle: "Free limit reached",
+      freeMonthlyLimitDescription: "You already used the {limit} monthly bookings. Online booking is blocked until Premium is activated or the next month starts.",
       formWarning: "Check the required fields",
       invalidImage: "We could not upload the image",
       success: "Success",

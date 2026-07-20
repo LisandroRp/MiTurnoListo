@@ -4,6 +4,7 @@ import { FiActivity, FiBarChart2, FiClock, FiDollarSign, FiTrendingUp, FiUsers }
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { SelectField } from "@/components/ui/SelectField";
+import { PremiumFeatureCard } from "@/components/composed/PremiumFeatureCard";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
@@ -13,6 +14,7 @@ import { cx } from "@/components/ui/utils";
 type StatisticsViewProps = {
   appointments: Appointment[];
   employees: Employee[];
+  isLocked?: boolean;
   services: Service[];
   messages: Messages;
   referenceDate: string;
@@ -37,7 +39,7 @@ const statusToneMap: Record<AppointmentStatus, "success" | "warning" | "danger">
 
 const periodIds: PeriodId[] = ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "allTime"];
 
-export function StatisticsView({ appointments, employees, services, messages, referenceDate }: StatisticsViewProps) {
+export function StatisticsView({ appointments, employees, isLocked = false, services, messages, referenceDate }: StatisticsViewProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodId>("thisMonth");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("all");
   const selectedEmployee = employees.find((employee) => employee.id === selectedEmployeeId);
@@ -183,6 +185,20 @@ export function StatisticsView({ appointments, employees, services, messages, re
         description={messages.statistics.description}
       />
 
+      <div className="relative">
+        {isLocked ? (
+          <div className="pointer-events-none fixed inset-y-0 left-0 right-0 z-10 grid place-items-center px-4 lg:left-72">
+            <div className="pointer-events-auto w-full max-w-lg">
+              <PremiumFeatureCard
+                badge={messages.statistics.lockedBadge}
+                title={messages.statistics.lockedTitle}
+                description={messages.statistics.lockedDescription}
+                actionLabel={messages.statistics.lockedAction}
+              />
+            </div>
+          </div>
+        ) : null}
+        <div className={cx("grid gap-6", isLocked ? "pointer-events-none select-none blur-sm" : "")}>
       <Card className="bg-brand-soft">
         <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
@@ -441,6 +457,8 @@ export function StatisticsView({ appointments, employees, services, messages, re
           <EmptyState message={messages.statistics.empty} />
         )}
       </AnalyticsPanel>
+        </div>
+      </div>
     </div>
   );
 }

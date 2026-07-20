@@ -182,27 +182,16 @@ export function PersonnelView({
 
         <StepProgress steps={stepItems} currentStepIndex={currentStepIndex} onStepSelect={goToStep} />
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
-          {currentStepIndex > 0 ? (
-            <Button variant="secondary" icon={<FiArrowLeft />} onClick={goToPreviousStep}>
-              {messages.actions.back}
-            </Button>
-          ) : (
-            <Button variant="secondary" onClick={returnToGrid}>
-              {messages.actions.cancel}
-            </Button>
-          )}
-
-          {currentStep === "review" ? (
-            <Button icon={<FiCheck />} onClick={submitForm}>
-              {messages.actions.save}
-            </Button>
-          ) : (
-            <Button icon={<FiArrowRight />} onClick={goToNextStep}>
-              {messages.actions.continue}
-            </Button>
-          )}
-        </div>
+        <WizardActions
+          className="flex"
+          currentStep={currentStep}
+          currentStepIndex={currentStepIndex}
+          messages={messages}
+          onCancel={returnToGrid}
+          onPrevious={goToPreviousStep}
+          onNext={goToNextStep}
+          onSubmit={submitForm}
+        />
 
         {validationMessage ? (
           <div className="rounded-lg border border-danger bg-danger-soft p-4 text-sm font-semibold text-danger">
@@ -279,7 +268,10 @@ export function PersonnelView({
 
       <section className="grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {employees.length > 0 ? employees.map((employee) => (
-          <Card key={employee.id} className="flex h-full w-full flex-col overflow-hidden p-0">
+          <Card
+            key={employee.id}
+            className="flex h-full w-full flex-col overflow-hidden p-0 transition duration-200 hover:-translate-y-1 hover:scale-[1.01] hover:border-brand hover:shadow-lg"
+          >
             <div
               className="h-36 bg-surface-strong bg-cover bg-center"
               style={{ backgroundImage: employee.imageUrl ? `url(${employee.imageUrl})` : undefined }}
@@ -313,6 +305,50 @@ export function PersonnelView({
           </Card>
         )}
       </section>
+    </div>
+  );
+}
+
+function WizardActions({
+  className,
+  currentStep,
+  currentStepIndex,
+  messages,
+  onCancel,
+  onPrevious,
+  onNext,
+  onSubmit
+}: {
+  className?: string;
+  currentStep: PersonnelWizardStep;
+  currentStepIndex: number;
+  messages: Messages;
+  onCancel: () => void;
+  onPrevious: () => void;
+  onNext: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className={cx("flex-row gap-3 sm:justify-between", className)}>
+      {currentStepIndex > 0 ? (
+        <Button className="w-1/2 sm:w-auto" variant="secondary" icon={<FiArrowLeft />} onClick={onPrevious}>
+          {messages.actions.back}
+        </Button>
+      ) : (
+        <Button className="w-1/2 sm:w-auto" variant="secondary" onClick={onCancel}>
+          {messages.actions.cancel}
+        </Button>
+      )}
+
+      {currentStep === "review" ? (
+        <Button className="w-1/2 sm:w-auto" icon={<FiCheck />} onClick={onSubmit}>
+          {messages.actions.save}
+        </Button>
+      ) : (
+        <Button className="w-1/2 sm:w-auto" icon={<FiArrowRight />} onClick={onNext}>
+          {messages.actions.continue}
+        </Button>
+      )}
     </div>
   );
 }

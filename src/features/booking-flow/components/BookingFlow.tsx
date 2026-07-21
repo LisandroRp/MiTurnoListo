@@ -5,6 +5,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { FiArrowLeft, FiCheckCircle, FiClock, FiMail, FiMapPin, FiPhone, FiShield, FiUser } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
+import { StepProgress } from "@/components/composed/StepProgress";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -98,6 +99,10 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   const appointments = isPreview ? previewAppointments : publicPayload?.appointments ?? [];
   const paymentSettings = isPreview ? previewPaymentSettings : publicPayload?.paymentSettings ?? emptyPaymentSettings;
   const localeCode = localeMap[locale];
+  const stepItems = stepOrder.map((step) => ({
+    id: step,
+    label: messages.bookingFlow.steps[step]
+  }));
 
   useEffect(() => {
     if (isPreview) {
@@ -266,44 +271,21 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
       {currentStepIndex < stepOrder.length ? (
         <>
           <header className="grid gap-4">
-            {isPreview ? (
-              <Card className="border-brand bg-brand-soft p-4">
-                <p className="text-sm font-bold text-primary">{copy.previewTitle}</p>
-                <p className="mt-1 text-sm leading-6 text-muted">{copy.previewDescription}</p>
-              </Card>
-            ) : (
-              <Link href="/" className="inline-flex w-fit cursor-pointer items-center gap-2 text-sm font-semibold text-muted hover:text-primary">
-                <FiArrowLeft aria-hidden="true" />
+            {!isPreview ? (
+              <Link href="/" className="inline-flex w-full cursor-pointer justify-center items-center gap-2 text-sm font-semibold text-muted hover:text-primary">
                 <BrandMark variant="full" size="sm" />
               </Link>
-            )}
-            <div className="grid gap-2">
-              <Badge tone="brand" className="w-fit">{businessName}</Badge>
-              <h1 className="text-3xl font-bold text-primary sm:text-4xl">{copy.title}</h1>
-              <p className="max-w-2xl text-sm leading-6 text-muted">{copy.subtitle}</p>
-            </div>
-            <StepIndicator
-              messages={messages}
+            ) : null}
+            <StepProgress steps={stepItems} currentStepIndex={currentStepIndex} onStepSelect={setCurrentStepIndex} />
+            <BookingWizardActions
+              backLabel={messages.actions.back}
               currentStepIndex={currentStepIndex}
-              onStepSelect={setCurrentStepIndex}
+              isSubmitDisabled={isPreview && currentStep === "summary"}
+              isSubmitting={isSubmitting && currentStep === "summary"}
+              submitLabel={isPreview && currentStep === "summary" ? copy.previewBlocked : actionButtonLabel}
+              onNext={currentStep !== "summary" ? goToNextStep : () => void confirmReservation()}
+              onPrevious={goToPreviousStep}
             />
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
-              {currentStepIndex > 0 ? (
-                <Button variant="secondary" onClick={goToPreviousStep}>
-                  {messages.actions.back}
-                </Button>
-              ) : (
-                <span />
-              )}
-
-              <Button
-                isLoading={isSubmitting && currentStep === "summary"}
-                disabled={isPreview && currentStep === "summary"}
-                onClick={currentStep !== "summary" ? goToNextStep : () => void confirmReservation()}
-              >
-                {isPreview && currentStep === "summary" ? copy.previewBlocked : actionButtonLabel}
-              </Button>
-            </div>
             {validationMessage ? (
               <div className="rounded-2xl border border-danger bg-danger-soft p-4 text-sm font-semibold text-danger">
                 {validationMessage}
@@ -390,21 +372,23 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
             </div>
 
             {isDateTimeStep ? (
-              <AvailabilityHourList
-                messages={messages}
-                locale={localeCode}
-                selectedDate={selectedSlot?.date ?? selectedDate}
-                slots={
-                  (selectedSlot?.date ?? selectedDate)
-                    ? availableSlots.filter((slot) => slot.date === (selectedSlot?.date ?? selectedDate))
-                    : []
-                }
-                selectedStartTime={selectedSlot?.startTime ?? null}
-                onSelectSlot={(slot) => {
-                  setSelectedDate(slot.date);
-                  setDraft((current) => ({ ...current, selectedSlot: slot }));
-                }}
-              />
+              <div className="hidden lg:block">
+                <AvailabilityHourList
+                  messages={messages}
+                  locale={localeCode}
+                  selectedDate={selectedSlot?.date ?? selectedDate}
+                  slots={
+                    (selectedSlot?.date ?? selectedDate)
+                      ? availableSlots.filter((slot) => slot.date === (selectedSlot?.date ?? selectedDate))
+                      : []
+                  }
+                  selectedStartTime={selectedSlot?.startTime ?? null}
+                  onSelectSlot={(slot) => {
+                    setSelectedDate(slot.date);
+                    setDraft((current) => ({ ...current, selectedSlot: slot }));
+                  }}
+                />
+              </div>
             ) : (
               <BookingSidebar
                 messages={messages}
@@ -415,6 +399,16 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
               />
             )}
           </div>
+
+          <BookingWizardActions
+            backLabel={messages.actions.back}
+            currentStepIndex={currentStepIndex}
+            isSubmitDisabled={isPreview && currentStep === "summary"}
+            isSubmitting={isSubmitting && currentStep === "summary"}
+            submitLabel={isPreview && currentStep === "summary" ? copy.previewBlocked : actionButtonLabel}
+            onNext={currentStep !== "summary" ? goToNextStep : () => void confirmReservation()}
+            onPrevious={goToPreviousStep}
+          />
         </>
       ) : (
         <SuccessState
@@ -426,6 +420,44 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
         />
       )}
     </BookingShell>
+  );
+}
+
+function BookingWizardActions({
+  backLabel,
+  currentStepIndex,
+  isSubmitDisabled,
+  isSubmitting,
+  submitLabel,
+  onNext,
+  onPrevious
+}: {
+  backLabel: string;
+  currentStepIndex: number;
+  isSubmitDisabled: boolean;
+  isSubmitting: boolean;
+  submitLabel: string;
+  onNext: () => void;
+  onPrevious: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
+      {currentStepIndex > 0 ? (
+        <Button variant="secondary" onClick={onPrevious}>
+          {backLabel}
+        </Button>
+      ) : (
+        <span />
+      )}
+
+      <Button
+        isLoading={isSubmitting}
+        disabled={isSubmitDisabled}
+        onClick={onNext}
+      >
+        {submitLabel}
+      </Button>
+    </div>
   );
 }
 
@@ -445,41 +477,6 @@ function BookingShell({
     )}>
       <div className="mx-auto grid max-w-6xl gap-6">{children}</div>
     </main>
-  );
-}
-
-function StepIndicator({
-  messages,
-  currentStepIndex,
-  onStepSelect
-}: {
-  messages: Messages;
-  currentStepIndex: number;
-  onStepSelect: (index: number) => void;
-}) {
-  const stepEntries = Object.entries(messages.bookingFlow.steps);
-
-  return (
-    <div className="grid gap-3 sm:grid-cols-5">
-      {stepEntries.map(([stepKey, label], index) => (
-        <button
-          key={stepKey}
-          type="button"
-          disabled={index > currentStepIndex}
-          onClick={() => onStepSelect(index)}
-          className={cx(
-            "rounded-2xl border p-3 text-left transition-all",
-            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
-            index <= currentStepIndex ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-sm" : "cursor-not-allowed opacity-60",
-            index <= currentStepIndex ? "border-brand bg-brand-soft text-brand-strong" : "border-subtle bg-sidebar text-muted"
-          )}
-          aria-current={index === currentStepIndex ? "step" : undefined}
-        >
-          <p className="text-xs font-bold uppercase">0{index + 1}</p>
-          <p className="mt-1 text-sm font-semibold">{label}</p>
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -551,10 +548,6 @@ function EmployeeStep({
 }) {
   return (
     <div className="grid gap-4">
-      <Card className="bg-brand-soft">
-        <h2 className="text-xl font-bold text-primary">{messages.bookingFlow.chooseEmployee}</h2>
-        <p className="mt-2 text-sm leading-6 text-muted">{messages.bookingFlow.chooseEmployeeHint}</p>
-      </Card>
       <div className="grid gap-4 md:grid-cols-2">
         {employees.map((employee) => (
           <button
@@ -607,13 +600,6 @@ function DateTimeStep({
 }) {
   return (
     <div className="grid gap-4">
-      <Card className="bg-brand-soft">
-        <h2 className="text-xl font-bold text-primary">{messages.bookingFlow.chooseDate}</h2>
-        <p className="mt-2 text-sm leading-6 text-muted">
-          {messages.bookingFlow.chooseDateHint}
-          {selectedEmployee ? ` ${selectedEmployee}.` : ""}
-        </p>
-      </Card>
       {slots.length === 0 ? (
         <Card>
           <p className="text-sm font-semibold text-muted">{messages.bookingFlow.noDatesAvailable}</p>
@@ -654,11 +640,6 @@ function DetailsStep({
 }) {
   return (
     <div className="grid gap-4">
-      <Card className="bg-brand-soft">
-        <h2 className="text-xl font-bold text-primary">{messages.bookingFlow.paymentTitle}</h2>
-        <p className="mt-2 text-sm leading-6 text-muted">{messages.bookingFlow.paymentHint}</p>
-      </Card>
-
       <Card className="grid gap-5">
         <div className="grid gap-3 md:grid-cols-3">
           {availablePaymentOptions.map((option) => (

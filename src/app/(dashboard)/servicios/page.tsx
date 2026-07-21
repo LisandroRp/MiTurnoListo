@@ -15,6 +15,8 @@ export default function ServicesSectionPage() {
       onDeleteService={deleteService}
       onValidationWarning={() => showToast({ tone: "warning", title: messages.toast.formWarning })}
       onImageUploadError={(message) => showToast({ tone: "error", title: messages.toast.invalidImage, description: message })}
+      onShareSuccess={() => showToast({ tone: "success", title: messages.toast.serviceLinkCopied })}
+      onShareError={() => showToast({ tone: "error", title: messages.toast.serviceLinkCopyFailed })}
     />
   );
 }

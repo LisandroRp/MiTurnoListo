@@ -1,5 +1,7 @@
-import { ChangeEvent, ReactNode, useRef, useState } from "react";
-import { FiArrowLeft, FiArrowRight, FiCheck, FiCopy, FiEdit2, FiInfo, FiPlus, FiTrash2 } from "react-icons/fi";
+import { ChangeEvent, ReactNode, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import QRCode from "qrcode";
+import { FiArrowLeft, FiArrowRight, FiCheck, FiCopy, FiEdit2, FiInfo, FiLink, FiPlus, FiShare2, FiTrash2, FiX } from "react-icons/fi";
 
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { StepProgress } from "@/components/composed/StepProgress";
@@ -27,6 +29,8 @@ type ServicesViewProps = {
   onDeleteService: (serviceId: string) => Promise<boolean>;
   onValidationWarning: () => void;
   onImageUploadError: (message: string) => void;
+  onShareSuccess: () => void;
+  onShareError: () => void;
 };
 
 type ServicesMode = "grid" | "form";
@@ -42,7 +46,9 @@ export function ServicesView({
   onSaveService,
   onDeleteService,
   onValidationWarning,
-  onImageUploadError
+  onImageUploadError,
+  onShareSuccess,
+  onShareError
 }: ServicesViewProps) {
   const rangeIdCounter = useRef(1);
   const [mode, setMode] = useState<ServicesMode>("grid");
@@ -51,6 +57,7 @@ export function ServicesView({
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [savingVisibilityId, setSavingVisibilityId] = useState<string | null>(null);
+  const [sharingService, setSharingService] = useState<Service | null>(null);
 
   const currentStep = serviceWizardStepOrder[currentStepIndex] ?? "details";
   const stepItems = serviceWizardStepOrder.map((step) => ({
@@ -135,6 +142,19 @@ export function ServicesView({
     });
 
     setSavingVisibilityId(null);
+  }
+
+  async function copyServiceLink(service: Service) {
+    if (!service.isVisible) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(getPublicServiceUrl(service.id));
+      onShareSuccess();
+    } catch {
+      onShareError();
+    }
   }
 
   function addRange(day: keyof ServiceSchedule) {
@@ -335,6 +355,17 @@ export function ServicesView({
             />
           ) : null}
         </div>
+
+        <WizardActions
+          className="flex"
+          currentStep={currentStep}
+          currentStepIndex={currentStepIndex}
+          messages={messages}
+          onCancel={returnToGrid}
+          onPrevious={goToPreviousStep}
+          onNext={goToNextStep}
+          onSubmit={submitForm}
+        />
       </div>
     );
   }
@@ -392,6 +423,17 @@ export function ServicesView({
               </dl>
 
               <div className="mt-auto grid gap-2 border-t border-subtle pt-4">
+                <Button
+                  className="w-full"
+                  variant="secondary"
+                  size="sm"
+                  icon={<FiShare2 />}
+                  disabled={!service.isVisible}
+                  title={!service.isVisible ? messages.services.shareHiddenHint : messages.actions.share}
+                  onClick={() => setSharingService(service)}
+                >
+                  {messages.actions.share}
+                </Button>
                 <Button className="w-full" variant="secondary" size="sm" icon={<FiEdit2 />} onClick={() => startEdit(service)}>
                   {messages.actions.edit}
                 </Button>
@@ -410,8 +452,105 @@ export function ServicesView({
           </Card>
         )}
       </section>
+
+      {sharingService ? (
+        <ShareServiceModal
+          key={sharingService.id}
+          messages={messages}
+          service={sharingService}
+          serviceUrl={getPublicServiceUrl(sharingService.id)}
+          onClose={() => setSharingService(null)}
+          onCopy={() => void copyServiceLink(sharingService)}
+        />
+      ) : null}
     </div>
   );
+}
+
+function ShareServiceModal({
+  messages,
+  service,
+  serviceUrl,
+  onClose,
+  onCopy
+}: {
+  messages: Messages;
+  service: Service;
+  serviceUrl: string;
+  onClose: () => void;
+  onCopy: () => void;
+}) {
+  const [qrDataUrl, setQrDataUrl] = useState("");
+
+  useEffect(() => {
+    let isActive = true;
+
+    void QRCode.toDataURL(serviceUrl, {
+      margin: 2,
+      width: 260
+    }).then((dataUrl) => {
+      if (isActive) {
+        setQrDataUrl(dataUrl);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [serviceUrl]);
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-primary/35 p-4">
+      <Card className="grid w-fit max-w-full gap-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase text-muted">{messages.actions.share}</p>
+            <h2 className="mt-1 text-2xl font-bold text-primary">{messages.services.shareTitle}</h2>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              {messages.services.shareDescription.replace("{serviceName}", service.name)}
+            </p>
+          </div>
+          <Button size="icon" variant="ghost" aria-label={messages.actions.cancel} onClick={onClose}>
+            <FiX />
+          </Button>
+        </div>
+
+        <div className="grid justify-items-center gap-4 rounded-xl border border-subtle bg-input p-5">
+          {qrDataUrl ? (
+            <Image
+              src={qrDataUrl}
+              alt={messages.services.shareQrAlt}
+              width={260}
+              height={260}
+              unoptimized
+              className="h-64 w-64 rounded-lg border border-subtle bg-surface p-3"
+            />
+          ) : (
+            <div className="grid h-64 w-64 place-items-center rounded-lg border border-subtle bg-surface text-sm text-muted">
+              {messages.services.generatingQr}
+            </div>
+          )}
+          <div className="flex w-full items-center gap-2 rounded-lg border border-subtle bg-surface px-3 py-2 text-sm text-muted">
+            <FiLink className="shrink-0" aria-hidden="true" />
+            <span className="truncate">{serviceUrl}</span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+          <Button variant="secondary" onClick={onClose}>
+            {messages.actions.cancel}
+          </Button>
+          <Button icon={<FiCopy />} onClick={onCopy}>
+            {messages.services.copyPublicLink}
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function getPublicServiceUrl(serviceId: string) {
+  return `${window.location.origin}/reservar/${serviceId}`;
 }
 
 function ServiceFact({ label, value }: { label: string; value: string }) {

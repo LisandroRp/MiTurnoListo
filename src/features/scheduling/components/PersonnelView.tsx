@@ -241,6 +241,17 @@ export function PersonnelView({
             />
           ) : null}
         </div>
+
+        <WizardActions
+          className="flex"
+          currentStep={currentStep}
+          currentStepIndex={currentStepIndex}
+          messages={messages}
+          onCancel={returnToGrid}
+          onPrevious={goToPreviousStep}
+          onNext={goToNextStep}
+          onSubmit={submitForm}
+        />
       </div>
     );
   }

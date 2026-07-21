@@ -189,24 +189,24 @@ function MercadoPagoPanel({
 
           <div className="mt-6 grid gap-5">
             <TextField
-              label={copy.accessToken}
-              value={accessToken}
-              placeholder="APP_USR-XXXXXXXXXXXXXXXXXXXX"
-              prefix={<FiLock />}
-              helperText={
-                hasStoredAccessToken
-                  ? `${copy.accessTokenHint}`
-                  : copy.accessTokenHint
-              }
-              onChange={(event) => onAccessTokenChange(event.target.value)}
-            />
-            <TextField
               label={copy.publicKey}
               value={publicKey}
               prefix={<FiGlobe />}
               placeholder="APP_USR-XXXXXXXXXXXXXXXXXXXX"
               helperText={copy.publicKeyHint}
               onChange={(event) => onPublicKeyChange(event.target.value)}
+            />
+            <TextField
+              label={copy.accessToken}
+              value={accessToken}
+              placeholder={hasStoredAccessToken ? "••••••••••••••••" : "APP_USR-XXXXXXXXXXXXXXXXXXXX"}
+              prefix={<FiLock />}
+              helperText={
+                hasStoredAccessToken
+                  ? copy.accessTokenStoredHint
+                  : copy.accessTokenHint
+              }
+              onChange={(event) => onAccessTokenChange(event.target.value)}
             />
           </div>
         </div>

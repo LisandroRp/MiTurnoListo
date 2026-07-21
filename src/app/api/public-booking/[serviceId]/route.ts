@@ -14,7 +14,7 @@ import {
   mapServices
 } from "@/lib/networking/mappers/scheduling";
 import { buildIsoInTimeZone } from "@/lib/networking/utils/date-time";
-import { createMercadoPagoPreference } from "@/lib/mercadopago/checkout";
+import { createMercadoPagoPreference, getMercadoPagoPublicOrigin } from "@/lib/mercadopago/checkout";
 import { notifyPlanLimitReached } from "@/lib/notifications/plan-limits";
 
 type RouteContext = {
@@ -328,6 +328,63 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "The selected time is no longer available." }, { status: 409 });
     }
 
+    const appointmentId = crypto.randomUUID();
+
+    if (payload.paymentMethod === "card") {
+      const accessToken = paymentSettingsResult.data?.mercadopago_access_token?.trim();
+
+      if (!accessToken) {
+        return NextResponse.json({ error: "Mercado Pago is not configured for this business." }, { status: 409 });
+      }
+
+      const checkoutAmount = service.deposit_amount > 0 ? service.deposit_amount : service.price_amount;
+      const preference = await createMercadoPagoPreference({
+        accessToken,
+        amount: checkoutAmount,
+        appointmentId,
+        customer,
+        origin: getMercadoPagoPublicOrigin(request.nextUrl.origin),
+        serviceName: service.name
+      });
+      const customerId = await upsertCustomer(
+        supabase,
+        service.business_id,
+        customer,
+        startsAt
+      );
+      const { error: appointmentError } = await supabase
+        .from("appointments")
+        .insert({
+          id: appointmentId,
+          business_id: service.business_id,
+          customer_id: customerId,
+          service_id: serviceId,
+          employee_id: payload.employeeId,
+          source: "public",
+          status: "pending",
+          starts_at: startsAt,
+          ends_at: endsAt,
+          party_size: payload.partySize,
+          unit_price_amount: service.price_amount,
+          total_amount: service.price_amount,
+          deposit_amount: service.deposit_amount,
+          selected_payment_method: payload.paymentMethod,
+          customer_name_snapshot: customer.fullName,
+          customer_email_snapshot: customer.email,
+          customer_phone_snapshot: customer.phone,
+          notes: ""
+        });
+
+      if (appointmentError) {
+        return NextResponse.json({ error: "Unable to create the booking." }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        appointmentId,
+        checkoutUrl: preference.checkoutUrl
+      });
+    }
+
     const customerId = await upsertCustomer(
       supabase,
       service.business_id,
@@ -337,6 +394,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { data: appointment, error: appointmentError } = await supabase
       .from("appointments")
       .insert({
+        id: appointmentId,
         business_id: service.business_id,
         customer_id: customerId,
         service_id: serviceId,
@@ -360,29 +418,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (appointmentError || !appointment) {
       return NextResponse.json({ error: "Unable to create the booking." }, { status: 500 });
-    }
-
-    if (payload.paymentMethod === "card") {
-      const accessToken = paymentSettingsResult.data?.mercadopago_access_token?.trim();
-
-      if (!accessToken) {
-        return NextResponse.json({ error: "Mercado Pago is not configured for this business." }, { status: 409 });
-      }
-
-      const checkoutAmount = service.deposit_amount > 0 ? service.deposit_amount : service.price_amount;
-      const preference = await createMercadoPagoPreference({
-        accessToken,
-        amount: checkoutAmount,
-        appointmentId: appointment.id,
-        customer,
-        origin: request.nextUrl.origin,
-        serviceName: service.name
-      });
-
-      return NextResponse.json({
-        appointmentId: appointment.id,
-        checkoutUrl: preference.checkoutUrl
-      });
     }
 
     return NextResponse.json({

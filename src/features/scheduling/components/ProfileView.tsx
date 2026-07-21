@@ -243,7 +243,7 @@ function PlanCard({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-2xl border p-5 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${isCurrent ? "border-brand bg-brand-soft" : "border-subtle bg-input"}`}
+      className={`w-full rounded-2xl border p-5 text-left transition-all hover:-translate-y-1 hover:shadow-lg cursor-pointer ${isCurrent ? "border-brand bg-brand-soft" : "border-subtle bg-input"}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div>

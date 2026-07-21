@@ -24,6 +24,17 @@ type MercadoPagoPaymentResponse = {
   status?: string;
 };
 
+export function getMercadoPagoPublicOrigin(requestOrigin: string) {
+  const publicUrl = process.env.APP_PUBLIC_URL?.trim().replace(/\/+$/, "");
+  const origin = publicUrl || requestOrigin;
+
+  if (!origin.startsWith("https://")) {
+    throw new Error("Mercado Pago necesita una URL publica HTTPS para redirigir. Configura APP_PUBLIC_URL con tu tunel o dominio de produccion.");
+  }
+
+  return origin;
+}
+
 export async function createMercadoPagoPreference({
   accessToken,
   amount,

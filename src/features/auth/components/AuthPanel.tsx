@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { FiArrowLeft } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
+import { WorkspaceLoadingState } from "@/components/composed/WorkspaceLoadingState";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { cx } from "@/components/ui/utils";
@@ -125,6 +126,10 @@ export function AuthPanel() {
       router.replace(nextPath);
     }
   }, [mode, nextPath, router, status]);
+
+  if (status === "loading" || (status === "authenticated" && mode !== "recovery")) {
+    return <WorkspaceLoadingState title="Verificando tu sesion..." />;
+  }
 
   return (
     <main className="grid min-h-screen bg-page px-4 py-8 text-primary lg:grid-cols-[1fr_0.9fr] lg:p-0">

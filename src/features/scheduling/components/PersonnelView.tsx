@@ -1,6 +1,7 @@
 import { ChangeEvent, ReactNode, useRef, useState } from "react";
 import { FiArrowLeft, FiArrowRight, FiCheck, FiEdit2, FiInfo, FiPlus, FiTrash2 } from "react-icons/fi";
 
+import { PlanLimitModal } from "@/components/composed/PlanLimitModal";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { StepProgress } from "@/components/composed/StepProgress";
 import { Button } from "@/components/ui/Button";
@@ -12,12 +13,14 @@ import { cx } from "@/components/ui/utils";
 import { AvailabilityEditor, dayKeys } from "@/features/scheduling/components/AvailabilityEditor";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
-import { Employee, ServiceSchedule, TimeRange } from "@/features/scheduling/types";
+import { freePlanLimits, isFreePlan } from "@/features/scheduling/plan-limits";
+import { Employee, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
 import { createNewEmployeeDraft } from "@/lib/networking/endpoints/scheduling";
 
 type PersonnelViewProps = {
   messages: Messages;
   employees: Employee[];
+  subscriptionTier: SubscriptionTier;
   onSaveEmployee: (employee: Employee) => Promise<boolean>;
   onDeleteEmployee: (employeeId: string) => Promise<boolean>;
   onValidationWarning: () => void;
@@ -41,6 +44,7 @@ function getInitials(name: string) {
 export function PersonnelView({
   messages,
   employees,
+  subscriptionTier,
   onSaveEmployee,
   onDeleteEmployee,
   onValidationWarning,
@@ -52,12 +56,18 @@ export function PersonnelView({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const [lockedEmployee, setLockedEmployee] = useState<Employee | null>(null);
 
   const currentStep = personnelWizardStepOrder[currentStepIndex] ?? "details";
   const stepItems = personnelWizardStepOrder.map((step) => ({
     id: step,
     label: messages.personnel.steps[step]
   }));
+  const unlockedEmployeeIds = new Set(
+    isFreePlan(subscriptionTier)
+      ? employees.slice(0, freePlanLimits.activeEmployees).map((employee) => employee.id)
+      : employees.map((employee) => employee.id)
+  );
 
   function startCreate() {
     setDraft(createNewEmployeeDraft());
@@ -278,44 +288,73 @@ export function PersonnelView({
       </Card>
 
       <section className="grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {employees.length > 0 ? employees.map((employee) => (
+        {employees.length > 0 ? employees.map((employee) => {
+          const isLockedByPlan = isFreePlan(subscriptionTier) && !unlockedEmployeeIds.has(employee.id);
+
+          return (
           <Card
             key={employee.id}
-            className="flex h-full w-full flex-col overflow-hidden p-0 transition duration-200 hover:-translate-y-1 hover:scale-[1.01] hover:border-brand hover:shadow-lg"
+            className={cx(
+              "relative flex h-full w-full flex-col overflow-hidden p-0 transition duration-200 hover:-translate-y-1 hover:scale-[1.01] hover:border-brand hover:shadow-lg",
+              isLockedByPlan && "hover:translate-y-0 hover:scale-100"
+            )}
           >
-            <div
-              className="h-36 bg-surface-strong bg-cover bg-center"
-              style={{ backgroundImage: employee.imageUrl ? `url(${employee.imageUrl})` : undefined }}
-            />
-            <div className="flex flex-1 flex-col gap-4 p-5">
-              <div className="flex items-start gap-3">
-                <span className={cx("grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-bold text-on-brand", employeeColorClasses[employee.color])}>
-                  {employee.initials}
-                </span>
-                <div className="min-w-0">
-                  <h2 className="truncate text-lg font-bold text-primary">{employee.name}</h2>
-                  <p className="text-sm text-muted">{employee.role}</p>
+            <div className={cx("flex h-full flex-col", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
+              <div
+                className="h-36 bg-surface-strong bg-cover bg-center"
+                style={{ backgroundImage: employee.imageUrl ? `url(${employee.imageUrl})` : undefined }}
+              />
+              <div className="flex flex-1 flex-col gap-4 p-5">
+                <div className="flex items-start gap-3">
+                  <span className={cx("grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-bold text-on-brand", employeeColorClasses[employee.color])}>
+                    {employee.initials}
+                  </span>
+                  <div className="min-w-0">
+                    <h2 className="truncate text-lg font-bold text-primary">{employee.name}</h2>
+                    <p className="text-sm text-muted">{employee.role}</p>
+                  </div>
+                </div>
+
+                <p className="line-clamp-3 text-sm leading-6 text-muted">{employee.description}</p>
+
+                <div className="mt-auto grid gap-2 border-t border-subtle pt-4">
+                  <Button className="w-full" variant="secondary" size="sm" icon={<FiEdit2 />} disabled={isLockedByPlan} onClick={() => startEdit(employee)}>
+                    {messages.actions.edit}
+                  </Button>
+                  <Button className="w-full" variant="danger" size="sm" icon={<FiTrash2 />} disabled={isLockedByPlan} onClick={() => void onDeleteEmployee(employee.id)}>
+                    {messages.actions.delete}
+                  </Button>
                 </div>
               </div>
-
-              <p className="line-clamp-3 text-sm leading-6 text-muted">{employee.description}</p>
-
-              <div className="mt-auto grid gap-2 border-t border-subtle pt-4">
-                <Button className="w-full" variant="secondary" size="sm" icon={<FiEdit2 />} onClick={() => startEdit(employee)}>
-                  {messages.actions.edit}
-                </Button>
-                <Button className="w-full" variant="danger" size="sm" icon={<FiTrash2 />} onClick={() => void onDeleteEmployee(employee.id)}>
-                  {messages.actions.delete}
-                </Button>
-              </div>
             </div>
+            {isLockedByPlan ? (
+              <button
+                type="button"
+                className="absolute inset-0 z-10 grid cursor-pointer place-items-center bg-surface/40 p-5 text-center"
+                onClick={() => setLockedEmployee(employee)}
+              >
+                <span className="rounded-full border border-brand bg-surface px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-brand-strong shadow-sm">
+                  {messages.planLimits.lockedCardHint}
+                </span>
+              </button>
+            ) : null}
           </Card>
-        )) : (
+          );
+        }) : (
           <Card className="h-fit">
             <p className="text-sm text-muted">{messages.personnel.empty}</p>
           </Card>
         )}
       </section>
+
+      <PlanLimitModal
+        isOpen={Boolean(lockedEmployee)}
+        badge={messages.planLimits.lockedBadge}
+        title={messages.planLimits.lockedEmployeeTitle}
+        description={messages.planLimits.lockedEmployeeDescription}
+        actionLabel={messages.planLimits.lockedAction}
+        onClose={() => setLockedEmployee(null)}
+      />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
+import { sendBookingConfirmedEmail } from "@/lib/email/booking-emails";
 
 type CreateMercadoPagoPreferenceInput = {
   accessToken: string;
@@ -181,6 +182,8 @@ export async function confirmMercadoPagoAppointmentPayment({
       };
     }
   }
+
+  await sendBookingConfirmedEmail({ appointmentId });
 
   return {
     status: "approved" as const,

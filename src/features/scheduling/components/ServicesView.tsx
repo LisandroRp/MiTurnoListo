@@ -3,6 +3,7 @@ import Image from "next/image";
 import QRCode from "qrcode";
 import { FiArrowLeft, FiArrowRight, FiCheck, FiCopy, FiEdit2, FiInfo, FiLink, FiPlus, FiShare2, FiTrash2, FiX } from "react-icons/fi";
 
+import { PlanLimitModal } from "@/components/composed/PlanLimitModal";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { StepProgress } from "@/components/composed/StepProgress";
 import { Badge } from "@/components/ui/Badge";
@@ -17,7 +18,8 @@ import { cx } from "@/components/ui/utils";
 import { AvailabilityEditor, dayKeys } from "@/features/scheduling/components/AvailabilityEditor";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
-import { Employee, PaymentMethod, Service, ServiceSchedule, TimeRange } from "@/features/scheduling/types";
+import { freePlanLimits, isFreePlan } from "@/features/scheduling/plan-limits";
+import { Employee, PaymentMethod, Service, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 import { createNewServiceDraft } from "@/lib/networking/endpoints/scheduling";
 
@@ -25,6 +27,7 @@ type ServicesViewProps = {
   messages: Messages;
   services: Service[];
   employees: Employee[];
+  subscriptionTier: SubscriptionTier;
   onSaveService: (service: Service) => Promise<boolean>;
   onDeleteService: (serviceId: string) => Promise<boolean>;
   onValidationWarning: () => void;
@@ -43,6 +46,7 @@ export function ServicesView({
   messages,
   services,
   employees,
+  subscriptionTier,
   onSaveService,
   onDeleteService,
   onValidationWarning,
@@ -58,6 +62,12 @@ export function ServicesView({
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [savingVisibilityId, setSavingVisibilityId] = useState<string | null>(null);
   const [sharingService, setSharingService] = useState<Service | null>(null);
+  const [lockedService, setLockedService] = useState<Service | null>(null);
+  const unlockedVisibleServiceIds = new Set(
+    isFreePlan(subscriptionTier)
+      ? services.filter((service) => service.isVisible).slice(0, freePlanLimits.visibleServices).map((service) => service.id)
+      : services.map((service) => service.id)
+  );
 
   const currentStep = serviceWizardStepOrder[currentStepIndex] ?? "details";
   const stepItems = serviceWizardStepOrder.map((step) => ({
@@ -392,61 +402,81 @@ export function ServicesView({
       </Card>
 
       <section className="grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {services.length > 0 ? services.map((service) => (
+        {services.length > 0 ? services.map((service) => {
+          const isLockedByPlan = isFreePlan(subscriptionTier) && service.isVisible && !unlockedVisibleServiceIds.has(service.id);
+
+          return (
           <Card
             key={service.id}
-            className="flex h-full w-full flex-col overflow-hidden p-0 transition duration-200 hover:-translate-y-1 hover:scale-[1.01] hover:border-brand hover:shadow-lg"
+            className={cx(
+              "relative flex h-full w-full flex-col overflow-hidden p-0 transition duration-200 hover:-translate-y-1 hover:scale-[1.01] hover:border-brand hover:shadow-lg",
+              isLockedByPlan && "hover:translate-y-0 hover:scale-100"
+            )}
           >
-            <div
-              className="h-36 bg-surface-strong bg-cover bg-center"
-              style={{ backgroundImage: service.imageUrl ? `url(${service.imageUrl})` : undefined }}
-            />
-            <div className="flex flex-1 flex-col gap-4 p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-bold text-primary">{service.name}</h2>
-                  <p className="mt-1 line-clamp-2 text-sm text-muted">{service.description}</p>
+            <div className={cx("flex h-full flex-col", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
+              <div
+                className="h-36 bg-surface-strong bg-cover bg-center"
+                style={{ backgroundImage: service.imageUrl ? `url(${service.imageUrl})` : undefined }}
+              />
+              <div className="flex flex-1 flex-col gap-4 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-bold text-primary">{service.name}</h2>
+                    <p className="mt-1 line-clamp-2 text-sm text-muted">{service.description}</p>
+                  </div>
+                  <VisibilitySwitch
+                    messages={messages}
+                    isVisible={service.isVisible}
+                    isLoading={savingVisibilityId === service.id}
+                    onToggle={() => void toggleServiceVisibility(service)}
+                  />
                 </div>
-                <VisibilitySwitch
-                  messages={messages}
-                  isVisible={service.isVisible}
-                  isLoading={savingVisibilityId === service.id}
-                  onToggle={() => void toggleServiceVisibility(service)}
-                />
-              </div>
 
-              <dl className="grid grid-cols-2 gap-3 text-sm">
-                <ServiceFact label={messages.services.price} value={formatCurrency(service.price)} />
-                <ServiceFact label={messages.services.duration} value={`${service.durationMinutes} ${messages.services.minutes}`} />
-                <ServiceFact label={messages.services.capacity} value={`${service.capacity} ${messages.services.people}`} />
-                <ServiceFact label={messages.services.deposit} value={formatCurrency(service.deposit)} />
-              </dl>
+                <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <ServiceFact label={messages.services.price} value={formatCurrency(service.price)} />
+                  <ServiceFact label={messages.services.duration} value={`${service.durationMinutes} ${messages.services.minutes}`} />
+                  <ServiceFact label={messages.services.capacity} value={`${service.capacity} ${messages.services.people}`} />
+                  <ServiceFact label={messages.services.deposit} value={formatCurrency(service.deposit)} />
+                </dl>
 
-              <div className="mt-auto grid gap-2 border-t border-subtle pt-4">
-                <Button
-                  className="w-full"
-                  variant="secondary"
-                  size="sm"
-                  icon={<FiShare2 />}
-                  disabled={!service.isVisible}
-                  title={!service.isVisible ? messages.services.shareHiddenHint : messages.actions.share}
-                  onClick={() => setSharingService(service)}
-                >
-                  {messages.actions.share}
-                </Button>
-                <Button className="w-full" variant="secondary" size="sm" icon={<FiEdit2 />} onClick={() => startEdit(service)}>
-                  {messages.actions.edit}
-                </Button>
-                <Button className="w-full" variant="secondary" size="sm" icon={<FiCopy />} onClick={() => startDuplicate(service)}>
-                  {messages.actions.duplicate}
-                </Button>
-                <Button className="w-full" variant="danger" size="sm" icon={<FiTrash2 />} onClick={() => void onDeleteService(service.id)}>
-                  {messages.actions.delete}
-                </Button>
+                <div className="mt-auto grid gap-2 border-t border-subtle pt-4">
+                  <Button
+                    className="w-full"
+                    variant="secondary"
+                    size="sm"
+                    icon={<FiShare2 />}
+                    disabled={!service.isVisible || isLockedByPlan}
+                    title={!service.isVisible ? messages.services.shareHiddenHint : messages.actions.share}
+                    onClick={() => setSharingService(service)}
+                  >
+                    {messages.actions.share}
+                  </Button>
+                  <Button className="w-full" variant="secondary" size="sm" icon={<FiEdit2 />} disabled={isLockedByPlan} onClick={() => startEdit(service)}>
+                    {messages.actions.edit}
+                  </Button>
+                  <Button className="w-full" variant="secondary" size="sm" icon={<FiCopy />} disabled={isLockedByPlan} onClick={() => startDuplicate(service)}>
+                    {messages.actions.duplicate}
+                  </Button>
+                  <Button className="w-full" variant="danger" size="sm" icon={<FiTrash2 />} disabled={isLockedByPlan} onClick={() => void onDeleteService(service.id)}>
+                    {messages.actions.delete}
+                  </Button>
+                </div>
               </div>
             </div>
+            {isLockedByPlan ? (
+              <button
+                type="button"
+                className="absolute inset-0 z-10 grid cursor-pointer place-items-center bg-surface/40 p-5 text-center"
+                onClick={() => setLockedService(service)}
+              >
+                <span className="rounded-full border border-brand bg-surface px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-brand-strong shadow-sm">
+                  {messages.planLimits.lockedCardHint}
+                </span>
+              </button>
+            ) : null}
           </Card>
-        )) : (
+          );
+        }) : (
           <Card className="h-fit">
             <p className="text-sm text-muted">{messages.services.empty}</p>
           </Card>
@@ -463,6 +493,15 @@ export function ServicesView({
           onCopy={() => void copyServiceLink(sharingService)}
         />
       ) : null}
+
+      <PlanLimitModal
+        isOpen={Boolean(lockedService)}
+        badge={messages.planLimits.lockedBadge}
+        title={messages.planLimits.lockedServiceTitle}
+        description={messages.planLimits.lockedServiceDescription}
+        actionLabel={messages.planLimits.lockedAction}
+        onClose={() => setLockedService(null)}
+      />
     </div>
   );
 }

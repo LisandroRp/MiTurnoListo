@@ -79,6 +79,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return `${baseUrl}/login?mode=recovery`;
   }
 
+  function getEmailConfirmationRedirectUrl() {
+    const fallbackOrigin = window.location.origin;
+    const baseUrl = (siteUrl ?? fallbackOrigin).trim().replace(/\/+$/, "");
+
+    return `${baseUrl}/login`;
+  }
+
   function hasPasswordRecoveryReturn() {
     const searchParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -211,7 +218,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const normalizedEmail = email.trim().toLowerCase();
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
-      password
+      password,
+      options: {
+        emailRedirectTo: getEmailConfirmationRedirectUrl()
+      }
     });
 
     if (error) {

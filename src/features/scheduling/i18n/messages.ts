@@ -114,6 +114,15 @@ export const messages = {
         currentTeam: "Equipo cargado"
       }
     },
+    planLimits: {
+      lockedBadge: "Plan Premium",
+      lockedServiceTitle: "Servicio bloqueado por el plan Free",
+      lockedServiceDescription: "Este servicio supera el limite de servicios visibles del plan Free. Activa Premium para volver a editarlo, compartirlo o dejarlo disponible.",
+      lockedEmployeeTitle: "Empleado bloqueado por el plan Free",
+      lockedEmployeeDescription: "Este empleado supera el limite de integrantes del plan Free. Activa Premium para volver a editarlo o usarlo normalmente.",
+      lockedAction: "Ver plan Premium",
+      lockedCardHint: "Disponible al activar Premium"
+    },
     calendar: {
       eyebrow: "Agenda",
       title: "Calendario de turnos",
@@ -281,10 +290,15 @@ export const messages = {
       ],
       subscribeTitle: "¿Quieres suscribirte al plan Pro?",
       subscribeDescription: "Vas a desbloquear reservas publicas, pagos online y herramientas pensadas para una agenda más profesional.",
+      subscribeBenefitsEyebrow: "Suscripcion recurrente",
+      subscribeCheckoutHint: "Te vamos a redirigir a Mercado Pago para completar una suscripcion mensual segura. Cuando se confirme el cobro, tu negocio pasa automaticamente a Pro.",
       unsubscribeTitle: "¿Deseas desuscribirte del plan Pro?",
       unsubscribeDescription: "Volveras al plan Free con sus limites incluidos. Puedes suscribirte otra vez cuando quieras.",
       subscribeAction: "Suscribirme",
       unsubscribeAction: "Desuscribirme",
+      subscriptionActivatedDescription: "Mercado Pago confirmo tu suscripcion y ya desbloqueamos el plan Pro.",
+      subscriptionPendingTitle: "Estamos verificando tu suscripcion",
+      subscriptionPendingDescription: "Cuando Mercado Pago confirme el alta, el plan Pro se va a activar automaticamente.",
       subscribedToast: "Plan Pro activado",
       unsubscribedToast: "Volviste al plan Free"
     },
@@ -559,6 +573,15 @@ export const messages = {
         currentTeam: "Loaded team"
       }
     },
+    planLimits: {
+      lockedBadge: "Premium plan",
+      lockedServiceTitle: "Service locked by the Free plan",
+      lockedServiceDescription: "This service is over the Free plan visible-services limit. Activate Premium to edit, share or make it available again.",
+      lockedEmployeeTitle: "Employee locked by the Free plan",
+      lockedEmployeeDescription: "This employee is over the Free plan team limit. Activate Premium to edit it or use it normally again.",
+      lockedAction: "View Premium plan",
+      lockedCardHint: "Available after activating Premium"
+    },
     calendar: {
       eyebrow: "Schedule",
       title: "Appointment calendar",
@@ -726,10 +749,15 @@ export const messages = {
       ],
       subscribeTitle: "Do you want to subscribe to the Pro plan?",
       subscribeDescription: "You will unlock public bookings, online payments and tools designed for a more professional schedule.",
+      subscribeBenefitsEyebrow: "Recurring subscription",
+      subscribeCheckoutHint: "We will redirect you to Mercado Pago so you can complete a secure monthly subscription. Once the charge is confirmed, your business is automatically upgraded to Pro.",
       unsubscribeTitle: "Do you want to unsubscribe from the Pro plan?",
       unsubscribeDescription: "You will return to the Free plan with its included limits. You can subscribe again whenever you want.",
       subscribeAction: "Subscribe",
       unsubscribeAction: "Unsubscribe",
+      subscriptionActivatedDescription: "Mercado Pago confirmed your subscription and the Pro plan is now active.",
+      subscriptionPendingTitle: "We are verifying your subscription",
+      subscriptionPendingDescription: "As soon as Mercado Pago confirms it, the Pro plan will be activated automatically.",
       subscribedToast: "Pro plan activated",
       unsubscribedToast: "You switched back to the Free plan"
     },

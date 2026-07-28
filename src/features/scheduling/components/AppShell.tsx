@@ -21,9 +21,10 @@ type AppShellProps = {
 export function AppShell({ children }: AppShellProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const didReconcileSubscription = useRef(false);
   const didShowFreeLimitToast = useRef(false);
   const { logout } = useAuth();
-  const { appointments, dismissToast, isLoading, loadError, messages, profile, showToast, theme, toasts } = useScheduling();
+  const { appointments, businessId, dismissToast, isLoading, loadError, messages, profile, refreshWorkspaceSubscription, showToast, theme, toasts } = useScheduling();
   const pathname = usePathname();
   const activeView = pathname.startsWith("/calendario")
     ? "calendar"
@@ -51,6 +52,37 @@ export function AppShell({ children }: AppShellProps) {
     { id: "profile", label: messages.nav.profile, icon: FiSettings, href: "/perfil" }
   ];
   const activeNavigationItem = navigationItems.find((item) => item.id === activeView) ?? navigationItems[0];
+
+  useEffect(() => {
+    if (
+      didReconcileSubscription.current ||
+      !businessId ||
+      isLoading ||
+      loadError ||
+      profile.subscriptionTier === "pro"
+    ) {
+      return;
+    }
+
+    didReconcileSubscription.current = true;
+    void refreshWorkspaceSubscription().then((result) => {
+      if (result?.subscriptionTier === "pro") {
+        showToast({
+          tone: "success",
+          title: messages.profile.subscribedToast,
+          description: messages.profile.subscriptionActivatedDescription
+        });
+      }
+
+      if (result?.status === "pending") {
+        showToast({
+          tone: "warning",
+          title: messages.profile.subscriptionPendingTitle,
+          description: messages.profile.subscriptionPendingDescription
+        });
+      }
+    });
+  }, [businessId, isLoading, loadError, messages.profile, profile.subscriptionTier, refreshWorkspaceSubscription, showToast]);
 
   useEffect(() => {
     if (

@@ -13,6 +13,7 @@ import {
   mapPaymentSettings,
   mapServices
 } from "@/lib/networking/mappers/scheduling";
+import { sendBookingCreatedEmails } from "@/lib/email/booking-emails";
 import { buildIsoInTimeZone } from "@/lib/networking/utils/date-time";
 import { createMercadoPagoPreference, getMercadoPagoPublicOrigin } from "@/lib/mercadopago/checkout";
 import { notifyPlanLimitReached } from "@/lib/notifications/plan-limits";
@@ -379,6 +380,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ error: "Unable to create the booking." }, { status: 500 });
       }
 
+      await sendBookingCreatedEmails({ appointmentId });
+
       return NextResponse.json({
         appointmentId,
         checkoutUrl: preference.checkoutUrl
@@ -419,6 +422,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (appointmentError || !appointment) {
       return NextResponse.json({ error: "Unable to create the booking." }, { status: 500 });
     }
+
+    await sendBookingCreatedEmails({ appointmentId: appointment.id });
 
     return NextResponse.json({
       appointmentId: appointment.id

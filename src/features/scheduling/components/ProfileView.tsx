@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
-import { FiCheckCircle, FiLock, FiX, FiZap } from "react-icons/fi";
+import { FiArrowRight, FiCheckCircle, FiLock, FiX, FiZap } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/SelectField";
 import { TextField } from "@/components/ui/TextField";
 import { SectionHeader } from "@/components/composed/SectionHeader";
@@ -19,7 +20,8 @@ type ProfileViewProps = {
   onRequestPasswordReset: (email: string) => Promise<void>;
   onLocaleChange: (locale: Locale) => void;
   onThemeChange: (theme: ThemeId) => void;
-  onSubscriptionTierChange: (tier: SubscriptionTier) => void;
+  onSubscribeToPro: () => Promise<void>;
+  onUnsubscribeFromPro: () => Promise<boolean>;
 };
 
 export function ProfileView({
@@ -31,11 +33,13 @@ export function ProfileView({
   onRequestPasswordReset,
   onLocaleChange,
   onThemeChange,
-  onSubscriptionTierChange
+  onSubscribeToPro,
+  onUnsubscribeFromPro
 }: ProfileViewProps) {
   const plansRef = useRef<HTMLDivElement>(null);
   const [pendingTier, setPendingTier] = useState<SubscriptionTier | null>(null);
   const [isRequestingPasswordReset, setIsRequestingPasswordReset] = useState(false);
+  const [isSubmittingPlanChange, setIsSubmittingPlanChange] = useState(false);
   const isProPlan = profile.subscriptionTier === "pro";
 
   function scrollToPlans() {
@@ -54,13 +58,26 @@ export function ProfileView({
     setPendingTier(null);
   }
 
-  function confirmPlanChange() {
+  async function confirmPlanChange() {
     if (!pendingTier) {
       return;
     }
 
-    onSubscriptionTierChange(pendingTier);
-    closeModal();
+    setIsSubmittingPlanChange(true);
+
+    if (pendingTier === "pro") {
+      await onSubscribeToPro();
+      setIsSubmittingPlanChange(false);
+      closeModal();
+      return;
+    }
+
+    const didCancel = await onUnsubscribeFromPro();
+    setIsSubmittingPlanChange(false);
+
+    if (didCancel) {
+      closeModal();
+    }
   }
 
   async function handlePasswordReset() {
@@ -186,9 +203,9 @@ export function ProfileView({
         </div>
       </section>
 
-      {pendingTier ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-primary/35 p-4">
-          <Card className="w-full max-w-lg">
+      <Modal isOpen={Boolean(pendingTier)}>
+        {pendingTier ? (
+          <>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold text-primary">
@@ -203,17 +220,45 @@ export function ProfileView({
               </Button>
             </div>
 
+            {pendingTier === "pro" ? (
+              <div className="mt-6 rounded-2xl border border-brand bg-brand-soft p-5">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand text-lg text-on-brand">
+                    <FiZap aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-brand-strong">{messages.profile.subscribeBenefitsEyebrow}</p>
+                    <h3 className="mt-1 text-lg font-bold text-primary">{messages.profile.proPlan}</h3>
+                    <p className="mt-2 text-sm leading-6 text-muted">{messages.profile.subscribeCheckoutHint}</p>
+                  </div>
+                </div>
+
+                <ul className="mt-5 grid gap-3">
+                  {messages.profile.proPlanFeatures.map((feature) => (
+                    <li key={feature} className="flex items-start gap-3 text-sm text-primary">
+                      <FiCheckCircle className="mt-0.5 shrink-0 text-success" aria-hidden="true" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
               <Button variant="secondary" onClick={closeModal}>
                 {messages.actions.cancel}
               </Button>
-              <Button onClick={confirmPlanChange}>
+              <Button
+                icon={pendingTier === "pro" ? <FiArrowRight /> : undefined}
+                isLoading={isSubmittingPlanChange}
+                onClick={() => void confirmPlanChange()}
+              >
                 {pendingTier === "pro" ? messages.profile.subscribeAction : messages.profile.unsubscribeAction}
               </Button>
             </div>
-          </Card>
-        </div>
-      ) : null}
+          </>
+        ) : null}
+      </Modal>
     </div>
   );
 }

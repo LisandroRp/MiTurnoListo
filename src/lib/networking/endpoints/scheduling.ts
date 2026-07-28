@@ -14,6 +14,11 @@ import {
 } from "@/lib/networking/mappers/scheduling";
 import { getAccessToken } from "@/lib/networking/endpoints/auth";
 import { getPaymentSettings, savePaymentSettings as savePaymentSettingsRequest } from "@/lib/networking/endpoints/payment-settings";
+import {
+  cancelProSubscription,
+  createProSubscriptionCheckout,
+  syncProSubscriptionStatus
+} from "@/lib/networking/endpoints/subscription";
 import { getBrowserTimeZone } from "@/lib/networking/utils/date-time";
 
 type SchedulingSnapshot = {
@@ -184,18 +189,16 @@ export async function updateSchedulingPreferences({
   }
 }
 
-export async function updateSubscriptionTier(businessId: string, subscriptionTier: SchedulingSnapshot["profile"]["subscriptionTier"]) {
-  const supabase = getSupabaseBrowserClient();
-  const { error } = await supabase
-    .from("businesses")
-    .update({
-      subscription_tier: subscriptionTier
-    })
-    .eq("id", businessId);
+export async function startProSubscription(businessId: string) {
+  return createProSubscriptionCheckout(businessId);
+}
 
-  if (error) {
-    throw new Error("Unable to update the subscription tier.");
-  }
+export async function deleteProSubscription(businessId: string) {
+  return cancelProSubscription(businessId);
+}
+
+export async function refreshWorkspaceSubscription(businessId: string, preapprovalId?: string) {
+  return syncProSubscriptionStatus(businessId, preapprovalId);
 }
 
 export async function saveEmployee(businessId: string, employee: EmployeeInput) {

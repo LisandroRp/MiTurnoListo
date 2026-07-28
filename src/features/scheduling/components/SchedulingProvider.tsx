@@ -18,15 +18,17 @@ import {
 } from "@/features/scheduling/types";
 import {
   createDashboardAppointment,
+  deleteProSubscription as deleteProSubscriptionRequest,
   deleteAppointment as deleteAppointmentRequest,
   deleteEmployee as deleteEmployeeRequest,
   deleteService as deleteServiceRequest,
   loadSchedulingSnapshot,
+  refreshWorkspaceSubscription as refreshWorkspaceSubscriptionRequest,
   saveEmployee as saveEmployeeRequest,
   savePaymentSettings as savePaymentSettingsRequest,
   saveService as saveServiceRequest,
+  startProSubscription as startProSubscriptionRequest,
   updateSchedulingPreferences,
-  updateSubscriptionTier
 } from "@/lib/networking/endpoints/scheduling";
 
 type SchedulingContextValue = {
@@ -53,6 +55,7 @@ type SchedulingContextValue = {
   dismissToast: (toastId: string) => void;
   employeeQuery: string;
   locale: Locale;
+  businessId: string | null;
   saveEmployee: (employee: Employee) => Promise<boolean>;
   savePaymentSettings: (settings: BusinessPaymentSettings) => Promise<boolean>;
   saveService: (service: Service) => Promise<boolean>;
@@ -61,7 +64,9 @@ type SchedulingContextValue = {
   setEmployeeQuery: (query: string) => void;
   setFocusedDate: (date: string) => void;
   setLocale: (locale: Locale) => Promise<boolean>;
-  setSubscriptionTier: (tier: SubscriptionTier) => Promise<boolean>;
+  startProSubscription: () => Promise<{ checkoutUrl: string; subscriptionTier: SubscriptionTier } | null>;
+  cancelProSubscription: () => Promise<boolean>;
+  refreshWorkspaceSubscription: (preapprovalId?: string) => Promise<{ status: string; subscriptionTier: SubscriptionTier } | null>;
   setTheme: (theme: ThemeId) => Promise<boolean>;
   showToast: (toast: Omit<ToastMessage, "id">) => void;
   theme: ThemeId;
@@ -286,26 +291,90 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function setSubscriptionTier(tier: SubscriptionTier) {
+  async function startProSubscription() {
+    if (!businessId) {
+      return null;
+    }
+
+    try {
+      const result = await startProSubscriptionRequest(businessId);
+
+      if (result.subscriptionTier === "pro") {
+        const didRefresh = await hydrateWorkspace();
+
+        if (didRefresh) {
+          showToast({
+            tone: "success",
+            title: copy.profile.subscribedToast
+          });
+        }
+      }
+
+      return result;
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Subscription update failed",
+        description: getErrorMessage(error, "Unable to start the subscription.")
+      });
+      return null;
+    }
+  }
+
+  async function cancelProSubscription() {
     if (!businessId) {
       return false;
     }
 
     try {
-      await updateSubscriptionTier(businessId, tier);
-      setProfileState((current) => ({ ...current, subscriptionTier: tier }));
+      await deleteProSubscriptionRequest(businessId);
+      const didRefresh = await hydrateWorkspace();
+
+      if (!didRefresh) {
+        showToast({
+          tone: "warning",
+          title: copy.profile.unsubscribedToast,
+          description: "La suscripcion se cancelo, pero la vista necesita refrescarse."
+        });
+        return true;
+      }
+
       showToast({
         tone: "success",
-        title: tier === "pro" ? copy.profile.subscribedToast : copy.profile.unsubscribedToast
+        title: copy.profile.unsubscribedToast
       });
       return true;
     } catch (error) {
       showToast({
         tone: "error",
         title: "Subscription update failed",
-        description: getErrorMessage(error, "Unable to update the subscription.")
+        description: getErrorMessage(error, "Unable to cancel the subscription.")
       });
       return false;
+    }
+  }
+
+  async function refreshWorkspaceSubscription(preapprovalId?: string) {
+    if (!businessId) {
+      return null;
+    }
+
+    try {
+      const result = await refreshWorkspaceSubscriptionRequest(businessId, preapprovalId);
+      const didRefresh = await hydrateWorkspace();
+
+      if (!didRefresh) {
+        return result;
+      }
+
+      return result;
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Subscription update failed",
+        description: getErrorMessage(error, "Unable to verify the subscription.")
+      });
+      return null;
     }
   }
 
@@ -410,7 +479,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     <SchedulingContext.Provider
       value={{
         appointments: appointmentList,
+        businessId,
         dashboardMetrics,
+        cancelProSubscription,
         employees: employeeList,
         focusedDate,
         isLoading,
@@ -432,7 +503,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         setEmployeeQuery,
         setFocusedDate,
         setLocale,
-        setSubscriptionTier,
+        startProSubscription,
+        refreshWorkspaceSubscription,
         setTheme,
         showToast,
         theme,

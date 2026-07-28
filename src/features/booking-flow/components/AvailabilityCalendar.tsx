@@ -154,8 +154,8 @@ export function AvailabilityCalendar({
       </div>
 
       {isMobileSheetOpen && selectedDate ? (
-        <div className="fixed inset-0 z-50 grid overscroll-contain bg-primary/35 p-4 lg:hidden">
-          <div className="mt-auto max-h-[85dvh] overflow-y-auto overscroll-contain rounded-[28px] bg-sidebar p-5 shadow-xl">
+        <div className="p-safe fixed inset-0 z-50 grid overscroll-contain bg-primary/35 lg:hidden">
+          <div className="pb-safe mt-auto max-h-[85dvh] overflow-y-auto overscroll-contain rounded-[28px] bg-sidebar px-5 pt-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h3 className="text-lg font-bold text-primary">{formatLongDate(selectedDate, locale)}</h3>
               <Button size="icon" variant="ghost" aria-label="Close schedule" onClick={() => setIsMobileSheetOpen(false)}>

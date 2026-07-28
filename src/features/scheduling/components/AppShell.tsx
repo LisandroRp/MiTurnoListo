@@ -184,7 +184,7 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           </div>
         </header>
-        <div className="mx-auto grid min-w-0 overflow-auto max-w-[1440px] gap-6 px-4 py-5 sm:px-6 lg:px-8">
+        <div className="pb-safe-6 mx-auto grid min-w-0 max-w-[1440px] gap-6 overflow-auto px-4 pt-5 sm:px-6 lg:px-8 lg:pb-5">
           {children}
         </div>
       </main>

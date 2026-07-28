@@ -17,7 +17,7 @@ export function Modal({ children, className, isOpen }: ModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-primary/35 p-4">
+    <div className="p-safe fixed inset-0 z-50 grid place-items-center bg-primary/35">
       <Card
         role="dialog"
         aria-modal="true"

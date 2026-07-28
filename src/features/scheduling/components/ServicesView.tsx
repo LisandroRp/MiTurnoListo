@@ -539,7 +539,7 @@ function ShareServiceModal({
   }, [serviceUrl]);
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-primary/35 p-4">
+    <div className="p-safe fixed inset-0 z-50 grid place-items-center bg-primary/35">
       <Card className="grid w-fit max-w-full gap-5">
         <div className="flex items-start justify-between gap-4">
           <div>

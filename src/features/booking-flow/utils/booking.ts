@@ -16,10 +16,7 @@ export function getAvailablePaymentOptions(
   paymentSettings: BusinessPaymentSettings
 ): BookingPaymentOption[] {
   const options: BookingPaymentOption[] = [];
-  const hasMercadoPago = Boolean(
-    paymentSettings.mercadoPago.isConfigured &&
-    paymentSettings.mercadoPago.publicKey.trim()
-  );
+  const hasMercadoPago = paymentSettings.mercadoPago.isConfigured;
   const hasTransfer = Boolean(
     paymentSettings.transfers.accountHolder.trim() &&
     paymentSettings.transfers.cbu.trim() &&

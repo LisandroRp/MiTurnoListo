@@ -325,9 +325,10 @@ export const messages = {
       credentialsGuideSteps: [
         "Inicia sesion en Mercado Pago Developers.",
         "Crea una aplicacion sin plataforma eCommerce y producto Checkout Pro.",
-        "Ve a la seccion Credenciales.",
-        "Copia las credenciales de produccion."
+        "Ve a la seccion Credenciales de produccion.",
+        "Copia el Access Token y pegalo aca."
       ],
+      mercadoPagoCheckoutHint: "Con este Access Token creamos links de pago para tus clientes. La plata entra directo en tu cuenta de Mercado Pago y MiTurnoListo recibe la notificacion automaticamente para confirmar el turno.",
       transferTitle: "Datos de Pago",
       bankDataTitle: "Datos Bancarios",
       accountHolder: "Nombre del Titular",
@@ -784,9 +785,10 @@ export const messages = {
       credentialsGuideSteps: [
         "Sign in to Mercado Pago Developers.",
         "Create an application without an eCommerce platform and select Checkout Pro.",
-        "Go to the Credentials section.",
-        "Copy the production credentials."
+        "Go to the production Credentials section.",
+        "Copy the Access Token and paste it here."
       ],
+      mercadoPagoCheckoutHint: "We use this Access Token to create payment links for your customers. Money goes directly to your Mercado Pago account and MiTurnoListo receives the notification automatically to confirm the booking.",
       transferTitle: "Payment data",
       bankDataTitle: "Bank details",
       accountHolder: "Account holder name",

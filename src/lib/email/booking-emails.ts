@@ -41,19 +41,22 @@ export async function sendBookingCreatedEmails(input: BookingEmailInput) {
   ]);
 }
 
-export async function sendBookingConfirmedEmail(input: BookingEmailInput) {
+export async function sendBookingConfirmedEmails(input: BookingEmailInput) {
   const context = await getAppointmentEmailContext(input.appointmentId);
 
   if (!context) {
     return;
   }
 
-  await sendEmail({
-    html: buildBookingConfirmedHtml(context),
-    subject: `Turno confirmado en ${context.businessName}`,
-    text: buildBookingConfirmedText(context),
-    to: context.customerEmail
-  });
+  await Promise.all([
+    sendEmail({
+      html: buildBookingConfirmedHtml(context),
+      subject: `Turno confirmado en ${context.businessName}`,
+      text: buildBookingConfirmedText(context),
+      to: context.customerEmail
+    }),
+    sendBusinessPaymentConfirmedEmail(context)
+  ]);
 }
 
 export async function sendPlanLimitReachedEmail({ businessId }: { businessId: string }) {
@@ -85,6 +88,23 @@ async function sendBusinessBookingNotificationEmail(context: AppointmentEmailCon
     replyTo: context.customerEmail,
     subject: `Nueva reserva: ${context.serviceName}`,
     text: buildBusinessNotificationText(context),
+    to: ownerContext.ownerEmail
+  });
+}
+
+async function sendBusinessPaymentConfirmedEmail(context: AppointmentEmailContext) {
+  const supabase = getSupabaseAdminClient();
+  const ownerContext = await getBusinessOwnerContext(supabase, context.businessId);
+
+  if (!ownerContext) {
+    return;
+  }
+
+  await sendEmail({
+    html: buildBusinessPaymentConfirmedHtml(context),
+    replyTo: context.customerEmail,
+    subject: `Pago confirmado: ${context.serviceName}`,
+    text: buildBusinessPaymentConfirmedText(context),
     to: ownerContext.ownerEmail
   });
 }
@@ -227,6 +247,23 @@ function buildBusinessNotificationHtml(context: AppointmentEmailContext) {
       <p><strong>Email:</strong> ${escapeHtml(context.customerEmail)}</p>
     `,
     title: "Nueva reserva"
+  });
+}
+
+function buildBusinessPaymentConfirmedText(context: AppointmentEmailContext) {
+  return `Pago confirmado por Mercado Pago para ${context.serviceName}. Cliente: ${context.customerName}. Fecha: ${formatAppointmentDate(context.startsAt)}. Total: ${formatCurrency(context.totalAmount)}.`;
+}
+
+function buildBusinessPaymentConfirmedHtml(context: AppointmentEmailContext) {
+  return buildEmailShell({
+    body: `
+      <p>Mercado Pago confirmo el cobro de una reserva.</p>
+      ${buildAppointmentDetails(context)}
+      <p><strong>Cliente:</strong> ${escapeHtml(context.customerName)}</p>
+      <p><strong>Telefono:</strong> ${escapeHtml(context.customerPhone || "-")}</p>
+      <p><strong>Email:</strong> ${escapeHtml(context.customerEmail)}</p>
+    `,
+    title: "Pago confirmado"
   });
 }
 

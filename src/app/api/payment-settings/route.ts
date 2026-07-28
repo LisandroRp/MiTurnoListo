@@ -72,7 +72,6 @@ export async function PUT(request: NextRequest) {
     .limit(1)
     .maybeSingle();
 
-  const nextPublicKey = normalizeMercadoPagoCredential(body.settings.mercadoPago.publicKey);
   const nextAccessToken = normalizeMercadoPagoCredential(body.settings.mercadoPago.accessToken) || currentSettings?.mercadopago_access_token || null;
   const nextTransfers = {
     accountHolder: normalizeTransferValue(body.settings.transfers.accountHolder),
@@ -90,14 +89,11 @@ export async function PUT(request: NextRequest) {
         nextTransfers.cbu &&
         nextTransfers.alias
       ),
-      allow_mercadopago: Boolean(
-        nextPublicKey &&
-        (nextAccessToken ?? "").trim()
-      ),
+      allow_mercadopago: Boolean((nextAccessToken ?? "").trim()),
       transfer_account_holder: nextTransfers.accountHolder || null,
       transfer_cbu: nextTransfers.cbu || null,
       transfer_alias: nextTransfers.alias || null,
-      mercadopago_public_key: nextPublicKey || null,
+      mercadopago_public_key: null,
       mercadopago_access_token: nextAccessToken
     });
 
@@ -108,8 +104,8 @@ export async function PUT(request: NextRequest) {
   return NextResponse.json({
     mercadoPago: {
       accessToken: "",
-      publicKey: nextPublicKey,
-      isConfigured: Boolean(nextPublicKey && (nextAccessToken ?? "").trim())
+      publicKey: "",
+      isConfigured: Boolean((nextAccessToken ?? "").trim())
     },
     transfers: nextTransfers
   } satisfies BusinessPaymentSettings);

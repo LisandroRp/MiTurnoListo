@@ -1,5 +1,5 @@
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
-import { sendBookingConfirmedEmail } from "@/lib/email/booking-emails";
+import { sendBookingConfirmedEmails } from "@/lib/email/booking-emails";
 
 type CreateMercadoPagoPreferenceInput = {
   accessToken: string;
@@ -45,6 +45,7 @@ export async function createMercadoPagoPreference({
   serviceName
 }: CreateMercadoPagoPreferenceInput) {
   const resultUrl = `${origin}/reservar/resultado?appointmentId=${encodeURIComponent(appointmentId)}`;
+  const notificationUrl = buildMercadoPagoPaymentNotificationUrl(origin, appointmentId);
   const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
     method: "POST",
     headers: {
@@ -75,9 +76,7 @@ export async function createMercadoPagoPreference({
           number: customer.phone
         }
       },
-      ...(origin.startsWith("https://")
-        ? { notification_url: `${origin}/api/mercadopago/webhook?appointmentId=${encodeURIComponent(appointmentId)}` }
-        : {})
+      notification_url: notificationUrl
     })
   });
 
@@ -99,6 +98,19 @@ export async function createMercadoPagoPreference({
     checkoutUrl,
     preferenceId: preference.id ?? ""
   };
+}
+
+function buildMercadoPagoPaymentNotificationUrl(origin: string, appointmentId: string) {
+  const notificationUrl = new URL("/api/mercadopago/webhook", origin);
+  const webhookToken = process.env.MP_WEBHOOK_TOKEN?.trim();
+
+  notificationUrl.searchParams.set("appointmentId", appointmentId);
+
+  if (webhookToken) {
+    notificationUrl.searchParams.set("token", webhookToken);
+  }
+
+  return notificationUrl.toString();
 }
 
 export async function confirmMercadoPagoAppointmentPayment({
@@ -169,11 +181,16 @@ export async function confirmMercadoPagoAppointmentPayment({
     };
   }
 
+  let shouldSendConfirmationEmails = false;
+
   if (appointment.status !== "confirmed") {
-    const { error: updateError } = await supabase
+    const { data: confirmedAppointment, error: updateError } = await supabase
       .from("appointments")
       .update({ status: "confirmed" })
-      .eq("id", appointmentId);
+      .eq("id", appointmentId)
+      .neq("status", "confirmed")
+      .select("id")
+      .maybeSingle();
 
     if (updateError) {
       return {
@@ -181,9 +198,13 @@ export async function confirmMercadoPagoAppointmentPayment({
         isConfirmed: false
       };
     }
+
+    shouldSendConfirmationEmails = Boolean(confirmedAppointment);
   }
 
-  await sendBookingConfirmedEmail({ appointmentId });
+  if (shouldSendConfirmationEmails) {
+    await sendBookingConfirmedEmails({ appointmentId });
+  }
 
   return {
     status: "approved" as const,

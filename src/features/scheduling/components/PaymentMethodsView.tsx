@@ -5,7 +5,6 @@ import {
   FiAtSign,
   FiCreditCard,
   FiExternalLink,
-  FiGlobe,
   FiKey,
   FiLock,
   FiSave,
@@ -46,14 +45,12 @@ export function PaymentMethodsView({ messages, paymentSettings, onSave }: Paymen
   const copy = messages.adminPaymentMethods;
   const [activeTab, setActiveTab] = useState<PaymentTab>("mercadoPago");
   const [accessToken, setAccessToken] = useState(normalizeMercadoPagoCredential(paymentSettings.mercadoPago.accessToken));
-  const [publicKey, setPublicKey] = useState(normalizeMercadoPagoCredential(paymentSettings.mercadoPago.publicKey));
   const [accountHolder, setAccountHolder] = useState(normalizeTransferValue(paymentSettings.transfers.accountHolder));
   const [cbu, setCbu] = useState(normalizeTransferValue(paymentSettings.transfers.cbu));
   const [alias, setAlias] = useState(normalizeTransferValue(paymentSettings.transfers.alias));
 
   useEffect(() => {
     setAccessToken(normalizeMercadoPagoCredential(paymentSettings.mercadoPago.accessToken));
-    setPublicKey(normalizeMercadoPagoCredential(paymentSettings.mercadoPago.publicKey));
     setAccountHolder(normalizeTransferValue(paymentSettings.transfers.accountHolder));
     setCbu(normalizeTransferValue(paymentSettings.transfers.cbu));
     setAlias(normalizeTransferValue(paymentSettings.transfers.alias));
@@ -64,7 +61,7 @@ export function PaymentMethodsView({ messages, paymentSettings, onSave }: Paymen
     await onSave({
       mercadoPago: {
         accessToken: normalizeMercadoPagoCredential(accessToken),
-        publicKey: normalizeMercadoPagoCredential(publicKey),
+        publicKey: "",
         isConfigured: paymentSettings.mercadoPago.isConfigured
       },
       transfers: {
@@ -94,9 +91,7 @@ export function PaymentMethodsView({ messages, paymentSettings, onSave }: Paymen
             messages={messages}
             accessToken={accessToken}
             hasStoredAccessToken={paymentSettings.mercadoPago.isConfigured}
-            publicKey={publicKey}
             onAccessTokenChange={setAccessToken}
-            onPublicKeyChange={setPublicKey}
           />
         ) : (
           <TransfersPanel
@@ -162,16 +157,12 @@ function MercadoPagoPanel({
   messages,
   accessToken,
   hasStoredAccessToken,
-  publicKey,
-  onAccessTokenChange,
-  onPublicKeyChange
+  onAccessTokenChange
 }: {
   messages: Messages;
   accessToken: string;
   hasStoredAccessToken: boolean;
-  publicKey: string;
   onAccessTokenChange: (value: string) => void;
-  onPublicKeyChange: (value: string) => void;
 }) {
   const copy = messages.adminPaymentMethods;
 
@@ -189,14 +180,6 @@ function MercadoPagoPanel({
 
           <div className="mt-6 grid gap-5">
             <TextField
-              label={copy.publicKey}
-              value={publicKey}
-              prefix={<FiGlobe />}
-              placeholder="APP_USR-XXXXXXXXXXXXXXXXXXXX"
-              helperText={copy.publicKeyHint}
-              onChange={(event) => onPublicKeyChange(event.target.value)}
-            />
-            <TextField
               label={copy.accessToken}
               value={accessToken}
               placeholder={hasStoredAccessToken ? "••••••••••••••••" : "APP_USR-XXXXXXXXXXXXXXXXXXXX"}
@@ -208,6 +191,9 @@ function MercadoPagoPanel({
               }
               onChange={(event) => onAccessTokenChange(event.target.value)}
             />
+            <p className="rounded-lg border border-subtle bg-surface p-3 text-sm leading-6 text-muted">
+              {copy.mercadoPagoCheckoutHint}
+            </p>
           </div>
         </div>
 

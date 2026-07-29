@@ -241,16 +241,20 @@ export async function deleteService(serviceId: string) {
   }
 }
 
-export async function deleteAppointment(appointmentId: string) {
-  const supabase = getSupabaseBrowserClient();
-  const { error } = await supabase
-    .from("appointments")
-    .delete()
-    .eq("id", appointmentId);
+export async function deleteAppointment(businessId: string, appointmentId: string) {
+  await runSchedulingMutation({
+    action: "cancelAppointment",
+    appointmentId,
+    businessId
+  });
+}
 
-  if (error) {
-    throw new Error("Unable to delete the appointment.");
-  }
+export async function markAppointmentPaid(businessId: string, appointmentId: string) {
+  await runSchedulingMutation({
+    action: "markAppointmentPaid",
+    appointmentId,
+    businessId
+  });
 }
 
 export async function createDashboardAppointment({

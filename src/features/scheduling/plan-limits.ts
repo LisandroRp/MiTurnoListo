@@ -18,11 +18,15 @@ export function getCurrentMonthRange(referenceDate = new Date()) {
   };
 }
 
-export function getMonthlyAppointmentUsage(appointments: { date: string }[], referenceDate = new Date()) {
+export function getMonthlyAppointmentUsage(appointments: { date: string; status?: string }[], referenceDate = new Date()) {
   const currentYear = referenceDate.getFullYear();
   const currentMonth = referenceDate.getMonth();
 
   return appointments.filter((appointment) => {
+    if (appointment.status === "cancelled") {
+      return false;
+    }
+
     const appointmentDate = new Date(`${appointment.date}T12:00:00`);
 
     return appointmentDate.getFullYear() === currentYear && appointmentDate.getMonth() === currentMonth;

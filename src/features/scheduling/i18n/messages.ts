@@ -138,6 +138,9 @@ export const messages = {
       nextPeriod: "Periodo siguiente",
       noAppointments: "No hay turnos para esta seleccion.",
       appointments: "turnos",
+      paymentPending: "Pendiente de pago",
+      paymentPaid: "Pagado",
+      markAsPaid: "Marcar como pagado",
       enabled: "Activo",
       disabled: "Oculto",
       freeLimitTitle: "Uso mensual del plan Free",
@@ -158,6 +161,7 @@ export const messages = {
       deposit: "Anticipo",
       leadTime: "Anticipacion",
       paymentMethod: "Metodo de pago",
+      mercadoPagoDisabledHint: "Configura Mercado Pago en Metodos de pago para poder elegir Tarjeta o Todos los anteriores.",
       detailsSection: "Datos del servicio",
       detailsSectionHint: "Defini nombre, descripcion, imagen y visibilidad.",
       bookingSection: "Reserva y cobro",
@@ -205,6 +209,7 @@ export const messages = {
       validation: {
         details: "Carga un nombre para continuar.",
         booking: "Revisa precio, duracion, capacidad, anticipo y anticipacion antes de continuar.",
+        mercadoPago: "Configura Mercado Pago antes de usarlo como metodo de pago del servicio.",
         staff: "Selecciona al menos una persona para tomar este servicio."
       }
     },
@@ -329,6 +334,7 @@ export const messages = {
         "Copia el Access Token y pegalo aca."
       ],
       mercadoPagoCheckoutHint: "Con este Access Token creamos links de pago para tus clientes. La plata entra directo en tu cuenta de Mercado Pago y MiTurnoListo recibe la notificacion automaticamente para confirmar el turno.",
+      mercadoPagoCostsDisclaimer: "Mercado Pago puede descontar costos por el uso del servicio y demorar hasta 18 dias en liberar el dinero, segun las condiciones de tu cuenta.",
       transferTitle: "Datos de Pago",
       bankDataTitle: "Datos Bancarios",
       accountHolder: "Nombre del Titular",
@@ -337,6 +343,10 @@ export const messages = {
       cbuPlaceholder: "Introducir CBU (22 digitos)",
       alias: "Alias",
       aliasPlaceholder: "Introducir alias de la cuenta",
+      receiptWhatsapp: "WhatsApp para comprobantes",
+      receiptWhatsappPlaceholder: "Ej: +54 9 11 1234-5678",
+      receiptWhatsappHint: "Aca los clientes van a enviar el comprobante de transferencia.",
+      receiptWhatsappRequired: "Carga un WhatsApp para poder guardar transferencias. Lo mostramos al final de la reserva para que envien el comprobante.",
       paymentDataSaved: "Datos de pago guardados",
       paymentDataDisclaimer: "Estos datos se guardan en la base y se usan en el flujo publico de reservas."
     },
@@ -392,6 +402,11 @@ export const messages = {
       summaryTitle: "Revisa tu reserva",
       summaryHint: "Si todo esta bien, confirmamos el turno y te mostramos el detalle final.",
       businessPaymentInfo: "Datos para pago por transferencia",
+      transferReceiptWhatsappAction: "Enviar comprobante por WhatsApp",
+      transferReceiptWhatsappHint: "El negocio confirmara el turno cuando valide el comprobante.",
+      transferReceiptWhatsappMessage: "Comprobante del turno para {serviceName}. Cliente: {customerName}. Horario: {date} de {time}.",
+      copyValue: "Copiar",
+      copied: "Copiado",
       reservationCreated: "Reserva confirmada",
       successTitle: "Turno reservado",
       successDescription: "Tu reserva quedo registrada. Te recomendamos guardar este detalle y enviar el comprobante si corresponde.",
@@ -422,7 +437,8 @@ export const messages = {
     toast: {
       serviceSaved: "Servicio guardado",
       serviceDeleted: "Servicio eliminado",
-      appointmentDeleted: "Turno eliminado",
+      appointmentDeleted: "Turno cancelado",
+      appointmentPaid: "Turno marcado como pagado",
       employeeSaved: "Personal guardado",
       employeeDeleted: "Personal eliminado",
       serviceLinkCopied: "Link del servicio copiado",
@@ -598,6 +614,9 @@ export const messages = {
       nextPeriod: "Next period",
       noAppointments: "No appointments for this selection.",
       appointments: "appointments",
+      paymentPending: "Payment pending",
+      paymentPaid: "Paid",
+      markAsPaid: "Mark as paid",
       enabled: "Enabled",
       disabled: "Hidden",
       freeLimitTitle: "Free plan monthly usage",
@@ -618,6 +637,7 @@ export const messages = {
       deposit: "Deposit",
       leadTime: "Lead time",
       paymentMethod: "Payment method",
+      mercadoPagoDisabledHint: "Configure Mercado Pago in Payment methods before choosing Card or All previous methods.",
       detailsSection: "Service details",
       detailsSectionHint: "Define name, description, image and visibility.",
       bookingSection: "Booking and payment",
@@ -665,6 +685,7 @@ export const messages = {
       validation: {
         details: "Add a name to continue.",
         booking: "Review price, duration, capacity, deposit and lead time before continuing.",
+        mercadoPago: "Configure Mercado Pago before using it as the service payment method.",
         staff: "Select at least one person who can take this service."
       }
     },
@@ -789,6 +810,7 @@ export const messages = {
         "Copy the Access Token and paste it here."
       ],
       mercadoPagoCheckoutHint: "We use this Access Token to create payment links for your customers. Money goes directly to your Mercado Pago account and MiTurnoListo receives the notification automatically to confirm the booking.",
+      mercadoPagoCostsDisclaimer: "Mercado Pago may deduct service fees and take up to 18 days to release the money, depending on your account conditions.",
       transferTitle: "Payment data",
       bankDataTitle: "Bank details",
       accountHolder: "Account holder name",
@@ -797,6 +819,10 @@ export const messages = {
       cbuPlaceholder: "Enter CBU (22 digits)",
       alias: "Alias",
       aliasPlaceholder: "Enter account alias",
+      receiptWhatsapp: "Receipt WhatsApp",
+      receiptWhatsappPlaceholder: "Ex: +1 555 123 4567",
+      receiptWhatsappHint: "Customers will send their bank-transfer receipt here.",
+      receiptWhatsappRequired: "Add a WhatsApp number to save bank transfers. We show it at the end of the booking so customers can send the receipt.",
       paymentDataSaved: "Payment data saved",
       paymentDataDisclaimer: "This data is stored in the database and used in the public booking flow."
     },
@@ -852,6 +878,11 @@ export const messages = {
       summaryTitle: "Review your booking",
       summaryHint: "If everything looks good, we will confirm the appointment and show the final details.",
       businessPaymentInfo: "Transfer payment details",
+      transferReceiptWhatsappAction: "Send receipt by WhatsApp",
+      transferReceiptWhatsappHint: "The business will confirm the appointment after validating the receipt.",
+      transferReceiptWhatsappMessage: "Receipt for the appointment: {serviceName}. Customer: {customerName}. Time: {date} at {time}.",
+      copyValue: "Copy",
+      copied: "Copied",
       reservationCreated: "Booking confirmed",
       successTitle: "Appointment booked",
       successDescription: "Your booking was registered. We recommend saving this detail and sending proof of payment if needed.",
@@ -882,7 +913,8 @@ export const messages = {
     toast: {
       serviceSaved: "Service saved",
       serviceDeleted: "Service deleted",
-      appointmentDeleted: "Appointment deleted",
+      appointmentDeleted: "Appointment cancelled",
+      appointmentPaid: "Appointment marked as paid",
       employeeSaved: "Personnel saved",
       employeeDeleted: "Personnel deleted",
       serviceLinkCopied: "Service link copied",

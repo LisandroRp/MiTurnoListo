@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FiChevronDown, FiChevronLeft, FiChevronRight, FiSearch, FiTrash2 } from "react-icons/fi";
+import { FiCheck, FiChevronDown, FiChevronLeft, FiChevronRight, FiSearch, FiTrash2 } from "react-icons/fi";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -33,6 +33,7 @@ type CalendarViewProps = {
   onEmployeeQueryChange: (value: string) => void;
   onToggleEmployee: (employeeId: string) => void;
   onDeleteAppointment: (appointmentId: string) => void;
+  onMarkAppointmentPaid: (appointmentId: string) => void;
 };
 
 const modes: CalendarMode[] = ["day", "week", "month"];
@@ -51,14 +52,18 @@ export function CalendarView({
   onFocusedDateChange,
   onEmployeeQueryChange,
   onToggleEmployee,
-  onDeleteAppointment
+  onDeleteAppointment,
+  onMarkAppointmentPaid
 }: CalendarViewProps) {
   const visibleEmployees = employees.filter((employee) => selectedEmployeeIds.includes(employee.id));
   const filteredEmployeeOptions = employees.filter((employee) =>
     employee.name.toLowerCase().includes(employeeQuery.toLowerCase())
   );
   const safeFocusedDate = getSafeFocusedDate(focusedDate);
-  const visibleAppointments = appointments.filter((appointment) => selectedEmployeeIds.includes(appointment.employeeId));
+  const visibleAppointments = appointments.filter((appointment) => (
+    appointment.status !== "cancelled" &&
+    selectedEmployeeIds.includes(appointment.employeeId)
+  ));
   const monthlyAppointmentUsage = getMonthlyAppointmentUsage(appointments);
   const shouldShowFreeLimit = isFreePlan(subscriptionTier);
   const hasReachedFreeLimit = monthlyAppointmentUsage >= freePlanLimits.monthlyAppointments;
@@ -185,6 +190,7 @@ export function CalendarView({
               services={services}
               appointments={visibleAppointments.filter((appointment) => appointment.date === safeFocusedDate)}
               onDeleteAppointment={onDeleteAppointment}
+              onMarkAppointmentPaid={onMarkAppointmentPaid}
             />
           ) : null}
 
@@ -201,6 +207,7 @@ export function CalendarView({
                 onModeChange("day");
               }}
               onDeleteAppointment={onDeleteAppointment}
+              onMarkAppointmentPaid={onMarkAppointmentPaid}
             />
           ) : null}
 
@@ -307,9 +314,10 @@ type CalendarContentProps = {
   services: Service[];
   appointments: Appointment[];
   onDeleteAppointment: (appointmentId: string) => void;
+  onMarkAppointmentPaid: (appointmentId: string) => void;
 };
 
-function DayCalendar({ messages, focusedDate, employees, services, appointments, onDeleteAppointment }: CalendarContentProps) {
+function DayCalendar({ messages, focusedDate, employees, services, appointments, onDeleteAppointment, onMarkAppointmentPaid }: CalendarContentProps) {
   if (appointments.length === 0) {
     return <EmptyCalendar messages={messages} />;
   }
@@ -349,6 +357,7 @@ function DayCalendar({ messages, focusedDate, employees, services, appointments,
                     employee={employee}
                     serviceName={service?.name}
                     onDeleteAppointment={onDeleteAppointment}
+                    onMarkAppointmentPaid={onMarkAppointmentPaid}
                   />
                   ) : null}
                 </div>
@@ -370,6 +379,7 @@ type DateGroupedCalendarProps = {
   appointments: Appointment[];
   onDateClick: (date: string) => void;
   onDeleteAppointment: (appointmentId: string) => void;
+  onMarkAppointmentPaid: (appointmentId: string) => void;
 };
 
 function DateGroupedCalendar({
@@ -380,7 +390,8 @@ function DateGroupedCalendar({
   employees,
   appointments,
   onDateClick,
-  onDeleteAppointment
+  onDeleteAppointment,
+  onMarkAppointmentPaid
 }: DateGroupedCalendarProps) {
   const focusedDateRef = useRef<HTMLDivElement>(null);
   const todayDate = getTodayDateValue();
@@ -434,6 +445,7 @@ function DateGroupedCalendar({
                     serviceName={service?.name}
                     employeeName={employee?.name}
                     onDeleteAppointment={onDeleteAppointment}
+                    onMarkAppointmentPaid={onMarkAppointmentPaid}
                     />
                   );
                 }) : <p className="text-sm text-muted">{messages.calendar.noAppointments}</p>}
@@ -453,6 +465,7 @@ type AppointmentCardProps = {
   serviceName?: string;
   employeeName?: string;
   onDeleteAppointment: (appointmentId: string) => void;
+  onMarkAppointmentPaid: (appointmentId: string) => void;
 };
 
 function AppointmentCard({
@@ -461,7 +474,8 @@ function AppointmentCard({
   employee,
   serviceName,
   employeeName,
-  onDeleteAppointment
+  onDeleteAppointment,
+  onMarkAppointmentPaid
 }: AppointmentCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -500,6 +514,13 @@ function AppointmentCard({
     setIsOpen(false);
   }
 
+  function markAppointmentPaid() {
+    onMarkAppointmentPaid(appointment.id);
+    setIsOpen(false);
+  }
+
+  const paymentState = getPaymentState(appointment.status);
+
   return (
     <div ref={menuRef} className="relative">
       <button
@@ -517,10 +538,27 @@ function AppointmentCard({
         <p className="mt-3 text-xs font-semibold text-brand-strong">
           {appointment.startTime} - {appointment.endTime}
         </p>
+        <span className={cx(
+          "mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-bold",
+          paymentState === "paid" ? "bg-success-soft text-success" : "bg-warning-soft text-warning"
+        )}>
+          {paymentState === "paid" ? messages.calendar.paymentPaid : messages.calendar.paymentPending}
+        </span>
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 grid w-48 gap-2 rounded-lg border border-subtle bg-surface p-2 shadow-lg">
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 grid w-56 gap-2 rounded-lg border border-subtle bg-surface p-2 shadow-lg">
+          {paymentState === "pending" ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<FiCheck />}
+              className="w-full justify-start !border-success !bg-success !text-white hover:!bg-surface hover:!text-success"
+              onClick={markAppointmentPaid}
+            >
+              {messages.calendar.markAsPaid}
+            </Button>
+          ) : null}
           <Button
             size="sm"
             variant="danger"
@@ -528,12 +566,16 @@ function AppointmentCard({
             className="w-full justify-start"
             onClick={deleteAppointment}
           >
-            {messages.actions.delete}
+            {messages.actions.cancel}
           </Button>
         </div>
       ) : null}
     </div>
   );
+}
+
+function getPaymentState(status: Appointment["status"]) {
+  return status === "confirmed" ? "paid" : "pending";
 }
 
 function MonthCalendar({

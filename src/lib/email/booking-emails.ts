@@ -10,6 +10,10 @@ type BookingEmailInput = {
   appointmentId: string;
 };
 
+type BookingCancellationEmailInput = BookingEmailInput & {
+  wasRefunded: boolean;
+};
+
 type AppointmentEmailContext = {
   appointmentId: string;
   businessId: string;
@@ -18,6 +22,8 @@ type AppointmentEmailContext = {
   customerName: string;
   customerPhone: string;
   employeeName: string;
+  paymentMethod: string | null;
+  receiptWhatsapp: string;
   serviceName: string;
   startsAt: string;
   totalAmount: number;
@@ -58,6 +64,25 @@ export async function sendBookingConfirmedEmails(input: BookingEmailInput) {
     sendBusinessPaymentConfirmedEmail(context)
   ]);
 }
+
+export async function sendBookingCancelledEmails(input: BookingCancellationEmailInput) {
+  const context = await getAppointmentEmailContext(input.appointmentId);
+
+  if (!context) {
+    return;
+  }
+
+  await Promise.all([
+    sendEmail({
+      html: buildBookingCancelledCustomerHtml(context, input.wasRefunded),
+      subject: `Turno cancelado en ${context.businessName}`,
+      text: buildBookingCancelledCustomerText(context, input.wasRefunded),
+      to: context.customerEmail
+    }),
+    sendBusinessBookingCancelledEmail(context, input.wasRefunded)
+  ]);
+}
+
 
 export async function sendPlanLimitReachedEmail({ businessId }: { businessId: string }) {
   const supabase = getSupabaseAdminClient();
@@ -109,11 +134,29 @@ async function sendBusinessPaymentConfirmedEmail(context: AppointmentEmailContex
   });
 }
 
+async function sendBusinessBookingCancelledEmail(context: AppointmentEmailContext, wasRefunded: boolean) {
+  const supabase = getSupabaseAdminClient();
+  const ownerContext = await getBusinessOwnerContext(supabase, context.businessId);
+
+  if (!ownerContext) {
+    return;
+  }
+
+  await sendEmail({
+    html: buildBusinessBookingCancelledHtml(context, wasRefunded),
+    replyTo: context.customerEmail,
+    subject: `Turno cancelado: ${context.serviceName}`,
+    text: buildBusinessBookingCancelledText(context, wasRefunded),
+    to: ownerContext.ownerEmail
+  });
+}
+
+
 async function getAppointmentEmailContext(appointmentId: string) {
   const supabase = getSupabaseAdminClient();
   const { data: appointment, error } = await supabase
     .from("appointments")
-    .select("id, business_id, employee_id, service_id, starts_at, total_amount, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+    .select("id, business_id, employee_id, service_id, starts_at, total_amount, selected_payment_method, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
     .eq("id", appointmentId)
     .limit(1)
     .maybeSingle();
@@ -122,7 +165,7 @@ async function getAppointmentEmailContext(appointmentId: string) {
     return null;
   }
 
-  const [businessResult, employeeResult, serviceResult] = await Promise.all([
+  const [businessResult, employeeResult, serviceResult, paymentSettingsResult] = await Promise.all([
     supabase
       .from("businesses")
       .select("name")
@@ -140,10 +183,16 @@ async function getAppointmentEmailContext(appointmentId: string) {
       .select("name")
       .eq("id", appointment.service_id)
       .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("business_payment_settings")
+      .select("transfer_receipt_whatsapp")
+      .eq("business_id", appointment.business_id)
+      .limit(1)
       .maybeSingle()
   ]);
 
-  if (businessResult.error || employeeResult.error || serviceResult.error) {
+  if (businessResult.error || employeeResult.error || serviceResult.error || paymentSettingsResult.error) {
     return null;
   }
 
@@ -155,6 +204,8 @@ async function getAppointmentEmailContext(appointmentId: string) {
     customerName: appointment.customer_name_snapshot,
     customerPhone: appointment.customer_phone_snapshot ?? "",
     employeeName: employeeResult.data?.name ?? "",
+    paymentMethod: appointment.selected_payment_method,
+    receiptWhatsapp: paymentSettingsResult.data?.transfer_receipt_whatsapp ?? "",
     serviceName: serviceResult.data?.name ?? "Servicio",
     startsAt: appointment.starts_at,
     totalAmount: appointment.total_amount
@@ -203,7 +254,7 @@ function formatAppointmentDate(startsAt: string) {
 }
 
 function buildBookingCreatedCustomerText(context: AppointmentEmailContext) {
-  return `Hola ${context.customerName}, recibimos tu reserva para ${context.serviceName} en ${context.businessName}. Fecha: ${formatAppointmentDate(context.startsAt)}. Profesional: ${context.employeeName}.`;
+  return `Hola ${context.customerName}, recibimos tu reserva para ${context.serviceName} en ${context.businessName}. Fecha: ${formatAppointmentDate(context.startsAt)}. Profesional: ${context.employeeName}.${buildTransferReceiptText(context)}`;
 }
 
 function buildBookingCreatedCustomerHtml(context: AppointmentEmailContext) {
@@ -212,6 +263,7 @@ function buildBookingCreatedCustomerHtml(context: AppointmentEmailContext) {
       <p>Hola ${escapeHtml(context.customerName)},</p>
       <p>Recibimos tu reserva para <strong>${escapeHtml(context.serviceName)}</strong> en ${escapeHtml(context.businessName)}.</p>
       ${buildAppointmentDetails(context)}
+      ${buildTransferReceiptHtml(context)}
       <p>El negocio va a confirmar el turno o el pago segun corresponda.</p>
     `,
     title: "Reserva recibida"
@@ -233,8 +285,29 @@ function buildBookingConfirmedHtml(context: AppointmentEmailContext) {
   });
 }
 
+function buildBookingCancelledCustomerText(context: AppointmentEmailContext, wasRefunded: boolean) {
+  const refundText = wasRefunded
+    ? " Si habias pagado con Mercado Pago, el reembolso fue solicitado correctamente."
+    : "";
+
+  return `Hola ${context.customerName}, tu turno en ${context.businessName} fue cancelado. Servicio: ${context.serviceName}. Fecha: ${formatAppointmentDate(context.startsAt)}.${refundText}`;
+}
+
+function buildBookingCancelledCustomerHtml(context: AppointmentEmailContext, wasRefunded: boolean) {
+  return buildEmailShell({
+    body: `
+      <p>Hola ${escapeHtml(context.customerName)},</p>
+      <p>Tu turno en ${escapeHtml(context.businessName)} fue <strong>cancelado</strong>.</p>
+      ${buildAppointmentDetails(context)}
+      ${wasRefunded ? "<p>Si habias pagado con Mercado Pago, el reembolso fue solicitado correctamente.</p>" : ""}
+    `,
+    title: "Turno cancelado"
+  });
+}
+
+
 function buildBusinessNotificationText(context: AppointmentEmailContext) {
-  return `Nueva reserva para ${context.serviceName}. Cliente: ${context.customerName}. Fecha: ${formatAppointmentDate(context.startsAt)}. Telefono: ${context.customerPhone}.`;
+  return `Nueva reserva para ${context.serviceName}. Cliente: ${context.customerName}. Fecha: ${formatAppointmentDate(context.startsAt)}. Telefono: ${context.customerPhone}.${buildTransferReceiptText(context)}`;
 }
 
 function buildBusinessNotificationHtml(context: AppointmentEmailContext) {
@@ -245,6 +318,7 @@ function buildBusinessNotificationHtml(context: AppointmentEmailContext) {
       <p><strong>Cliente:</strong> ${escapeHtml(context.customerName)}</p>
       <p><strong>Telefono:</strong> ${escapeHtml(context.customerPhone || "-")}</p>
       <p><strong>Email:</strong> ${escapeHtml(context.customerEmail)}</p>
+      ${buildTransferReceiptHtml(context)}
     `,
     title: "Nueva reserva"
   });
@@ -267,6 +341,27 @@ function buildBusinessPaymentConfirmedHtml(context: AppointmentEmailContext) {
   });
 }
 
+function buildBusinessBookingCancelledText(context: AppointmentEmailContext, wasRefunded: boolean) {
+  const refundText = wasRefunded ? " Se solicito el reembolso en Mercado Pago." : "";
+
+  return `Turno cancelado para ${context.serviceName}. Cliente: ${context.customerName}. Fecha: ${formatAppointmentDate(context.startsAt)}.${refundText}`;
+}
+
+function buildBusinessBookingCancelledHtml(context: AppointmentEmailContext, wasRefunded: boolean) {
+  return buildEmailShell({
+    body: `
+      <p>Se cancelo una reserva para <strong>${escapeHtml(context.serviceName)}</strong>.</p>
+      ${buildAppointmentDetails(context)}
+      <p><strong>Cliente:</strong> ${escapeHtml(context.customerName)}</p>
+      <p><strong>Telefono:</strong> ${escapeHtml(context.customerPhone || "-")}</p>
+      <p><strong>Email:</strong> ${escapeHtml(context.customerEmail)}</p>
+      ${wasRefunded ? "<p>Se solicito el reembolso en Mercado Pago.</p>" : ""}
+    `,
+    title: "Turno cancelado"
+  });
+}
+
+
 function buildPlanLimitHtml(businessName: string) {
   return buildEmailShell({
     body: `
@@ -285,6 +380,22 @@ function buildAppointmentDetails(context: AppointmentEmailContext) {
       <li><strong>Total:</strong> ${escapeHtml(formatCurrency(context.totalAmount))}</li>
     </ul>
   `;
+}
+
+function buildTransferReceiptText(context: AppointmentEmailContext) {
+  if (context.paymentMethod !== "transfer" || !context.receiptWhatsapp.trim()) {
+    return "";
+  }
+
+  return ` Envia el comprobante por WhatsApp a ${context.receiptWhatsapp}.`;
+}
+
+function buildTransferReceiptHtml(context: AppointmentEmailContext) {
+  if (context.paymentMethod !== "transfer" || !context.receiptWhatsapp.trim()) {
+    return "";
+  }
+
+  return `<p><strong>Comprobante:</strong> Envia el comprobante por WhatsApp a ${escapeHtml(context.receiptWhatsapp)}.</p>`;
 }
 
 function buildEmailShell({ body, title }: { body: string; title: string }) {

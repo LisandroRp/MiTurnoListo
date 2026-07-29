@@ -6,6 +6,8 @@ import { freePlanLimits, getCurrentMonthRange, isFreePlan } from "@/features/sch
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 import { mapScheduleToAvailabilityRows } from "@/lib/networking/mappers/scheduling";
 import { buildIsoInTimeZone } from "@/lib/networking/utils/date-time";
+import { sendBookingCancelledEmails } from "@/lib/email/booking-emails";
+import { refundMercadoPagoPayment } from "@/lib/mercadopago/checkout";
 import { notifyPlanLimitReached } from "@/lib/notifications/plan-limits";
 
 type SchedulingMutationPayload =
@@ -25,6 +27,16 @@ type SchedulingMutationPayload =
       appointment: Appointment;
       service: Service;
       timeZone: string;
+    }
+  | {
+      action: "cancelAppointment";
+      appointmentId: string;
+      businessId: string;
+    }
+  | {
+      action: "markAppointmentPaid";
+      appointmentId: string;
+      businessId: string;
     };
 
 type BusinessContext = {
@@ -59,6 +71,7 @@ export async function POST(request: NextRequest) {
 
     if (payload.action === "saveService") {
       await enforceVisibleServiceLimit(supabase, payload.businessId, payload.service, contextResult.context);
+      await enforceServicePaymentConfiguration(supabase, payload.businessId, payload.service);
       await saveService(supabase, payload.businessId, payload.service);
     }
 
@@ -67,12 +80,20 @@ export async function POST(request: NextRequest) {
       await createAppointment(supabase, payload.businessId, payload.appointment, payload.service, payload.timeZone);
     }
 
+    if (payload.action === "cancelAppointment") {
+      await cancelAppointment(supabase, payload.businessId, payload.appointmentId);
+    }
+
+    if (payload.action === "markAppointmentPaid") {
+      await markAppointmentPaid(supabase, payload.businessId, payload.appointmentId);
+    }
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to save changes.";
-    const status = message.startsWith("PLAN_LIMIT:") ? 402 : 500;
+    const status = message.startsWith("PLAN_LIMIT:") ? 402 : message.startsWith("PAYMENT_CONFIG:") ? 409 : 500;
 
-    return NextResponse.json({ error: message.replace(/^PLAN_LIMIT:/, "") }, { status });
+    return NextResponse.json({ error: message.replace(/^(PLAN_LIMIT|PAYMENT_CONFIG):/, "") }, { status });
   }
 }
 
@@ -208,6 +229,7 @@ async function enforceMonthlyAppointmentLimit(
     .from("appointments")
     .select("id", { count: "exact", head: true })
     .eq("business_id", businessId)
+    .neq("status", "cancelled")
     .gte("starts_at", start)
     .lt("starts_at", end);
 
@@ -218,6 +240,31 @@ async function enforceMonthlyAppointmentLimit(
   if ((count ?? 0) >= freePlanLimits.monthlyAppointments) {
     await notifyPlanLimitReached({ businessId, limit: "monthlyAppointments" });
     throw new Error(`PLAN_LIMIT:El plan Free permite hasta ${freePlanLimits.monthlyAppointments} turnos por mes.`);
+  }
+}
+
+async function enforceServicePaymentConfiguration(
+  supabase: SupabaseClient,
+  businessId: string,
+  service: Service
+) {
+  if (service.paymentMethod !== "card" && service.paymentMethod !== "mixed") {
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("business_payment_settings")
+    .select("allow_mercadopago")
+    .eq("business_id", businessId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error("Unable to validate Mercado Pago settings.");
+  }
+
+  if (!data?.allow_mercadopago) {
+    throw new Error("PAYMENT_CONFIG:Configura Mercado Pago antes de usarlo como metodo de pago del servicio.");
   }
 }
 
@@ -370,6 +417,84 @@ async function createAppointment(
 
   if (error) {
     throw new Error("Unable to create the appointment.");
+  }
+}
+
+async function cancelAppointment(supabase: SupabaseClient, businessId: string, appointmentId: string) {
+  const { data: appointment, error: appointmentError } = await supabase
+    .from("appointments")
+    .select("id, business_id, mercadopago_payment_id, refunded_at, selected_payment_method, status")
+    .eq("id", appointmentId)
+    .limit(1)
+    .maybeSingle();
+
+  if (appointmentError || !appointment || appointment.business_id !== businessId) {
+    throw new Error("Unable to find the appointment.");
+  }
+
+  if (appointment.status === "cancelled") {
+    return;
+  }
+
+  const shouldRefundMercadoPago = Boolean(
+    appointment.selected_payment_method === "card" &&
+    appointment.mercadopago_payment_id &&
+    !appointment.refunded_at
+  );
+  const refundedAt = shouldRefundMercadoPago ? new Date().toISOString() : null;
+
+  if (shouldRefundMercadoPago && appointment.mercadopago_payment_id) {
+    await refundMercadoPagoPayment({
+      businessId,
+      paymentId: appointment.mercadopago_payment_id
+    });
+  }
+
+  const { error: updateError } = await supabase
+    .from("appointments")
+    .update({
+      status: "cancelled",
+      ...(refundedAt ? { refunded_at: refundedAt } : {})
+    })
+    .eq("id", appointmentId);
+
+  if (updateError) {
+    throw new Error("Unable to cancel the appointment.");
+  }
+
+  await sendBookingCancelledEmails({
+    appointmentId,
+    wasRefunded: shouldRefundMercadoPago
+  });
+}
+
+async function markAppointmentPaid(supabase: SupabaseClient, businessId: string, appointmentId: string) {
+  const { data: appointment, error: appointmentError } = await supabase
+    .from("appointments")
+    .select("id, business_id, status")
+    .eq("id", appointmentId)
+    .limit(1)
+    .maybeSingle();
+
+  if (appointmentError || !appointment || appointment.business_id !== businessId) {
+    throw new Error("Unable to find the appointment.");
+  }
+
+  if (appointment.status === "cancelled") {
+    throw new Error("Unable to mark a cancelled appointment as paid.");
+  }
+
+  if (appointment.status === "confirmed") {
+    return;
+  }
+
+  const { error: updateError } = await supabase
+    .from("appointments")
+    .update({ status: "confirmed" })
+    .eq("id", appointmentId);
+
+  if (updateError) {
+    throw new Error("Unable to mark the appointment as paid.");
   }
 }
 

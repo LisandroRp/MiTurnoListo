@@ -23,6 +23,7 @@ import {
   deleteEmployee as deleteEmployeeRequest,
   deleteService as deleteServiceRequest,
   loadSchedulingSnapshot,
+  markAppointmentPaid as markAppointmentPaidRequest,
   refreshWorkspaceSubscription as refreshWorkspaceSubscriptionRequest,
   saveEmployee as saveEmployeeRequest,
   savePaymentSettings as savePaymentSettingsRequest,
@@ -74,6 +75,7 @@ type SchedulingContextValue = {
   toasts: ToastMessage[];
   createAppointment: (appointment: Appointment) => Promise<boolean>;
   deleteAppointment: (appointmentId: string) => Promise<boolean>;
+  markAppointmentPaid: (appointmentId: string) => Promise<boolean>;
   deleteEmployee: (employeeId: string) => Promise<boolean>;
   deleteService: (serviceId: string) => Promise<boolean>;
 };
@@ -99,7 +101,8 @@ const emptyPaymentSettings: BusinessPaymentSettings = {
   transfers: {
     accountHolder: "",
     cbu: "",
-    alias: ""
+    alias: "",
+    receiptWhatsapp: ""
   }
 };
 
@@ -245,8 +248,12 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   }
 
   async function deleteAppointment(appointmentId: string) {
+    if (!businessId) {
+      return false;
+    }
+
     return runMutation(
-      () => deleteAppointmentRequest(appointmentId),
+      () => deleteAppointmentRequest(businessId, appointmentId),
       copy.toast.appointmentDeleted,
       "Unable to delete the appointment."
     );
@@ -401,6 +408,18 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  async function markAppointmentPaid(appointmentId: string) {
+    if (!businessId) {
+      return false;
+    }
+
+    return runMutation(
+      () => markAppointmentPaidRequest(businessId, appointmentId),
+      copy.toast.appointmentPaid,
+      "Unable to mark the appointment as paid."
+    );
+  }
+
   async function setLocale(localeValue: Locale) {
     if (!businessId) {
       return false;
@@ -512,6 +531,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         toasts,
         createAppointment,
         deleteAppointment,
+        markAppointmentPaid,
         deleteEmployee,
         deleteService
       }}

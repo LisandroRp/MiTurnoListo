@@ -88,7 +88,7 @@ export async function GET(_: NextRequest, context: RouteContext) {
       .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[]),
     supabase
       .from("business_payment_settings")
-      .select("allow_mercadopago, mercadopago_public_key, transfer_account_holder, transfer_cbu, transfer_alias")
+      .select("allow_mercadopago, mercadopago_public_key, transfer_account_holder, transfer_cbu, transfer_alias, transfer_receipt_whatsapp")
       .eq("business_id", businessId)
       .limit(1)
       .maybeSingle()
@@ -250,7 +250,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[]),
       supabase
         .from("business_payment_settings")
-        .select("allow_mercadopago, mercadopago_public_key, mercadopago_access_token, transfer_account_holder, transfer_cbu, transfer_alias")
+        .select("allow_mercadopago, mercadopago_public_key, mercadopago_access_token, transfer_account_holder, transfer_cbu, transfer_alias, transfer_receipt_whatsapp")
         .eq("business_id", service.business_id)
         .limit(1)
         .maybeSingle()
@@ -516,6 +516,7 @@ async function getMonthlyAppointmentLimitStatus(
     .from("appointments")
     .select("id", { count: "exact", head: true })
     .eq("business_id", businessId)
+    .neq("status", "cancelled")
     .gte("starts_at", start)
     .lt("starts_at", end);
 

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ReactNode, useEffect, useState } from "react";
-import { FiArrowLeft, FiCheckCircle, FiClock, FiMail, FiMapPin, FiPhone, FiShield, FiUser } from "react-icons/fi";
+import { MouseEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { FiArrowLeft, FiCheckCircle, FiClock, FiCopy, FiMail, FiMapPin, FiPhone, FiShield, FiUser } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
 import { StepProgress } from "@/components/composed/StepProgress";
@@ -55,7 +55,8 @@ const emptyPaymentSettings: BusinessPaymentSettings = {
   transfers: {
     accountHolder: "",
     cbu: "",
-    alias: ""
+    alias: "",
+    receiptWhatsapp: ""
   }
 };
 
@@ -88,7 +89,9 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   const [monthDate, setMonthDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [validationMessage, setValidationMessage] = useState("");
+  const [topToastMessage, setTopToastMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const topToastTimeoutRef = useRef<number | null>(null);
   const locale: Locale = isPreview ? previewLocale : publicPayload?.locale ?? "es";
   const messages = schedulingMessages[locale];
   const copy = messages.bookingFlow;
@@ -119,6 +122,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
     setMonthDate(new Date());
     setSelectedDate(null);
     setValidationMessage("");
+    setTopToastMessage("");
     setIsSubmitting(false);
     setPublicError(null);
     setIsPublicLoading(true);
@@ -226,6 +230,25 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
     setCurrentStepIndex((current) => Math.max(current - 1, 0));
   }
 
+  function restartBookingFlow() {
+    setDraft(createInitialDraft());
+    setCurrentStepIndex(0);
+    setMonthDate(new Date());
+    setSelectedDate(null);
+    setValidationMessage("");
+    setTopToastMessage("");
+    setIsSubmitting(false);
+  }
+
+  function showTopToast(message: string) {
+    if (topToastTimeoutRef.current) {
+      window.clearTimeout(topToastTimeoutRef.current);
+    }
+
+    setTopToastMessage(message);
+    topToastTimeoutRef.current = window.setTimeout(() => setTopToastMessage(""), 3500);
+  }
+
   async function confirmReservation() {
     if (!service || !selectedEmployee || !selectedSlot || !selectedPaymentOption) {
       return;
@@ -268,6 +291,11 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
 
   return (
     <BookingShell theme={theme} mode={mode}>
+      {topToastMessage ? (
+        <div className="fixed left-1/2 top-4 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-warning bg-warning-soft p-4 text-sm font-bold text-warning shadow-lg">
+          {topToastMessage}
+        </div>
+      ) : null}
       {currentStepIndex < stepOrder.length ? (
         <>
           <header className="grid gap-4">
@@ -348,11 +376,15 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
               {currentStep === "details" ? (
                 <DetailsStep
                   messages={messages}
+                  locale={localeCode}
+                  service={service}
                   availablePaymentOptions={availablePaymentOptions}
                   selectedPaymentOption={selectedPaymentOption}
                   customer={draft.customer}
+                  draft={{ ...draft, paymentOption: selectedPaymentOption, selectedSlot }}
                   paymentSettingsText={paymentSettings.transfers}
                   onPaymentOptionChange={(paymentOption) => setDraft((current) => ({ ...current, paymentOption }))}
+                  onMissingCustomerName={() => showTopToast(messages.bookingFlow.validation.nameRequired)}
                   onCustomerChange={(field, value) => setDraft((current) => ({
                     ...current,
                     customer: { ...current.customer, [field]: value }
@@ -417,6 +449,9 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
           service={service}
           draft={{ ...draft, paymentOption: selectedPaymentOption, selectedSlot }}
           employeeName={selectedEmployee?.name ?? ""}
+          paymentSettings={paymentSettings.transfers}
+          onMissingCustomerName={() => showTopToast(messages.bookingFlow.validation.nameRequired)}
+          onReserveAnother={restartBookingFlow}
         />
       )}
     </BookingShell>
@@ -623,21 +658,45 @@ function DateTimeStep({
 
 function DetailsStep({
   messages,
+  locale,
+  service,
   availablePaymentOptions,
   selectedPaymentOption,
   customer,
+  draft,
   paymentSettingsText,
   onPaymentOptionChange,
+  onMissingCustomerName,
   onCustomerChange
 }: {
   messages: Messages;
+  locale: string;
+  service: Service;
   availablePaymentOptions: BookingPaymentOption[];
   selectedPaymentOption: BookingPaymentOption | null;
   customer: BookingDraft["customer"];
+  draft: BookingDraft;
   paymentSettingsText: BusinessPaymentSettings["transfers"];
   onPaymentOptionChange: (option: BookingPaymentOption) => void;
+  onMissingCustomerName: () => void;
   onCustomerChange: (field: keyof BookingDraft["customer"], value: string) => void;
 }) {
+  const [copiedField, setCopiedField] = useState<"cbu" | "alias" | null>(null);
+
+  async function copyTransferValue(field: "cbu" | "alias", value: string) {
+    if (!value) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      window.setTimeout(() => setCopiedField(null), 1800);
+    } catch {
+      setCopiedField(null);
+    }
+  }
+
   return (
     <div className="grid gap-4">
       <Card className="grid gap-5">
@@ -658,12 +717,40 @@ function DetailsStep({
         </div>
 
         {selectedPaymentOption === "transfer" ? (
-          <div className="rounded-2xl border border-subtle bg-input p-4">
-            <h3 className="text-sm font-bold text-primary">{messages.bookingFlow.businessPaymentInfo}</h3>
-            <div className="mt-3 grid gap-2 text-sm text-muted">
-              <p>{paymentSettingsText.accountHolder}</p>
-              <p>CBU: {paymentSettingsText.cbu}</p>
-              <p>Alias: {paymentSettingsText.alias}</p>
+          <div className="rounded-2xl border border-brand bg-brand-soft p-4 shadow-sm">
+            <h3 className="text-base font-bold text-primary">{messages.bookingFlow.businessPaymentInfo}</h3>
+            <div className="mt-3 grid gap-3 text-sm">
+              <TransferPaymentRow
+                label={messages.adminPaymentMethods.accountHolder}
+                value={paymentSettingsText.accountHolder}
+              />
+              <TransferPaymentRow
+                label={messages.adminPaymentMethods.cbu}
+                value={paymentSettingsText.cbu}
+                copyLabel={copiedField === "cbu" ? messages.bookingFlow.copied : messages.bookingFlow.copyValue}
+                onCopy={() => void copyTransferValue("cbu", paymentSettingsText.cbu)}
+              />
+              <TransferPaymentRow
+                label={messages.adminPaymentMethods.alias}
+                value={paymentSettingsText.alias}
+                copyLabel={copiedField === "alias" ? messages.bookingFlow.copied : messages.bookingFlow.copyValue}
+                onCopy={() => void copyTransferValue("alias", paymentSettingsText.alias)}
+              />
+              {paymentSettingsText.receiptWhatsapp ? (
+                <ReceiptWhatsappNotice
+                  messages={messages}
+                  href={buildWhatsAppHref(
+                    paymentSettingsText.receiptWhatsapp,
+                    buildReceiptWhatsappMessage(messages, locale, service, draft)
+                  )}
+                  onClick={(event) => {
+                    if (!customer.fullName.trim()) {
+                      event.preventDefault();
+                      onMissingCustomerName();
+                    }
+                  }}
+                />
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -695,6 +782,57 @@ function DetailsStep({
           </div>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function TransferPaymentRow({
+  label,
+  value,
+  copyLabel,
+  onCopy
+}: {
+  label: string;
+  value: string;
+  copyLabel?: string;
+  onCopy?: () => void;
+}) {
+  return (
+    <div className="grid gap-2 rounded-xl border border-subtle bg-surface p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+      <div className="min-w-0">
+        <p className="text-xs font-semibold uppercase text-muted">{label}</p>
+        <p className="mt-1 break-all text-base font-bold text-primary">{value}</p>
+      </div>
+      {onCopy ? (
+        <Button variant="secondary" size="sm" icon={<FiCopy />} onClick={onCopy} disabled={!value}>
+          {copyLabel}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function ReceiptWhatsappNotice({
+  messages,
+  href,
+  onClick
+}: {
+  messages: Messages;
+  href: string;
+  onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-subtle bg-surface p-3 leading-6 text-muted">
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        onClick={onClick}
+        className="font-bold !text-brand-hover underline underline-offset-4"
+      >
+        {messages.bookingFlow.transferReceiptWhatsappAction}
+      </a>
+      <p className="mt-1 text-sm">{messages.bookingFlow.transferReceiptWhatsappHint}</p>
     </div>
   );
 }
@@ -778,14 +916,27 @@ function SuccessState({
   locale,
   service,
   draft,
-  employeeName
+  employeeName,
+  paymentSettings,
+  onMissingCustomerName,
+  onReserveAnother
 }: {
   messages: Messages;
   locale: string;
   service: Service;
   draft: BookingDraft;
   employeeName: string;
+  paymentSettings: BusinessPaymentSettings["transfers"];
+  onMissingCustomerName: () => void;
+  onReserveAnother: () => void;
 }) {
+  const whatsappReceiptHref = draft.paymentOption === "transfer" && paymentSettings.receiptWhatsapp
+    ? buildWhatsAppHref(
+      paymentSettings.receiptWhatsapp,
+      buildReceiptWhatsappMessage(messages, locale, service, draft)
+    )
+    : "";
+
   return (
     <Card className="mx-auto max-w-2xl text-center">
       <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-success-soft text-success">
@@ -805,13 +956,50 @@ function SuccessState({
           value={draft.selectedSlot ? `${draft.selectedSlot.startTime} - ${draft.selectedSlot.endTime}` : "-"}
         />
       </div>
+      {whatsappReceiptHref ? (
+        <div className="mt-4 text-left">
+          <ReceiptWhatsappNotice
+            messages={messages}
+            href={whatsappReceiptHref}
+            onClick={(event) => {
+              if (!draft.customer.fullName.trim()) {
+                event.preventDefault();
+                onMissingCustomerName();
+              }
+            }}
+          />
+        </div>
+      ) : null}
       <div className="mt-6 flex justify-center">
-        <Link href={`/reservar/${service.id}`} className="inline-flex h-10 cursor-pointer items-center justify-center rounded-lg border border-subtle bg-surface px-4 text-sm font-semibold text-primary transition-colors hover:bg-surface-strong">
+        <Button variant="secondary" onClick={onReserveAnother}>
           {messages.actions.reserveAnother}
-        </Link>
+        </Button>
       </div>
     </Card>
   );
+}
+
+function buildWhatsAppHref(phone: string, message?: string) {
+  const normalizedPhone = phone.replace(/\D/g, "");
+  const encodedMessage = message ? `?text=${encodeURIComponent(message)}` : "";
+
+  return `https://wa.me/${normalizedPhone}${encodedMessage}`;
+}
+
+function buildReceiptWhatsappMessage(
+  messages: Messages,
+  locale: string,
+  service: Service,
+  draft: BookingDraft
+) {
+  const date = draft.selectedSlot ? formatLongDate(draft.selectedSlot.date, locale) : "-";
+  const time = draft.selectedSlot ? `${draft.selectedSlot.startTime} - ${draft.selectedSlot.endTime}` : "-";
+
+  return messages.bookingFlow.transferReceiptWhatsappMessage
+    .replace("{serviceName}", service.name)
+    .replace("{customerName}", draft.customer.fullName || "-")
+    .replace("{date}", date)
+    .replace("{time}", time);
 }
 
 function SummaryRow({ label, value }: { label: string; value: string }) {

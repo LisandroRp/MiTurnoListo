@@ -6,6 +6,7 @@ import { cx } from "@/components/ui/utils";
 type SelectOption = {
   value: string;
   label: string;
+  disabled?: boolean;
 };
 
 type SelectFieldProps = SelectHTMLAttributes<HTMLSelectElement> & {
@@ -30,7 +31,7 @@ export function SelectField({ label, options, className, id, ...props }: SelectF
           )}
         >
           {options.map((option) => (
-            <option key={option.value} value={option.value}>
+            <option key={option.value} value={option.value} disabled={option.disabled}>
               {option.label}
             </option>
           ))}

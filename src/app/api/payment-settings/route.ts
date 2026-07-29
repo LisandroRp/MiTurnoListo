@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("business_payment_settings")
-    .select("allow_mercadopago, mercadopago_public_key, transfer_account_holder, transfer_cbu, transfer_alias")
+    .select("allow_mercadopago, mercadopago_public_key, transfer_account_holder, transfer_cbu, transfer_alias, transfer_receipt_whatsapp")
     .eq("business_id", businessId)
     .limit(1)
     .maybeSingle();
@@ -76,8 +76,22 @@ export async function PUT(request: NextRequest) {
   const nextTransfers = {
     accountHolder: normalizeTransferValue(body.settings.transfers.accountHolder),
     cbu: normalizeTransferValue(body.settings.transfers.cbu),
-    alias: normalizeTransferValue(body.settings.transfers.alias)
+    alias: normalizeTransferValue(body.settings.transfers.alias),
+    receiptWhatsapp: normalizeTransferValue(body.settings.transfers.receiptWhatsapp)
   };
+  const hasTransferSettings = Boolean(
+    nextTransfers.accountHolder ||
+    nextTransfers.cbu ||
+    nextTransfers.alias ||
+    nextTransfers.receiptWhatsapp
+  );
+
+  if (hasTransferSettings && !nextTransfers.receiptWhatsapp) {
+    return NextResponse.json(
+      { error: "Carga un WhatsApp para poder guardar transferencias." },
+      { status: 400 }
+    );
+  }
 
   const { error } = await supabase
     .from("business_payment_settings")
@@ -87,12 +101,14 @@ export async function PUT(request: NextRequest) {
       allow_transfer: Boolean(
         nextTransfers.accountHolder &&
         nextTransfers.cbu &&
-        nextTransfers.alias
+        nextTransfers.alias &&
+        nextTransfers.receiptWhatsapp
       ),
       allow_mercadopago: Boolean((nextAccessToken ?? "").trim()),
       transfer_account_holder: nextTransfers.accountHolder || null,
       transfer_cbu: nextTransfers.cbu || null,
       transfer_alias: nextTransfers.alias || null,
+      transfer_receipt_whatsapp: nextTransfers.receiptWhatsapp || null,
       mercadopago_public_key: null,
       mercadopago_access_token: nextAccessToken
     });
@@ -133,7 +149,9 @@ function normalizeTransferValue(value: string) {
     trimmedValue === "Introducir CBU (22 digitos)" ||
     trimmedValue === "Enter CBU (22 digits)" ||
     trimmedValue === "Introducir alias de la cuenta" ||
-    trimmedValue === "Enter account alias"
+    trimmedValue === "Enter account alias" ||
+    trimmedValue === "WhatsApp para comprobantes" ||
+    trimmedValue === "Receipt WhatsApp"
   ) {
     return "";
   }

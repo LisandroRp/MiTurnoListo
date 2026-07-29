@@ -86,6 +86,7 @@ type PaymentSettingsRow = {
   transfer_account_holder: string | null;
   transfer_cbu: string | null;
   transfer_alias: string | null;
+  transfer_receipt_whatsapp: string | null;
 };
 
 const dayKeys: readonly DayKey[] = [
@@ -213,7 +214,8 @@ export function mapPaymentSettings(row: PaymentSettingsRow | null): BusinessPaym
     transfers: {
       accountHolder: row?.transfer_account_holder ?? "",
       cbu: row?.transfer_cbu ?? "",
-      alias: row?.transfer_alias ?? ""
+      alias: row?.transfer_alias ?? "",
+      receiptWhatsapp: row?.transfer_receipt_whatsapp ?? ""
     }
   };
 }

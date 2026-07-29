@@ -5,8 +5,10 @@ import {
   FiAtSign,
   FiCreditCard,
   FiExternalLink,
+  FiInfo,
   FiKey,
   FiLock,
+  FiPhone,
   FiSave,
   FiUser
 } from "react-icons/fi";
@@ -38,7 +40,9 @@ const transferPlaceholderValues = new Set([
   "Introducir CBU (22 digitos)",
   "Enter CBU (22 digits)",
   "Introducir alias de la cuenta",
-  "Enter account alias"
+  "Enter account alias",
+  "WhatsApp para comprobantes",
+  "Receipt WhatsApp"
 ]);
 
 export function PaymentMethodsView({ messages, paymentSettings, onSave }: PaymentMethodsViewProps) {
@@ -48,27 +52,39 @@ export function PaymentMethodsView({ messages, paymentSettings, onSave }: Paymen
   const [accountHolder, setAccountHolder] = useState(normalizeTransferValue(paymentSettings.transfers.accountHolder));
   const [cbu, setCbu] = useState(normalizeTransferValue(paymentSettings.transfers.cbu));
   const [alias, setAlias] = useState(normalizeTransferValue(paymentSettings.transfers.alias));
+  const [receiptWhatsapp, setReceiptWhatsapp] = useState(normalizeTransferValue(paymentSettings.transfers.receiptWhatsapp));
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setAccessToken(normalizeMercadoPagoCredential(paymentSettings.mercadoPago.accessToken));
     setAccountHolder(normalizeTransferValue(paymentSettings.transfers.accountHolder));
     setCbu(normalizeTransferValue(paymentSettings.transfers.cbu));
     setAlias(normalizeTransferValue(paymentSettings.transfers.alias));
+    setReceiptWhatsapp(normalizeTransferValue(paymentSettings.transfers.receiptWhatsapp));
   }, [paymentSettings]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const nextTransfers = {
+      accountHolder: normalizeTransferValue(accountHolder),
+      cbu: normalizeTransferValue(cbu),
+      alias: normalizeTransferValue(alias),
+      receiptWhatsapp: normalizeTransferValue(receiptWhatsapp)
+    };
+
+    if (activeTab === "transfers" && hasTransferSettings(nextTransfers) && !nextTransfers.receiptWhatsapp) {
+      setValidationMessage(copy.receiptWhatsappRequired);
+      return;
+    }
+
+    setValidationMessage(null);
     await onSave({
       mercadoPago: {
         accessToken: normalizeMercadoPagoCredential(accessToken),
         publicKey: "",
         isConfigured: paymentSettings.mercadoPago.isConfigured
       },
-      transfers: {
-        accountHolder: normalizeTransferValue(accountHolder),
-        cbu: normalizeTransferValue(cbu),
-        alias: normalizeTransferValue(alias)
-      }
+      transfers: nextTransfers
     });
   }
 
@@ -99,11 +115,19 @@ export function PaymentMethodsView({ messages, paymentSettings, onSave }: Paymen
             accountHolder={accountHolder}
             cbu={cbu}
             alias={alias}
+            receiptWhatsapp={receiptWhatsapp}
             onAccountHolderChange={setAccountHolder}
             onCbuChange={setCbu}
             onAliasChange={setAlias}
+            onReceiptWhatsappChange={setReceiptWhatsapp}
           />
         )}
+
+        {validationMessage ? (
+          <div className="mt-5 rounded-lg border border-danger bg-danger-soft p-4 text-sm font-semibold text-danger">
+            {validationMessage}
+          </div>
+        ) : null}
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted">{copy.paymentDataDisclaimer}</p>
@@ -114,6 +138,10 @@ export function PaymentMethodsView({ messages, paymentSettings, onSave }: Paymen
       </form>
     </div>
   );
+}
+
+function hasTransferSettings(settings: BusinessPaymentSettings["transfers"]) {
+  return Boolean(settings.accountHolder || settings.cbu || settings.alias || settings.receiptWhatsapp);
 }
 
 function normalizeMercadoPagoCredential(value: string) {
@@ -194,6 +222,10 @@ function MercadoPagoPanel({
             <p className="rounded-lg border border-subtle bg-surface p-3 text-sm leading-6 text-muted">
               {copy.mercadoPagoCheckoutHint}
             </p>
+            <p className="flex gap-2 rounded-lg border border-warning bg-warning-soft p-3 text-sm leading-6 text-warning">
+              <FiInfo className="mt-1 shrink-0" aria-hidden="true" />
+              <span>{copy.mercadoPagoCostsDisclaimer}</span>
+            </p>
           </div>
         </div>
 
@@ -228,17 +260,21 @@ function TransfersPanel({
   accountHolder,
   cbu,
   alias,
+  receiptWhatsapp,
   onAccountHolderChange,
   onCbuChange,
-  onAliasChange
+  onAliasChange,
+  onReceiptWhatsappChange
 }: {
   messages: Messages;
   accountHolder: string;
   cbu: string;
   alias: string;
+  receiptWhatsapp: string;
   onAccountHolderChange: (value: string) => void;
   onCbuChange: (value: string) => void;
   onAliasChange: (value: string) => void;
+  onReceiptWhatsappChange: (value: string) => void;
 }) {
   const copy = messages.adminPaymentMethods;
 
@@ -280,6 +316,15 @@ function TransfersPanel({
                 onChange={(event) => onAliasChange(event.target.value)}
               />
             </div>
+            <TextField
+              label={copy.receiptWhatsapp}
+              value={receiptWhatsapp}
+              placeholder={copy.receiptWhatsappPlaceholder}
+              prefix={<FiPhone />}
+              helperText={copy.receiptWhatsappHint}
+              inputMode="tel"
+              onChange={(event) => onReceiptWhatsappChange(event.target.value)}
+            />
           </div>
         </div>
       </div>

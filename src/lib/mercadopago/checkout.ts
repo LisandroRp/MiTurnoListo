@@ -22,6 +22,13 @@ type MercadoPagoPreferenceResponse = {
 
 type MercadoPagoPaymentResponse = {
   external_reference?: string;
+  message?: string;
+  status?: string;
+};
+
+type MercadoPagoRefundResponse = {
+  id?: string | number;
+  message?: string;
   status?: string;
 };
 
@@ -123,7 +130,7 @@ export async function confirmMercadoPagoAppointmentPayment({
   const supabase = getSupabaseAdminClient();
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
-    .select("id, business_id, status")
+    .select("id, business_id, mercadopago_payment_id, status")
     .eq("id", appointmentId)
     .limit(1)
     .maybeSingle();
@@ -186,7 +193,10 @@ export async function confirmMercadoPagoAppointmentPayment({
   if (appointment.status !== "confirmed") {
     const { data: confirmedAppointment, error: updateError } = await supabase
       .from("appointments")
-      .update({ status: "confirmed" })
+      .update({
+        mercadopago_payment_id: paymentId,
+        status: "confirmed"
+      })
       .eq("id", appointmentId)
       .neq("status", "confirmed")
       .select("id")
@@ -200,6 +210,11 @@ export async function confirmMercadoPagoAppointmentPayment({
     }
 
     shouldSendConfirmationEmails = Boolean(confirmedAppointment);
+  } else if (!appointment.mercadopago_payment_id) {
+    await supabase
+      .from("appointments")
+      .update({ mercadopago_payment_id: paymentId })
+      .eq("id", appointmentId);
   }
 
   if (shouldSendConfirmationEmails) {
@@ -209,5 +224,45 @@ export async function confirmMercadoPagoAppointmentPayment({
   return {
     status: "approved" as const,
     isConfirmed: true
+  };
+}
+
+export async function refundMercadoPagoPayment({
+  businessId,
+  paymentId
+}: {
+  businessId: string;
+  paymentId: string;
+}) {
+  const supabase = getSupabaseAdminClient();
+  const { data: paymentSettings, error: paymentSettingsError } = await supabase
+    .from("business_payment_settings")
+    .select("mercadopago_access_token")
+    .eq("business_id", businessId)
+    .limit(1)
+    .maybeSingle();
+  const accessToken = paymentSettings?.mercadopago_access_token?.trim();
+
+  if (paymentSettingsError || !accessToken) {
+    throw new Error("Mercado Pago is not configured for this business.");
+  }
+
+  const response = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}/refunds`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    cache: "no-store"
+  });
+  const payload = await response.json().catch(() => null) as MercadoPagoRefundResponse | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.message ?? "Mercado Pago could not refund the payment.");
+  }
+
+  return {
+    refundId: payload?.id ? String(payload.id) : "",
+    status: payload?.status ?? "approved"
   };
 }

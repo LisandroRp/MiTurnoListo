@@ -28,6 +28,7 @@ type ServicesViewProps = {
   services: Service[];
   employees: Employee[];
   subscriptionTier: SubscriptionTier;
+  isMercadoPagoConfigured: boolean;
   onSaveService: (service: Service) => Promise<boolean>;
   onDeleteService: (serviceId: string) => Promise<boolean>;
   onValidationWarning: () => void;
@@ -47,6 +48,7 @@ export function ServicesView({
   services,
   employees,
   subscriptionTier,
+  isMercadoPagoConfigured,
   onSaveService,
   onDeleteService,
   onValidationWarning,
@@ -212,7 +214,7 @@ export function ServicesView({
   }
 
   function goToNextStep() {
-    const stepValidationMessage = getServiceStepValidationMessage(currentStep, draft, messages);
+    const stepValidationMessage = getServiceStepValidationMessage(currentStep, draft, messages, isMercadoPagoConfigured);
 
     if (stepValidationMessage) {
       setValidationMessage(stepValidationMessage);
@@ -225,12 +227,12 @@ export function ServicesView({
   }
 
   async function submitForm() {
-    const invalidStepIndex = serviceWizardStepOrder.findIndex((step) => getServiceStepValidationMessage(step, draft, messages));
+    const invalidStepIndex = serviceWizardStepOrder.findIndex((step) => getServiceStepValidationMessage(step, draft, messages, isMercadoPagoConfigured));
 
     if (invalidStepIndex >= 0) {
       const invalidStep = serviceWizardStepOrder[invalidStepIndex] ?? "details";
       setCurrentStepIndex(invalidStepIndex);
-      setValidationMessage(getServiceStepValidationMessage(invalidStep, draft, messages));
+      setValidationMessage(getServiceStepValidationMessage(invalidStep, draft, messages, isMercadoPagoConfigured));
       onValidationWarning();
       return;
     }
@@ -311,8 +313,17 @@ export function ServicesView({
                 label={messages.services.paymentMethod}
                 value={draft.paymentMethod}
                 onChange={handleTextChange("paymentMethod")}
-                options={paymentMethods.map((method) => ({ value: method, label: messages.paymentMethods[method] }))}
+                options={paymentMethods.map((method) => ({
+                  value: method,
+                  label: messages.paymentMethods[method],
+                  disabled: isMercadoPagoPaymentMethod(method) && !isMercadoPagoConfigured
+                }))}
               />
+              {!isMercadoPagoConfigured ? (
+                <p className="rounded-lg border border-warning bg-warning-soft p-3 text-sm leading-6 text-warning lg:col-span-3">
+                  {messages.services.mercadoPagoDisabledHint}
+                </p>
+              ) : null}
             </div>
             </FormSection>
           ) : null}
@@ -783,7 +794,12 @@ function FormSection({ title, description, children }: { title: string; descript
   );
 }
 
-function getServiceStepValidationMessage(step: ServiceWizardStep, service: Service, messages: Messages) {
+function getServiceStepValidationMessage(
+  step: ServiceWizardStep,
+  service: Service,
+  messages: Messages,
+  isMercadoPagoConfigured: boolean
+) {
   if (step === "details" && !service.name.trim()) {
     return messages.services.validation.details;
   }
@@ -792,11 +808,19 @@ function getServiceStepValidationMessage(step: ServiceWizardStep, service: Servi
     return messages.services.validation.booking;
   }
 
+  if (step === "booking" && isMercadoPagoPaymentMethod(service.paymentMethod) && !isMercadoPagoConfigured) {
+    return messages.services.validation.mercadoPago;
+  }
+
   if (step === "staff" && service.employeeIds.length === 0) {
     return messages.services.validation.staff;
   }
 
   return null;
+}
+
+function isMercadoPagoPaymentMethod(paymentMethod: PaymentMethod) {
+  return paymentMethod === "card" || paymentMethod === "mixed";
 }
 
 function getScheduleRangeCount(schedule: ServiceSchedule) {

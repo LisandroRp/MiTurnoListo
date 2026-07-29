@@ -88,6 +88,7 @@ export type TransferPaymentSettings = {
   accountHolder: string;
   cbu: string;
   alias: string;
+  receiptWhatsapp: string;
 };
 
 export type BusinessPaymentSettings = {

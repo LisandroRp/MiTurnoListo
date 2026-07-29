@@ -232,8 +232,7 @@ async function saveEmployee(supabase: SupabaseClient, businessId: string, employ
       description: employee.description,
       image_url: employee.imageUrl || null,
       color_token: employee.color,
-      is_active: true,
-      is_bookable: true
+      is_active: true
     });
 
   if (employeeError) {

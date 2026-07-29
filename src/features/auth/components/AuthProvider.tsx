@@ -188,7 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearLocalAuthStorage();
       return {
         status: "error",
-        message: "Credenciales incorrectas. Revisa tu usuario de Supabase e intenta otra vez."
+        message: "Credenciales incorrectas. Revisa tu mail y password e intenta otra vez."
       };
     }
 

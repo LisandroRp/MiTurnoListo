@@ -347,7 +347,7 @@ export const messages = {
       serviceLabel: "Servicio a previsualizar",
       selectTitle: "Elegi un servicio para previsualizar",
       changeService: "Cambiar servicio",
-      disclaimer: "Esta vista es solo de prueba dentro del admin. No confirma reservas reales."
+      disclaimer: "Esta vista es una previsualizacion dentro del admin. No confirma reservas reales."
     },
     bookingFlow: {
       serviceNotFound: "Este servicio no existe o no esta disponible.",

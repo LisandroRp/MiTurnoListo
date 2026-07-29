@@ -77,7 +77,7 @@ export async function GET(_: NextRequest, context: RouteContext) {
       .select("id, name, role, description, image_url, color_token")
       .eq("business_id", businessId)
       .eq("is_active", true)
-      .eq("is_bookable", true),
+      .order("name", { ascending: true }),
     supabase
       .from("employee_weekly_availability")
       .select("id, employee_id, weekday, start_time, end_time"),
@@ -236,7 +236,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .eq("business_id", service.business_id)
         .eq("id", payload.employeeId)
         .eq("is_active", true)
-        .eq("is_bookable", true)
         .limit(1)
         .maybeSingle(),
       supabase

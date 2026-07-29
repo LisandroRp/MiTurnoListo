@@ -20,41 +20,41 @@ type AuthMode = "login" | "signup" | "forgot" | "recovery";
 
 const authCopy = {
   login: {
-    sideBadge: "Supabase Auth",
+    sideBadge: "Acceso seguro",
     sideTitle: "Entra y deja que la agenda trabaje por vos.",
-    sideDescription: "Ahora el acceso usa tu usuario real y el panel ya apunta a la base de datos que cargaste en Supabase.",
+    sideDescription: "Gestiona turnos, servicios, equipo y cobros desde un panel simple pensado para tu negocio.",
     cardBadge: "Acceso al dashboard",
-    cardTitle: "Login",
-    cardDescription: "Inicia sesion con el usuario real que configuraste en Supabase.",
+    cardTitle: "Iniciar sesion",
+    cardDescription: "Ingresa con tu mail y password para entrar al panel.",
     switchPrompt: "No tenes cuenta?",
     switchLabel: "Crear cuenta"
   },
   signup: {
     sideBadge: "Nuevo acceso",
     sideTitle: "Crea tu cuenta y empeza a ordenar tus turnos desde hoy.",
-    sideDescription: "Preparamos el alta para que puedas registrarte con Supabase sin salir del flujo del dashboard.",
+    sideDescription: "Configura tu espacio en minutos y deja lista una agenda online para que tus clientes puedan reservar.",
     sideFooterTitle: "Antes de arrancar",
     sideFooterLines: [
       "Usa un mail al que tengas acceso real.",
-      "Si Supabase pide confirmacion, te vamos a avisar para que revises la casilla."
+      "Si pedimos confirmacion, revisa tu casilla para activar la cuenta."
     ],
     cardBadge: "Alta de cuenta",
-    cardTitle: "Sign up",
+    cardTitle: "Crear cuenta",
     cardDescription: "Crea un usuario nuevo para entrar al panel con tus propias credenciales.",
     switchPrompt: "Ya tenes cuenta?",
     switchLabel: "Iniciar sesion"
   },
   forgot: {
-    sideBadge: "Reset password",
+    sideBadge: "Recuperar acceso",
     sideTitle: "Recupera el acceso sin salir de tu agenda.",
-    sideDescription: "Te mandamos un mail seguro con el link para volver a definir tu password en Supabase.",
+    sideDescription: "Te mandamos un mail seguro con el link para volver a definir tu password.",
     sideFooterTitle: "Antes de enviarlo",
     sideFooterLines: [
       "Usa el mismo mail con el que entras al panel.",
       "Abre el link desde el dispositivo donde estas trabajando."
     ],
     cardBadge: "Recuperacion por mail",
-    cardTitle: "Reset password",
+    cardTitle: "Olvide mi password",
     cardDescription: "Ingresa tu mail y te enviamos un enlace para crear una nueva password.",
     switchPrompt: "Recordaste tu password?",
     switchLabel: "Volver al login"
@@ -62,7 +62,7 @@ const authCopy = {
   recovery: {
     sideBadge: "Recuperacion activa",
     sideTitle: "Define tu nueva password y vuelve a entrar.",
-    sideDescription: "Cuando abras el link del mail, Supabase te trae de vuelta a esta pantalla para cerrar el cambio.",
+    sideDescription: "Cuando abras el link del mail, volves a esta pantalla para cerrar el cambio.",
     sideFooterTitle: "Importante",
     sideFooterLines: [
       "El link de recuperacion es temporal.",

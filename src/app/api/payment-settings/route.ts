@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { isFreePlan } from "@/features/scheduling/plan-limits";
 import { BusinessPaymentSettings } from "@/features/scheduling/types";
+import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 import { mapPaymentSettings } from "@/lib/networking/mappers/scheduling";
 
@@ -27,19 +28,23 @@ export async function GET(request: NextRequest) {
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: "Unable to load payment settings." }, { status: 500 });
+    return createApiErrorResponse(error, {
+      code: "PAYMENT_SETTINGS_LOAD_FAILED",
+      fallbackMessage: "Unable to load payment settings.",
+      status: 500
+    });
   }
 
   return NextResponse.json(mapPaymentSettings(data));
 }
 
 export async function PUT(request: NextRequest) {
-  const body = await request.json() as {
+  const body = await request.json().catch(() => null) as {
     businessId?: string;
     settings?: BusinessPaymentSettings;
-  };
+  } | null;
 
-  if (!body.businessId || !body.settings) {
+  if (!body?.businessId || !body.settings) {
     return NextResponse.json({ error: "Missing payload." }, { status: 400 });
   }
 
@@ -114,7 +119,11 @@ export async function PUT(request: NextRequest) {
     });
 
   if (error) {
-    return NextResponse.json({ error: "Unable to save payment settings." }, { status: 500 });
+    return createApiErrorResponse(error, {
+      code: "PAYMENT_SETTINGS_SAVE_FAILED",
+      fallbackMessage: "Unable to save payment settings.",
+      status: 500
+    });
   }
 
   return NextResponse.json({

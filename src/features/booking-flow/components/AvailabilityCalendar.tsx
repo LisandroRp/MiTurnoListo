@@ -47,6 +47,7 @@ export function AvailabilityCalendar({
   }, {});
   const visibleWeekdays = locale.startsWith("es") ? weekdayLabels : weekdayLabelsEn;
   const selectedDaySlots = selectedDate ? (slotsByDate[selectedDate] ?? []) : [];
+  const todayKey = toDateKey(new Date());
 
   function handleSelectDay(date: string) {
     if (!(slotsByDate[date]?.length)) {
@@ -114,6 +115,7 @@ export function AvailabilityCalendar({
             const daySlots = slotsByDate[dateKey] ?? [];
             const isActive = daySlots.length > 0;
             const isSelected = selectedDate === dateKey;
+            const isToday = dateKey === todayKey;
 
             return (
               <button
@@ -124,11 +126,12 @@ export function AvailabilityCalendar({
                 className={cx(
                   "grid aspect-square cursor-pointer place-items-center rounded-2xl border text-sm font-semibold transition-all",
                   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
-                  !isInMonth && "opacity-30",
+                  !isInMonth && "opacity-20",
                   isActive
-                    ? "border-brand bg-brand-soft text-brand-strong hover:-translate-y-0.5 hover:shadow-sm"
-                    : "cursor-not-allowed border-subtle bg-input text-placeholder",
-                  isSelected && "border-brand bg-brand text-on-brand"
+                    ? "border-brand/45 bg-surface text-primary hover:-translate-y-0.5 hover:bg-brand-soft hover:text-brand-strong hover:shadow-sm"
+                    : "cursor-not-allowed border-subtle bg-input text-placeholder opacity-45",
+                  isToday && "border-brand !bg-brand-soft text-brand-strong ring-2 ring-brand/20",
+                  isSelected && "border-brand bg-brand text-on-brand ring-0"
                 )}
               >
                 <span>{date.getDate()}</span>

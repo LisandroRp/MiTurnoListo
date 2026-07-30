@@ -4,13 +4,14 @@ import { ServicesView } from "@/features/scheduling/components/ServicesView";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
 
 export default function ServicesSectionPage() {
-  const { messages, services, employees, paymentSettings, profile, saveService, deleteService, showToast } = useScheduling();
+  const { messages, businessId, services, employees, paymentSettings, profile, saveService, deleteService, showToast } = useScheduling();
 
   return (
     <ServicesView
       messages={messages}
       services={services}
       employees={employees}
+      businessId={businessId}
       subscriptionTier={profile.subscriptionTier}
       isMercadoPagoConfigured={paymentSettings.mercadoPago.isConfigured}
       onSaveService={saveService}

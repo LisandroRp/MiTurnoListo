@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { syncBusinessSubscriptionByPreapprovalId, syncLatestBusinessSubscription } from "@/lib/mercadopago/subscriptions";
+import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 
 export async function GET(request: NextRequest) {
@@ -33,10 +34,11 @@ export async function GET(request: NextRequest) {
       subscriptionTier: status.subscriptionTier
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "No pudimos verificar el estado de la suscripcion." },
-      { status: 502 }
-    );
+    return createApiErrorResponse(error, {
+      code: "SUBSCRIPTION_STATUS_FAILED",
+      fallbackMessage: "No pudimos verificar el estado de la suscripcion.",
+      status: 502
+    });
   }
 }
 

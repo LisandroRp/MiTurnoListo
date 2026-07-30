@@ -31,6 +31,7 @@ import {
   startProSubscription as startProSubscriptionRequest,
   updateSchedulingPreferences,
 } from "@/lib/networking/endpoints/scheduling";
+import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
 
 type SchedulingContextValue = {
   appointments: Appointment[];
@@ -116,7 +117,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [locale, setLocaleState] = useState<Locale>("es");
   const [theme, setThemeState] = useState<ThemeId>("coral");
-  const [calendarMode, setCalendarMode] = useState<CalendarMode>("day");
+  const [calendarMode, setCalendarMode] = useState<CalendarMode>("month");
   const [focusedDate, setFocusedDate] = useState(() => getTodayDateValue());
   const [employeeQuery, setEmployeeQuery] = useState("");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
@@ -556,5 +557,5 @@ function getErrorMessage(error: unknown, fallbackMessage: string) {
     return error.message;
   }
 
-  return fallbackMessage;
+  return getPayloadErrorMessage(error, fallbackMessage);
 }

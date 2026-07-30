@@ -36,7 +36,7 @@ export async function sendBookingCreatedEmails(input: BookingEmailInput) {
     return;
   }
 
-  await Promise.all([
+  const results = await Promise.all([
     sendEmail({
       html: buildBookingCreatedCustomerHtml(context),
       subject: `Reserva recibida en ${context.businessName}`,
@@ -45,6 +45,7 @@ export async function sendBookingCreatedEmails(input: BookingEmailInput) {
     }),
     sendBusinessBookingNotificationEmail(context)
   ]);
+  logSkippedEmailResults(results);
 }
 
 export async function sendBookingConfirmedEmails(input: BookingEmailInput) {
@@ -54,7 +55,7 @@ export async function sendBookingConfirmedEmails(input: BookingEmailInput) {
     return;
   }
 
-  await Promise.all([
+  const results = await Promise.all([
     sendEmail({
       html: buildBookingConfirmedHtml(context),
       subject: `Turno confirmado en ${context.businessName}`,
@@ -63,6 +64,7 @@ export async function sendBookingConfirmedEmails(input: BookingEmailInput) {
     }),
     sendBusinessPaymentConfirmedEmail(context)
   ]);
+  logSkippedEmailResults(results);
 }
 
 export async function sendBookingCancelledEmails(input: BookingCancellationEmailInput) {
@@ -72,7 +74,7 @@ export async function sendBookingCancelledEmails(input: BookingCancellationEmail
     return;
   }
 
-  await Promise.all([
+  const results = await Promise.all([
     sendEmail({
       html: buildBookingCancelledCustomerHtml(context, input.wasRefunded),
       subject: `Turno cancelado en ${context.businessName}`,
@@ -81,6 +83,7 @@ export async function sendBookingCancelledEmails(input: BookingCancellationEmail
     }),
     sendBusinessBookingCancelledEmail(context, input.wasRefunded)
   ]);
+  logSkippedEmailResults(results);
 }
 
 
@@ -92,12 +95,13 @@ export async function sendPlanLimitReachedEmail({ businessId }: { businessId: st
     return;
   }
 
-  await sendEmail({
+  const result = await sendEmail({
     html: buildPlanLimitHtml(context.businessName),
     subject: "Llegaste al limite mensual del plan Free",
     text: `Hola, ${context.businessName} llego al limite mensual de turnos del plan Free. Activa Premium para seguir recibiendo reservas online este mes.`,
     to: context.ownerEmail
   });
+  logSkippedEmailResults([result]);
 }
 
 async function sendBusinessBookingNotificationEmail(context: AppointmentEmailContext) {
@@ -108,7 +112,7 @@ async function sendBusinessBookingNotificationEmail(context: AppointmentEmailCon
     return;
   }
 
-  await sendEmail({
+  return sendEmail({
     html: buildBusinessNotificationHtml(context),
     replyTo: context.customerEmail,
     subject: `Nueva reserva: ${context.serviceName}`,
@@ -125,7 +129,7 @@ async function sendBusinessPaymentConfirmedEmail(context: AppointmentEmailContex
     return;
   }
 
-  await sendEmail({
+  return sendEmail({
     html: buildBusinessPaymentConfirmedHtml(context),
     replyTo: context.customerEmail,
     subject: `Pago confirmado: ${context.serviceName}`,
@@ -142,13 +146,21 @@ async function sendBusinessBookingCancelledEmail(context: AppointmentEmailContex
     return;
   }
 
-  await sendEmail({
+  return sendEmail({
     html: buildBusinessBookingCancelledHtml(context, wasRefunded),
     replyTo: context.customerEmail,
     subject: `Turno cancelado: ${context.serviceName}`,
     text: buildBusinessBookingCancelledText(context, wasRefunded),
     to: ownerContext.ownerEmail
   });
+}
+
+function logSkippedEmailResults(results: Array<Awaited<ReturnType<typeof sendEmail>> | undefined>) {
+  for (const result of results) {
+    if (result?.status === "skipped") {
+      console.warn(`[email] ${result.reason}`);
+    }
+  }
 }
 
 

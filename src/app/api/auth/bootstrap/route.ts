@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 
 type BootstrapPayload = {
@@ -39,7 +40,11 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (membershipError) {
-    return NextResponse.json({ error: "Unable to inspect the workspace membership." }, { status: 500 });
+    return createApiErrorResponse(membershipError, {
+      code: "BOOTSTRAP_MEMBERSHIP_INSPECT_FAILED",
+      fallbackMessage: "Unable to inspect the workspace membership.",
+      status: 500
+    });
   }
 
   const businessId = membership?.business_id ?? crypto.randomUUID();
@@ -51,7 +56,11 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (profileError) {
-    return NextResponse.json({ error: "Unable to inspect the user profile." }, { status: 500 });
+    return createApiErrorResponse(profileError, {
+      code: "BOOTSTRAP_PROFILE_INSPECT_FAILED",
+      fallbackMessage: "Unable to inspect the user profile.",
+      status: 500
+    });
   }
 
   if (!profile) {
@@ -65,7 +74,11 @@ export async function POST(request: NextRequest) {
       });
 
     if (insertProfileError) {
-      return NextResponse.json({ error: "Unable to create the user profile." }, { status: 500 });
+      return createApiErrorResponse(insertProfileError, {
+        code: "BOOTSTRAP_PROFILE_CREATE_FAILED",
+        fallbackMessage: "Unable to create the user profile.",
+        status: 500
+      });
     }
   }
 
@@ -77,7 +90,11 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (businessError) {
-    return NextResponse.json({ error: "Unable to inspect the business." }, { status: 500 });
+    return createApiErrorResponse(businessError, {
+      code: "BOOTSTRAP_BUSINESS_INSPECT_FAILED",
+      fallbackMessage: "Unable to inspect the business.",
+      status: 500
+    });
   }
 
   if (!business) {
@@ -92,7 +109,11 @@ export async function POST(request: NextRequest) {
       });
 
     if (insertBusinessError) {
-      return NextResponse.json({ error: "Unable to create the business." }, { status: 500 });
+      return createApiErrorResponse(insertBusinessError, {
+        code: "BOOTSTRAP_BUSINESS_CREATE_FAILED",
+        fallbackMessage: "Unable to create the business.",
+        status: 500
+      });
     }
   }
 
@@ -108,7 +129,11 @@ export async function POST(request: NextRequest) {
       });
 
     if (insertMembershipError) {
-      return NextResponse.json({ error: "Unable to create the workspace membership." }, { status: 500 });
+      return createApiErrorResponse(insertMembershipError, {
+        code: "BOOTSTRAP_MEMBERSHIP_CREATE_FAILED",
+        fallbackMessage: "Unable to create the workspace membership.",
+        status: 500
+      });
     }
   } else if (!membership.locale || !membership.theme) {
     const { error: updateMembershipError } = await supabase
@@ -121,7 +146,11 @@ export async function POST(request: NextRequest) {
       .eq("user_id", user.id);
 
     if (updateMembershipError) {
-      return NextResponse.json({ error: "Unable to complete the workspace membership." }, { status: 500 });
+      return createApiErrorResponse(updateMembershipError, {
+        code: "BOOTSTRAP_MEMBERSHIP_UPDATE_FAILED",
+        fallbackMessage: "Unable to complete the workspace membership.",
+        status: 500
+      });
     }
   }
 

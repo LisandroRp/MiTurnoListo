@@ -8,6 +8,7 @@ import {
   Service,
   ThemeId
 } from "@/features/scheduling/types";
+import { getResponseErrorMessage } from "@/lib/networking/response-errors";
 
 export type PublicBookingPayload = {
   appointments: Appointment[];
@@ -42,7 +43,7 @@ export async function getPublicBookingPayload(serviceId: string) {
   });
 
   if (!response.ok) {
-    throw new Error(await getErrorMessage(response, "Unable to load the public booking page."));
+    throw new Error(await getResponseErrorMessage(response, "Unable to load the public booking page."));
   }
 
   return response.json() as Promise<PublicBookingPayload>;
@@ -58,27 +59,11 @@ export async function createPublicBooking(serviceId: string, payload: CreatePubl
   });
 
   if (!response.ok) {
-    throw new Error(await getErrorMessage(response, "Unable to create the booking."));
+    throw new Error(await getResponseErrorMessage(response, "Unable to create the booking."));
   }
 
   return response.json() as Promise<{
     appointmentId: string;
     checkoutUrl?: string;
   }>;
-}
-
-async function getErrorMessage(response: Response, fallbackMessage: string) {
-  try {
-    const payload = await response.json() as {
-      error?: string;
-    };
-
-    if (payload.error?.trim()) {
-      return payload.error;
-    }
-  } catch {
-    return fallbackMessage;
-  }
-
-  return fallbackMessage;
 }

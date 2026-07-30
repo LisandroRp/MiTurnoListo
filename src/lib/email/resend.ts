@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getResponseErrorPayload } from "@/lib/networking/api-errors";
+
 type SendEmailInput = {
   html: string;
   replyTo?: string | null;
@@ -46,8 +48,12 @@ export async function sendEmail({
   });
 
   if (!response.ok) {
+    const errorPayload = await getResponseErrorPayload(response, "Resend rejected the email request.");
+
     return {
-      reason: "Resend rejected the email request.",
+      reason: errorPayload.details
+        ? `${errorPayload.message} (${errorPayload.details})`
+        : errorPayload.message,
       status: "skipped"
     };
   }

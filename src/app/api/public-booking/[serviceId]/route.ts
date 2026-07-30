@@ -6,6 +6,9 @@ import {
 } from "@/features/booking-flow/utils/booking";
 import { freePlanLimits, getCurrentMonthRange, isFreePlan } from "@/features/scheduling/plan-limits";
 import { AppointmentStatus, PaymentMethod } from "@/features/scheduling/types";
+import { sendBookingCreatedEmails } from "@/lib/email/booking-emails";
+import { createMercadoPagoPreference, getMercadoPagoPublicOrigin } from "@/lib/mercadopago/checkout";
+import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 import {
   mapAppointments,
@@ -13,9 +16,7 @@ import {
   mapPaymentSettings,
   mapServices
 } from "@/lib/networking/mappers/scheduling";
-import { sendBookingCreatedEmails } from "@/lib/email/booking-emails";
 import { buildIsoInTimeZone } from "@/lib/networking/utils/date-time";
-import { createMercadoPagoPreference, getMercadoPagoPublicOrigin } from "@/lib/mercadopago/checkout";
 import { notifyPlanLimitReached } from "@/lib/notifications/plan-limits";
 
 type RouteContext = {
@@ -428,12 +429,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       appointmentId: appointment.id
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Unable to create the booking."
-      },
-      { status: 500 }
-    );
+    return createApiErrorResponse(error, {
+      code: "BOOKING_CREATE_FAILED",
+      fallbackMessage: "Unable to create the booking.",
+      status: 500
+    });
   }
 }
 

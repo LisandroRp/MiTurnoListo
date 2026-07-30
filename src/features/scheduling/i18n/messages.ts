@@ -184,6 +184,10 @@ export const messages = {
       requiredHint: "Nombre, precio, duracion y capacidad son obligatorios.",
       empty: "Todavia no hay servicios cargados.",
       shareHiddenHint: "Activa la visibilidad del servicio para compartir su link publico.",
+      shareCatalogAction: "Compartir catalogo",
+      shareCatalogTitle: "Comparte tu catalogo",
+      shareCatalogDescription: "Copia el link o muestra el QR para que tus clientes vean todos los servicios disponibles.",
+      shareCatalogQrAlt: "QR del catalogo publico de servicios",
       shareTitle: "Comparte este servicio",
       shareDescription: "Copia el link o muestra el QR para que tus clientes reserven {serviceName}.",
       shareQrAlt: "QR del link publico del servicio",
@@ -434,6 +438,15 @@ export const messages = {
         paymentRequired: "Selecciona un metodo de pago."
       }
     },
+    publicServices: {
+      eyebrow: "Servicios disponibles",
+      description: "Elige un servicio y reserva tu turno online en pocos pasos.",
+      loadingTitle: "Cargando servicios",
+      loadError: "No pudimos cargar los servicios",
+      emptyTitle: "No hay servicios disponibles",
+      emptyDescription: "Este negocio todavia no tiene servicios publicados para reservar online.",
+      bookAction: "Sacar turno"
+    },
     toast: {
       serviceSaved: "Servicio guardado",
       serviceDeleted: "Servicio eliminado",
@@ -660,6 +673,10 @@ export const messages = {
       requiredHint: "Name, price, duration and capacity are required.",
       empty: "No services have been created yet.",
       shareHiddenHint: "Enable service visibility to share its public link.",
+      shareCatalogAction: "Share catalog",
+      shareCatalogTitle: "Share your catalog",
+      shareCatalogDescription: "Copy the link or show the QR so customers can view all available services.",
+      shareCatalogQrAlt: "QR code for the public services catalog",
       shareTitle: "Share this service",
       shareDescription: "Copy the link or show the QR so customers can book {serviceName}.",
       shareQrAlt: "QR code for the public service link",
@@ -909,6 +926,15 @@ export const messages = {
         emailInvalid: "Enter a valid email.",
         paymentRequired: "Choose a payment method."
       }
+    },
+    publicServices: {
+      eyebrow: "Available services",
+      description: "Choose a service and book your appointment online in a few steps.",
+      loadingTitle: "Loading services",
+      loadError: "We could not load services",
+      emptyTitle: "No services available",
+      emptyDescription: "This business has not published services for online booking yet.",
+      bookAction: "Book appointment"
     },
     toast: {
       serviceSaved: "Service saved",

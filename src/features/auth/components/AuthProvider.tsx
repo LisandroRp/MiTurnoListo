@@ -11,6 +11,7 @@ import {
 } from "@/lib/networking/clients/supabase-browser-storage";
 import { getSupabaseBrowserClient } from "@/lib/networking/clients/supabase-browser";
 import { bootstrapWorkspace } from "@/lib/networking/endpoints/auth";
+import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
 
 const passwordRecoverySessionKey = "miturnolisto_password_recovery";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -368,5 +369,5 @@ function getErrorMessage(error: unknown, fallbackMessage: string) {
     return error.message;
   }
 
-  return fallbackMessage;
+  return getPayloadErrorMessage(error, fallbackMessage);
 }

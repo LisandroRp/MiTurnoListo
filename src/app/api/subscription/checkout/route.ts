@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { createProSubscriptionCheckout, syncLatestBusinessSubscription } from "@/lib/mercadopago/subscriptions";
+import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 
 export async function POST(request: NextRequest) {
@@ -45,10 +46,11 @@ export async function POST(request: NextRequest) {
       subscriptionTier: "free"
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "No pudimos iniciar la suscripcion al plan Pro." },
-      { status: 502 }
-    );
+    return createApiErrorResponse(error, {
+      code: "SUBSCRIPTION_CHECKOUT_FAILED",
+      fallbackMessage: "No pudimos iniciar la suscripcion al plan Pro.",
+      status: 502
+    });
   }
 }
 

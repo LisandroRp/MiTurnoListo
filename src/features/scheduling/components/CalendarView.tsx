@@ -32,8 +32,8 @@ type CalendarViewProps = {
   onFocusedDateChange: (date: string) => void;
   onEmployeeQueryChange: (value: string) => void;
   onToggleEmployee: (employeeId: string) => void;
-  onDeleteAppointment: (appointmentId: string) => void;
-  onMarkAppointmentPaid: (appointmentId: string) => void;
+  onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
+  onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
 };
 
 const modes: CalendarMode[] = ["day", "week", "month"];
@@ -313,8 +313,8 @@ type CalendarContentProps = {
   employees: Employee[];
   services: Service[];
   appointments: Appointment[];
-  onDeleteAppointment: (appointmentId: string) => void;
-  onMarkAppointmentPaid: (appointmentId: string) => void;
+  onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
+  onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
 };
 
 function DayCalendar({ messages, focusedDate, employees, services, appointments, onDeleteAppointment, onMarkAppointmentPaid }: CalendarContentProps) {
@@ -378,8 +378,8 @@ type DateGroupedCalendarProps = {
   employees: Employee[];
   appointments: Appointment[];
   onDateClick: (date: string) => void;
-  onDeleteAppointment: (appointmentId: string) => void;
-  onMarkAppointmentPaid: (appointmentId: string) => void;
+  onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
+  onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
 };
 
 function DateGroupedCalendar({
@@ -464,8 +464,8 @@ type AppointmentCardProps = {
   employee?: Employee;
   serviceName?: string;
   employeeName?: string;
-  onDeleteAppointment: (appointmentId: string) => void;
-  onMarkAppointmentPaid: (appointmentId: string) => void;
+  onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
+  onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
 };
 
 function AppointmentCard({
@@ -478,6 +478,7 @@ function AppointmentCard({
   onMarkAppointmentPaid
 }: AppointmentCardProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<"paid" | "cancel" | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const appointmentToneClass = employee ? appointmentToneClasses[employee.color] : "border-brand bg-brand-soft";
 
@@ -509,14 +510,24 @@ function AppointmentCard({
     };
   }, [isOpen]);
 
-  function deleteAppointment() {
-    onDeleteAppointment(appointment.id);
-    setIsOpen(false);
+  async function deleteAppointment() {
+    setLoadingAction("cancel");
+    try {
+      await onDeleteAppointment(appointment.id);
+      setIsOpen(false);
+    } finally {
+      setLoadingAction(null);
+    }
   }
 
-  function markAppointmentPaid() {
-    onMarkAppointmentPaid(appointment.id);
-    setIsOpen(false);
+  async function markAppointmentPaid() {
+    setLoadingAction("paid");
+    try {
+      await onMarkAppointmentPaid(appointment.id);
+      setIsOpen(false);
+    } finally {
+      setLoadingAction(null);
+    }
   }
 
   const paymentState = getPaymentState(appointment.status);
@@ -553,8 +564,10 @@ function AppointmentCard({
               size="sm"
               variant="secondary"
               icon={<FiCheck />}
+              isLoading={loadingAction === "paid"}
+              disabled={loadingAction !== null}
               className="w-full justify-start !border-success !bg-success !text-white hover:!bg-surface hover:!text-success"
-              onClick={markAppointmentPaid}
+              onClick={() => void markAppointmentPaid()}
             >
               {messages.calendar.markAsPaid}
             </Button>
@@ -563,8 +576,10 @@ function AppointmentCard({
             size="sm"
             variant="danger"
             icon={<FiTrash2 />}
+            isLoading={loadingAction === "cancel"}
+            disabled={loadingAction !== null}
             className="w-full justify-start"
-            onClick={deleteAppointment}
+            onClick={() => void deleteAppointment()}
           >
             {messages.actions.cancel}
           </Button>

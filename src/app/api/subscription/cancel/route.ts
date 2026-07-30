@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { cancelLatestBusinessSubscription } from "@/lib/mercadopago/subscriptions";
+import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 
 export async function POST(request: NextRequest) {
@@ -29,10 +30,11 @@ export async function POST(request: NextRequest) {
       subscriptionTier: result.subscriptionTier
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "No pudimos cancelar la suscripcion." },
-      { status: 502 }
-    );
+    return createApiErrorResponse(error, {
+      code: "SUBSCRIPTION_CANCEL_FAILED",
+      fallbackMessage: "No pudimos cancelar la suscripcion.",
+      status: 502
+    });
   }
 }
 

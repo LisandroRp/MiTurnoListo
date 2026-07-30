@@ -27,6 +27,7 @@ type ServicesViewProps = {
   messages: Messages;
   services: Service[];
   employees: Employee[];
+  businessId: string | null;
   subscriptionTier: SubscriptionTier;
   isMercadoPagoConfigured: boolean;
   onSaveService: (service: Service) => Promise<boolean>;
@@ -47,6 +48,7 @@ export function ServicesView({
   messages,
   services,
   employees,
+  businessId,
   subscriptionTier,
   isMercadoPagoConfigured,
   onSaveService,
@@ -64,6 +66,7 @@ export function ServicesView({
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [savingVisibilityId, setSavingVisibilityId] = useState<string | null>(null);
   const [sharingService, setSharingService] = useState<Service | null>(null);
+  const [isSharingCatalog, setIsSharingCatalog] = useState(false);
   const [lockedService, setLockedService] = useState<Service | null>(null);
   const unlockedVisibleServiceIds = new Set(
     isFreePlan(subscriptionTier)
@@ -163,6 +166,20 @@ export function ServicesView({
 
     try {
       await navigator.clipboard.writeText(getPublicServiceUrl(service.id));
+      onShareSuccess();
+    } catch {
+      onShareError();
+    }
+  }
+
+  async function copyCatalogLink() {
+    if (!businessId) {
+      onShareError();
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(getPublicCatalogUrl(businessId));
       onShareSuccess();
     } catch {
       onShareError();
@@ -398,9 +415,14 @@ export function ServicesView({
         title={messages.services.title}
         description={messages.services.description}
         actions={
-          <Button icon={<FiPlus />} onClick={startCreate}>
-            {messages.actions.addService}
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="secondary" icon={<FiShare2 />} disabled={!businessId} onClick={() => setIsSharingCatalog(true)}>
+              {messages.services.shareCatalogAction}
+            </Button>
+            <Button icon={<FiPlus />} onClick={startCreate}>
+              {messages.actions.addService}
+            </Button>
+          </div>
         }
       />
 
@@ -505,6 +527,15 @@ export function ServicesView({
         />
       ) : null}
 
+      {isSharingCatalog && businessId ? (
+        <ShareCatalogModal
+          messages={messages}
+          catalogUrl={getPublicCatalogUrl(businessId)}
+          onClose={() => setIsSharingCatalog(false)}
+          onCopy={() => void copyCatalogLink()}
+        />
+      ) : null}
+
       <PlanLimitModal
         isOpen={Boolean(lockedService)}
         badge={messages.planLimits.lockedBadge}
@@ -599,8 +630,90 @@ function ShareServiceModal({
   );
 }
 
+function ShareCatalogModal({
+  messages,
+  catalogUrl,
+  onClose,
+  onCopy
+}: {
+  messages: Messages;
+  catalogUrl: string;
+  onClose: () => void;
+  onCopy: () => void;
+}) {
+  const [qrDataUrl, setQrDataUrl] = useState("");
+
+  useEffect(() => {
+    let isActive = true;
+
+    void QRCode.toDataURL(catalogUrl, {
+      margin: 2,
+      width: 260
+    }).then((dataUrl) => {
+      if (isActive) {
+        setQrDataUrl(dataUrl);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [catalogUrl]);
+
+  return (
+    <div className="p-safe fixed inset-0 z-50 grid place-items-center bg-primary/35">
+      <Card className="grid w-fit max-w-full gap-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase text-muted">{messages.actions.share}</p>
+            <h2 className="mt-1 text-2xl font-bold text-primary">{messages.services.shareCatalogTitle}</h2>
+            <p className="mt-2 text-sm leading-6 text-muted">{messages.services.shareCatalogDescription}</p>
+          </div>
+          <Button size="icon" variant="ghost" aria-label={messages.actions.cancel} onClick={onClose}>
+            <FiX />
+          </Button>
+        </div>
+
+        <div className="grid justify-items-center gap-4 rounded-xl border border-subtle bg-input p-5">
+          {qrDataUrl ? (
+            <Image
+              src={qrDataUrl}
+              alt={messages.services.shareCatalogQrAlt}
+              width={260}
+              height={260}
+              unoptimized
+              className="h-64 w-64 rounded-lg border border-subtle bg-surface p-3"
+            />
+          ) : (
+            <div className="grid h-64 w-64 place-items-center rounded-lg border border-subtle bg-surface text-sm text-muted">
+              {messages.services.generatingQr}
+            </div>
+          )}
+          <div className="flex w-full items-center gap-2 rounded-lg border border-subtle bg-surface px-3 py-2 text-sm text-muted">
+            <FiLink className="shrink-0" aria-hidden="true" />
+            <span className="truncate">{catalogUrl}</span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+          <Button variant="secondary" onClick={onClose}>
+            {messages.actions.cancel}
+          </Button>
+          <Button icon={<FiCopy />} onClick={onCopy}>
+            {messages.services.copyPublicLink}
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function getPublicServiceUrl(serviceId: string) {
   return `${window.location.origin}/reservar/${serviceId}`;
+}
+
+function getPublicCatalogUrl(businessId: string) {
+  return `${window.location.origin}/catalogo/${businessId}`;
 }
 
 function ServiceFact({ label, value }: { label: string; value: string }) {

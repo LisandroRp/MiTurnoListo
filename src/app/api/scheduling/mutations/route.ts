@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { Appointment, Employee, Service } from "@/features/scheduling/types";
 import { freePlanLimits, getCurrentMonthRange, isFreePlan } from "@/features/scheduling/plan-limits";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
+import { createApiErrorResponse, getSafeErrorMessage } from "@/lib/networking/api-errors";
 import { mapScheduleToAvailabilityRows } from "@/lib/networking/mappers/scheduling";
 import { buildIsoInTimeZone } from "@/lib/networking/utils/date-time";
 import { sendBookingCancelledEmails } from "@/lib/email/booking-emails";
@@ -90,10 +91,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to save changes.";
+    const message = getSafeErrorMessage(error, "Unable to save changes.");
     const status = message.startsWith("PLAN_LIMIT:") ? 402 : message.startsWith("PAYMENT_CONFIG:") ? 409 : 500;
 
-    return NextResponse.json({ error: message.replace(/^(PLAN_LIMIT|PAYMENT_CONFIG):/, "") }, { status });
+    return createApiErrorResponse(message.replace(/^(PLAN_LIMIT|PAYMENT_CONFIG):/, ""), {
+      code: "SCHEDULING_MUTATION_FAILED",
+      fallbackMessage: "Unable to save changes.",
+      status
+    });
   }
 }
 

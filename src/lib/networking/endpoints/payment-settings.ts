@@ -2,6 +2,7 @@
 
 import { BusinessPaymentSettings } from "@/features/scheduling/types";
 import { getAccessToken } from "@/lib/networking/endpoints/auth";
+import { getResponseErrorMessage } from "@/lib/networking/response-errors";
 
 export async function getPaymentSettings(businessId: string) {
   const accessToken = await getAccessToken();
@@ -12,7 +13,7 @@ export async function getPaymentSettings(businessId: string) {
   });
 
   if (!response.ok) {
-    throw new Error("Unable to load payment settings.");
+    throw new Error(await getResponseErrorMessage(response, "Unable to load payment settings."));
   }
 
   return response.json() as Promise<BusinessPaymentSettings>;
@@ -36,7 +37,7 @@ export async function savePaymentSettings(
   });
 
   if (!response.ok) {
-    throw new Error("Unable to save payment settings.");
+    throw new Error(await getResponseErrorMessage(response, "Unable to save payment settings."));
   }
 
   return response.json() as Promise<BusinessPaymentSettings>;

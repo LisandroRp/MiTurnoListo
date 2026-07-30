@@ -6,6 +6,7 @@ export type ViewId =
   | "calendar"
   | "services"
   | "personnel"
+  | "customers"
   | "newBooking"
   | "statistics"
   | "paymentMethods"
@@ -100,6 +101,14 @@ export type BookingCustomer = {
   fullName: string;
   phone: string;
   email: string;
+};
+
+export type Customer = {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  lastBookedAt: string;
 };
 
 export type DashboardMetric = {

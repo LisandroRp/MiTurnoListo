@@ -9,6 +9,7 @@ export const messages = {
       calendar: "Calendario",
       services: "Servicios",
       personnel: "Personal",
+      customers: "Clientes",
       newBooking: "Nueva reserva",
       statistics: "Estadisticas",
       paymentMethods: "Metodos de pago",
@@ -254,6 +255,19 @@ export const messages = {
         details: "Carga nombre y rol para continuar."
       }
     },
+    customers: {
+      eyebrow: "Clientes",
+      title: "Clientes",
+      description: "Consulta los datos de contacto guardados cuando alguien reserva un turno.",
+      name: "Nombre",
+      email: "Email",
+      phone: "Telefono",
+      lastBooking: "Ultima reserva",
+      loading: "Cargando clientes",
+      emptyTitle: "Todavia no hay clientes",
+      emptyDescription: "Cuando alguien reserve un turno, sus datos van a aparecer aca.",
+      loadError: "No pudimos cargar los clientes"
+    },
     profile: {
       eyebrow: "Cuenta",
       title: "Perfil y configuracion",
@@ -498,6 +512,7 @@ export const messages = {
       calendar: "Calendar",
       services: "Services",
       personnel: "Personnel",
+      customers: "Customers",
       newBooking: "New booking",
       statistics: "Statistics",
       paymentMethods: "Payment methods",
@@ -742,6 +757,19 @@ export const messages = {
       validation: {
         details: "Add a name and role to continue."
       }
+    },
+    customers: {
+      eyebrow: "Customers",
+      title: "Customers",
+      description: "Review the contact details saved when someone books an appointment.",
+      name: "Name",
+      email: "Email",
+      phone: "Phone",
+      lastBooking: "Last booking",
+      loading: "Loading customers",
+      emptyTitle: "No customers yet",
+      emptyDescription: "When someone books an appointment, their details will appear here.",
+      loadError: "We could not load customers"
     },
     profile: {
       eyebrow: "Account",

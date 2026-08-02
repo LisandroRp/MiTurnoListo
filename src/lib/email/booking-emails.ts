@@ -23,7 +23,9 @@ type AppointmentEmailContext = {
   customerPhone: string;
   employeeName: string;
   paymentMethod: string | null;
+  publicCancelToken: string;
   receiptWhatsapp: string;
+  cancellationLeadMinutes: number;
   serviceName: string;
   startsAt: string;
   totalAmount: number;
@@ -168,7 +170,7 @@ async function getAppointmentEmailContext(appointmentId: string) {
   const supabase = getSupabaseAdminClient();
   const { data: appointment, error } = await supabase
     .from("appointments")
-    .select("id, business_id, employee_id, service_id, starts_at, total_amount, selected_payment_method, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+    .select("id, business_id, employee_id, service_id, starts_at, total_amount, selected_payment_method, public_cancel_token, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
     .eq("id", appointmentId)
     .limit(1)
     .maybeSingle();
@@ -192,7 +194,7 @@ async function getAppointmentEmailContext(appointmentId: string) {
       .maybeSingle(),
     supabase
       .from("services")
-      .select("name")
+      .select("name, cancellation_lead_minutes")
       .eq("id", appointment.service_id)
       .limit(1)
       .maybeSingle(),
@@ -217,7 +219,9 @@ async function getAppointmentEmailContext(appointmentId: string) {
     customerPhone: appointment.customer_phone_snapshot ?? "",
     employeeName: employeeResult.data?.name ?? "",
     paymentMethod: appointment.selected_payment_method,
+    publicCancelToken: appointment.public_cancel_token,
     receiptWhatsapp: paymentSettingsResult.data?.transfer_receipt_whatsapp ?? "",
+    cancellationLeadMinutes: serviceResult.data?.cancellation_lead_minutes ?? 1440,
     serviceName: serviceResult.data?.name ?? "Servicio",
     startsAt: appointment.starts_at,
     totalAmount: appointment.total_amount
@@ -266,7 +270,7 @@ function formatAppointmentDate(startsAt: string) {
 }
 
 function buildBookingCreatedCustomerText(context: AppointmentEmailContext) {
-  return `Hola ${context.customerName}, recibimos tu reserva para ${context.serviceName} en ${context.businessName}. Fecha: ${formatAppointmentDate(context.startsAt)}. Profesional: ${context.employeeName}.${buildTransferReceiptText(context)}`;
+  return `Hola ${context.customerName}, recibimos tu reserva para ${context.serviceName} en ${context.businessName}. Fecha: ${formatAppointmentDate(context.startsAt)}. Profesional: ${context.employeeName}.${buildTransferReceiptText(context)} ${buildCancellationText(context)}`;
 }
 
 function buildBookingCreatedCustomerHtml(context: AppointmentEmailContext) {
@@ -276,6 +280,7 @@ function buildBookingCreatedCustomerHtml(context: AppointmentEmailContext) {
       <p>Recibimos tu reserva para <strong>${escapeHtml(context.serviceName)}</strong> en ${escapeHtml(context.businessName)}.</p>
       ${buildAppointmentDetails(context)}
       ${buildTransferReceiptHtml(context)}
+      ${buildCancellationHtml(context)}
       <p>El negocio va a confirmar el turno o el pago segun corresponda.</p>
     `,
     title: "Reserva recibida"
@@ -283,7 +288,7 @@ function buildBookingCreatedCustomerHtml(context: AppointmentEmailContext) {
 }
 
 function buildBookingConfirmedText(context: AppointmentEmailContext) {
-  return `Hola ${context.customerName}, tu turno en ${context.businessName} quedo confirmado. Servicio: ${context.serviceName}. Fecha: ${formatAppointmentDate(context.startsAt)}.`;
+  return `Hola ${context.customerName}, tu turno en ${context.businessName} quedo confirmado. Servicio: ${context.serviceName}. Fecha: ${formatAppointmentDate(context.startsAt)}. ${buildCancellationText(context)}`;
 }
 
 function buildBookingConfirmedHtml(context: AppointmentEmailContext) {
@@ -292,6 +297,7 @@ function buildBookingConfirmedHtml(context: AppointmentEmailContext) {
       <p>Hola ${escapeHtml(context.customerName)},</p>
       <p>Tu turno en ${escapeHtml(context.businessName)} quedo <strong>confirmado</strong>.</p>
       ${buildAppointmentDetails(context)}
+      ${buildCancellationHtml(context)}
     `,
     title: "Turno confirmado"
   });
@@ -408,6 +414,57 @@ function buildTransferReceiptHtml(context: AppointmentEmailContext) {
   }
 
   return `<p><strong>Comprobante:</strong> Envia el comprobante por WhatsApp a ${escapeHtml(context.receiptWhatsapp)}.</p>`;
+}
+
+function buildCancellationText(context: AppointmentEmailContext) {
+  return `Si necesitas cancelar, podes hacerlo hasta ${formatLeadTime(context.cancellationLeadMinutes)} antes desde ${buildCancellationUrl(context.publicCancelToken)}.`;
+}
+
+function buildCancellationHtml(context: AppointmentEmailContext) {
+  const cancellationUrl = buildCancellationUrl(context.publicCancelToken);
+
+  return `
+    <p>
+      Si necesitas cancelar, podes hacerlo hasta ${escapeHtml(formatLeadTime(context.cancellationLeadMinutes))} antes:
+      <a href="${escapeHtml(cancellationUrl)}">cancelar turno</a>.
+    </p>
+  `;
+}
+
+function buildCancellationUrl(token: string) {
+  return `${getPublicSiteUrl()}/cancelar-turno/${encodeURIComponent(token)}`;
+}
+
+function getPublicSiteUrl() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || process.env.APP_PUBLIC_URL?.trim();
+
+  if (siteUrl) {
+    return siteUrl.replace(/\/+$/, "");
+  }
+
+  const vercelUrl = process.env.VERCEL_URL?.trim();
+
+  if (vercelUrl) {
+    return `https://${vercelUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
+  }
+
+  return "http://localhost:3000";
+}
+
+function formatLeadTime(minutes: number) {
+  if (minutes % 1440 === 0) {
+    const days = minutes / 1440;
+
+    return `${days} ${days === 1 ? "dia" : "dias"}`;
+  }
+
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+
+    return `${hours} ${hours === 1 ? "hora" : "horas"}`;
+  }
+
+  return `${minutes} minutos`;
 }
 
 function buildEmailShell({ body, title }: { body: string; title: string }) {

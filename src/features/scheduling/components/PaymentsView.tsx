@@ -344,7 +344,7 @@ function PaymentAction({
 }) {
   if (payment.status !== "pending") {
     return (
-      <Button size="sm" variant="secondary" disabled>
+      <Button size="sm" variant="secondary" disabled className={`${payment.status == "cancelled" ? "!bg-red-600 text-white": undefined}`}>
         {payment.status === "paid" ? messages.payments.alreadyPaid : messages.payments.statuses[payment.status]}
       </Button>
     );

@@ -1,6 +1,6 @@
 "use client";
 
-import { BusinessPaymentSettings, Locale, ThemeId } from "@/features/scheduling/types";
+import { BusinessPaymentSettings, BusinessProfile, Locale, ThemeId } from "@/features/scheduling/types";
 import { getSupabaseBrowserClient } from "@/lib/networking/clients/supabase-browser";
 import {
   buildDashboardMetrics,
@@ -83,7 +83,7 @@ export async function loadSchedulingSnapshot() {
       .single(),
     supabase
       .from("businesses")
-      .select("name, address, subscription_tier, timezone")
+      .select("name, address, public_description, public_logo_url, public_opening_hours, subscription_tier, timezone")
       .eq("id", businessId)
       .limit(1)
       .single(),
@@ -98,7 +98,7 @@ export async function loadSchedulingSnapshot() {
       .select("id, employee_id, weekday, start_time, end_time"),
     supabase
       .from("services")
-      .select("id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, payment_mode, is_public")
+      .select("id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public")
       .eq("business_id", businessId)
       .eq("is_active", true)
       .order("name", { ascending: true }),
@@ -307,6 +307,28 @@ export async function savePaymentSettings(businessId: string, settings: Business
   return savePaymentSettingsRequest(businessId, settings);
 }
 
+export async function saveBusinessProfile(businessId: string, profile: BusinessProfile) {
+  const token = await getAccessToken();
+  const response = await fetch("/api/business-profile", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({
+      businessId,
+      profile
+    })
+  });
+  const payload = await response.json().catch(() => null) as { error?: string; profile?: BusinessProfile } | null;
+
+  if (!response.ok || !payload?.profile) {
+    throw new Error(payload?.error ?? "Unable to save business profile.");
+  }
+
+  return payload.profile;
+}
+
 async function runSchedulingMutation(payload: unknown) {
   const accessToken = await getAccessToken();
 
@@ -370,6 +392,7 @@ export function createNewServiceDraft(employeeIds: string[]) {
     paymentMethod: "mixed" as const,
     isVisible: true,
     reservationLeadMinutes: 30,
+    cancellationLeadMinutes: 1440,
     schedule: createEmptySchedule(),
     employeeIds,
     addons: []

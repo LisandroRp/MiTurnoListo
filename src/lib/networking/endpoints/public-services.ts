@@ -16,8 +16,12 @@ export type PublicServiceSummary = {
 };
 
 export type PublicServicesPayload = {
+  address: string;
   businessName: string;
   locale: Locale;
+  publicDescription: string;
+  publicLogoUrl: string;
+  publicOpeningHours: string;
   services: PublicServiceSummary[];
   theme: ThemeId;
 };

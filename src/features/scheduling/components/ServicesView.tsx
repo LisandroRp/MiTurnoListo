@@ -393,6 +393,7 @@ export function ServicesView({
               <TextField label={messages.services.capacity} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.capacity)} onChange={handleNumericTextChange("capacity")} />
               <TextField label={messages.services.deposit} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.deposit, true)} onChange={handleNumericTextChange("deposit")} />
               <TextField label={messages.services.leadTime} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.reservationLeadMinutes)} onChange={handleNumericTextChange("reservationLeadMinutes")} />
+              <TextField label={messages.services.cancellationLeadTime} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.cancellationLeadMinutes)} onChange={handleNumericTextChange("cancellationLeadMinutes")} />
               <SelectField
                 label={messages.services.paymentMethod}
                 value={draft.paymentMethod}
@@ -931,6 +932,7 @@ function ServiceReview({ messages, service, employees }: { messages: Messages; s
             <ServiceFact label={messages.services.capacity} value={`${service.capacity} ${messages.services.people}`} />
             <ServiceFact label={messages.services.deposit} value={formatCurrency(service.deposit)} />
             <ServiceFact label={messages.services.paymentMethod} value={messages.paymentMethods[service.paymentMethod]} />
+            <ServiceFact label={messages.services.cancellationLeadTime} value={formatLeadTime(service.cancellationLeadMinutes)} />
             <ServiceFact label={messages.services.schedule} value={`${scheduleRangeCount} ${messages.services.ranges}`} />
           </dl>
         </div>
@@ -1081,7 +1083,7 @@ function getServiceStepValidationMessage(
     return messages.services.validation.details;
   }
 
-  if (step === "booking" && (service.price <= 0 || service.durationMinutes <= 0 || service.capacity <= 0 || service.deposit < 0 || service.reservationLeadMinutes < 0)) {
+  if (step === "booking" && (service.price <= 0 || service.durationMinutes <= 0 || service.capacity <= 0 || service.deposit < 0 || service.reservationLeadMinutes < 0 || service.cancellationLeadMinutes <= 0)) {
     return messages.services.validation.booking;
   }
 
@@ -1102,6 +1104,22 @@ function isMercadoPagoPaymentMethod(paymentMethod: PaymentMethod) {
 
 function getScheduleRangeCount(schedule: ServiceSchedule) {
   return Object.values(schedule).reduce((total, ranges) => total + ranges.length, 0);
+}
+
+function formatLeadTime(minutes: number) {
+  if (minutes % 1440 === 0) {
+    const days = minutes / 1440;
+
+    return `${days} ${days === 1 ? "dia" : "dias"}`;
+  }
+
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+
+    return `${hours} ${hours === 1 ? "hora" : "horas"}`;
+  }
+
+  return `${minutes} minutos`;
 }
 
 function formatNumericInputValue(value: number, hideZero = false) {

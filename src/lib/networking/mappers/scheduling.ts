@@ -45,6 +45,7 @@ type ServiceRow = {
   duration_minutes: number;
   capacity: number;
   reservation_lead_minutes: number;
+  cancellation_lead_minutes: number;
   payment_mode: PaymentMethod;
   is_public: boolean;
 };
@@ -87,6 +88,9 @@ type UserProfileRow = {
 type BusinessRow = {
   name: string;
   address: string | null;
+  public_description: string | null;
+  public_logo_url: string | null;
+  public_opening_hours: string | null;
   subscription_tier: Profile["subscriptionTier"];
   timezone: string;
 };
@@ -167,6 +171,7 @@ export function mapServices(
     paymentMethod: service.payment_mode,
     isVisible: service.is_public,
     reservationLeadMinutes: service.reservation_lead_minutes,
+    cancellationLeadMinutes: service.cancellation_lead_minutes,
     schedule: buildSchedule(
       availabilityRows.filter((row) => row.service_id === service.id)
     ),
@@ -225,6 +230,9 @@ export function mapProfile(
     subscriptionTier: business.subscription_tier,
     businessName: business.name,
     address: business.address ?? "",
+    publicDescription: business.public_description ?? "",
+    publicLogoUrl: business.public_logo_url ?? "",
+    publicOpeningHours: business.public_opening_hours ?? "",
     avatarUrl: userProfile.avatar_url ?? ""
   };
 }

@@ -31,6 +31,9 @@ export function ServiceStep({
         <MetricPill label={messages.bookingFlow.summary.deposit} value={formatCurrency(service.deposit)} />
         <MetricPill label={messages.services.capacity} value={`${service.capacity} ${messages.services.people}`} />
       </div>
+      <div className="rounded-2xl border border-subtle bg-input p-4 text-sm font-semibold text-muted">
+        {messages.bookingFlow.cancellationPolicy.replace("{time}", formatLeadTime(service.cancellationLeadMinutes))}
+      </div>
       <div className="grid gap-2">
         <label className="text-sm font-semibold text-primary" htmlFor="party-size">
           {messages.bookingFlow.partySize}
@@ -50,4 +53,20 @@ export function ServiceStep({
       </div>
     </Card>
   );
+}
+
+function formatLeadTime(minutes: number) {
+  if (minutes % 1440 === 0) {
+    const days = minutes / 1440;
+
+    return `${days} ${days === 1 ? "dia" : "dias"}`;
+  }
+
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+
+    return `${hours} ${hours === 1 ? "hora" : "horas"}`;
+  }
+
+  return `${minutes} minutos`;
 }

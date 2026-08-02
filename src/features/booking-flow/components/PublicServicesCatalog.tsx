@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
-import { FiClock, FiShield, FiUsers } from "react-icons/fi";
+import { FiClock, FiMapPin, FiShield, FiUsers } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
 import { Badge } from "@/components/ui/Badge";
@@ -78,8 +78,9 @@ export function PublicServicesCatalog({ businessId }: PublicServicesCatalogProps
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted">{messages.publicServices.eyebrow}</p>
             <h1 className="mt-3 text-4xl font-bold text-primary">{payload?.businessName ?? messages.appName}</h1>
-            <p className="mt-3 text-base leading-7 text-muted">{messages.publicServices.description}</p>
+            <p className="mt-3 text-base leading-7 text-muted">{payload?.publicDescription || messages.publicServices.description}</p>
           </div>
+          {payload ? <BusinessPublicSummary payload={payload} /> : null}
         </header>
 
         {isLoading ? (
@@ -97,6 +98,41 @@ export function PublicServicesCatalog({ businessId }: PublicServicesCatalogProps
         )}
       </div>
     </main>
+  );
+}
+
+function BusinessPublicSummary({ payload }: { payload: PublicServicesPayload }) {
+  const hasDetails = payload.publicLogoUrl || payload.address || payload.publicOpeningHours;
+
+  if (!hasDetails) {
+    return null;
+  }
+
+  return (
+    <Card className="mt-2 w-full max-w-3xl">
+      <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
+        <div
+          className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl border border-subtle bg-surface-strong bg-cover bg-center text-lg font-bold text-primary"
+          style={{ backgroundImage: payload.publicLogoUrl ? `url(${payload.publicLogoUrl})` : undefined }}
+        >
+          {payload.publicLogoUrl ? null : getBusinessInitials(payload.businessName)}
+        </div>
+        <div className="grid flex-1 gap-3">
+          {payload.address ? (
+            <div className="flex items-center justify-center gap-2 text-sm text-muted sm:justify-start">
+              <FiMapPin className="shrink-0 text-brand-strong" aria-hidden="true" />
+              <span>{payload.address}</span>
+            </div>
+          ) : null}
+          {payload.publicOpeningHours ? (
+            <div className="flex items-start justify-center gap-2 text-sm text-muted sm:justify-start">
+              <FiClock className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" />
+              <span className="whitespace-pre-line">{payload.publicOpeningHours}</span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -181,4 +217,13 @@ function StateCard({ title, description }: { title: string; description?: string
       {description ? <p className="mt-3 text-sm leading-6 text-muted">{description}</p> : null}
     </Card>
   );
+}
+
+function getBusinessInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "MT";
 }

@@ -20,6 +20,7 @@ export default function ProfileSectionPage() {
     profile,
     locale,
     refreshWorkspaceSubscription,
+    saveBusinessProfile,
     startProSubscription,
     theme,
     themeOptions,
@@ -99,7 +100,9 @@ export default function ProfileSectionPage() {
       themeOptions={themeOptions}
       onRequestPasswordReset={handlePasswordReset}
       onLocaleChange={setLocale}
+      onSaveBusinessProfile={saveBusinessProfile}
       onThemeChange={setTheme}
+      onBusinessImageUploadError={(message) => showToast({ tone: "error", title: messages.toast.error, description: message })}
       onSubscribeToPro={handleSubscribeToPro}
       onUnsubscribeFromPro={cancelProSubscription}
     />

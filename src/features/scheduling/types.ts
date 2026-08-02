@@ -66,6 +66,7 @@ export type Service = {
   paymentMethod: PaymentMethod;
   isVisible: boolean;
   reservationLeadMinutes: number;
+  cancellationLeadMinutes: number;
   schedule: ServiceSchedule;
   employeeIds: string[];
   addons: ServiceAddon[];
@@ -86,7 +87,18 @@ export type Profile = {
   subscriptionTier: SubscriptionTier;
   businessName: string;
   address: string;
+  publicDescription: string;
+  publicLogoUrl: string;
+  publicOpeningHours: string;
   avatarUrl: string;
+};
+
+export type BusinessProfile = {
+  name: string;
+  address: string;
+  publicDescription: string;
+  publicLogoUrl: string;
+  publicOpeningHours: string;
 };
 
 export type MercadoPagoSettings = {

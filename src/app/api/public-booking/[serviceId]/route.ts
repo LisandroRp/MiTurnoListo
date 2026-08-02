@@ -30,7 +30,7 @@ export async function GET(_: NextRequest, context: RouteContext) {
   const supabase = getSupabaseAdminClient();
   const { data: service, error: serviceError } = await supabase
     .from("services")
-    .select("id, business_id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, payment_mode, is_public")
+    .select("id, business_id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public")
     .eq("id", serviceId)
     .eq("is_active", true)
     .eq("is_public", true)
@@ -207,7 +207,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const endsAt = buildIsoInTimeZone(payload.slot.date, payload.slot.endTime, payload.timeZone);
     const { data: service, error: serviceError } = await supabase
       .from("services")
-      .select("id, business_id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, payment_mode, is_public")
+      .select("id, business_id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public")
       .eq("id", serviceId)
       .eq("is_active", true)
       .eq("is_public", true)

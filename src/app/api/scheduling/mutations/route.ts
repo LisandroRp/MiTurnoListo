@@ -355,6 +355,7 @@ async function saveService(supabase: SupabaseClient, businessId: string, service
       duration_minutes: service.durationMinutes,
       capacity: service.capacity,
       reservation_lead_minutes: service.reservationLeadMinutes,
+      cancellation_lead_minutes: service.cancellationLeadMinutes,
       payment_mode: service.paymentMethod,
       is_public: service.isVisible,
       is_active: true
@@ -593,7 +594,7 @@ async function rescheduleAppointment(
   ] = await Promise.all([
     supabase
       .from("services")
-      .select("id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, payment_mode, is_public")
+      .select("id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public")
       .eq("id", appointment.service_id)
       .eq("business_id", businessId)
       .limit(1)

@@ -16,7 +16,7 @@ export async function GET(_: Request, context: RouteContext) {
   const [businessResult, membershipResult, servicesResult] = await Promise.all([
     supabase
       .from("businesses")
-      .select("id, name")
+      .select("id, name, address, public_description, public_logo_url, public_opening_hours")
       .eq("id", businessId)
       .limit(1)
       .maybeSingle(),
@@ -49,8 +49,12 @@ export async function GET(_: Request, context: RouteContext) {
   }
 
   return NextResponse.json({
+    address: businessResult.data.address ?? "",
     businessName: businessResult.data.name,
     locale: (membershipResult.data?.locale ?? "es") as Locale,
+    publicDescription: businessResult.data.public_description ?? "",
+    publicLogoUrl: businessResult.data.public_logo_url ?? "",
+    publicOpeningHours: businessResult.data.public_opening_hours ?? "",
     services: (servicesResult.data ?? []).map((service) => ({
       capacity: service.capacity,
       deposit: service.deposit_amount,

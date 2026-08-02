@@ -8,6 +8,7 @@ import { messages, Messages } from "@/features/scheduling/i18n/messages";
 import {
   Appointment,
   BusinessPaymentSettings,
+  BusinessProfile,
   CalendarMode,
   Employee,
   Locale,
@@ -27,6 +28,7 @@ import {
   rescheduleAppointment as rescheduleAppointmentRequest,
   refreshWorkspaceSubscription as refreshWorkspaceSubscriptionRequest,
   saveEmployee as saveEmployeeRequest,
+  saveBusinessProfile as saveBusinessProfileRequest,
   savePaymentSettings as savePaymentSettingsRequest,
   saveService as saveServiceRequest,
   startProSubscription as startProSubscriptionRequest,
@@ -60,6 +62,7 @@ type SchedulingContextValue = {
   locale: Locale;
   businessId: string | null;
   saveEmployee: (employee: Employee) => Promise<boolean>;
+  saveBusinessProfile: (profile: BusinessProfile) => Promise<boolean>;
   savePaymentSettings: (settings: BusinessPaymentSettings) => Promise<boolean>;
   saveService: (service: Service) => Promise<boolean>;
   selectedEmployeeIds: string[];
@@ -92,6 +95,9 @@ const emptyProfile: Profile = {
   subscriptionTier: "free",
   businessName: "",
   address: "",
+  publicDescription: "",
+  publicLogoUrl: "",
+  publicOpeningHours: "",
   avatarUrl: ""
 };
 
@@ -296,6 +302,33 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         tone: "error",
         title: copy.toast.error,
         description: getErrorMessage(error, "Unable to save payment settings.")
+      });
+      return false;
+    }
+  }
+
+  async function saveBusinessProfile(profile: BusinessProfile) {
+    if (!businessId) {
+      return false;
+    }
+
+    try {
+      const savedProfile = await saveBusinessProfileRequest(businessId, profile);
+      setProfileState((current) => ({
+        ...current,
+        businessName: savedProfile.name,
+        address: savedProfile.address,
+        publicDescription: savedProfile.publicDescription,
+        publicLogoUrl: savedProfile.publicLogoUrl,
+        publicOpeningHours: savedProfile.publicOpeningHours
+      }));
+      showToast({ tone: "success", title: copy.profile.businessSavedToast });
+      return true;
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: copy.toast.error,
+        description: getErrorMessage(error, "Unable to save business profile.")
       });
       return false;
     }
@@ -529,6 +562,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         dismissToast,
         employeeQuery,
         locale,
+        saveBusinessProfile,
         saveEmployee,
         savePaymentSettings,
         saveService,

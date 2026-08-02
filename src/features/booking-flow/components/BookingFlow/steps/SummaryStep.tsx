@@ -57,6 +57,27 @@ export function SummaryStep({
         <SummaryRow label={messages.bookingFlow.summary.deposit} value={formatCurrency(service.deposit)} />
         <SummaryRow label={messages.bookingFlow.summary.total} value={formatCurrency(total)} />
       </Card>
+      <Card className="border-brand bg-brand-soft">
+        <p className="text-sm font-semibold text-primary">
+          {messages.bookingFlow.cancellationPolicy.replace("{time}", formatLeadTime(service.cancellationLeadMinutes))}
+        </p>
+      </Card>
     </div>
   );
+}
+
+function formatLeadTime(minutes: number) {
+  if (minutes % 1440 === 0) {
+    const days = minutes / 1440;
+
+    return `${days} ${days === 1 ? "dia" : "dias"}`;
+  }
+
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+
+    return `${hours} ${hours === 1 ? "hora" : "horas"}`;
+  }
+
+  return `${minutes} minutos`;
 }

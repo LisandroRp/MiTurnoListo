@@ -9,6 +9,7 @@ import { AvailabilityHourList } from "@/features/booking-flow/components/Availab
 import { BookingShell } from "@/features/booking-flow/components/BookingFlow/layout/BookingShell";
 import { BookingSidebar } from "@/features/booking-flow/components/BookingFlow/layout/BookingSidebar";
 import { BookingWizardActions } from "@/features/booking-flow/components/BookingFlow/layout/BookingWizardActions";
+import { AddonsStep } from "@/features/booking-flow/components/BookingFlow/steps/AddonsStep";
 import { DateTimeStep } from "@/features/booking-flow/components/BookingFlow/steps/DateTimeStep";
 import { DetailsStep } from "@/features/booking-flow/components/BookingFlow/steps/DetailsStep";
 import { EmployeeStep } from "@/features/booking-flow/components/BookingFlow/steps/EmployeeStep";
@@ -74,10 +75,17 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   const appointments = isPreview ? previewAppointments : publicPayload?.appointments ?? [];
   const paymentSettings = isPreview ? previewPaymentSettings : publicPayload?.paymentSettings ?? emptyPaymentSettings;
   const localeCode = bookingLocaleMap[locale];
-  const stepItems = bookingStepOrder.map((step) => ({
+  const activeAddons = service?.addons.filter((addon) => addon.isActive && addon.name.trim()) ?? [];
+  const bookingSteps = activeAddons.length > 0
+    ? bookingStepOrder
+    : bookingStepOrder.filter((step) => step !== "addons");
+  const stepItems = bookingSteps.map((step) => ({
     id: step,
     label: messages.bookingFlow.steps[step]
   }));
+  const selectedAddons = activeAddons.filter((addon) => draft.selectedAddonIds.includes(addon.id));
+  const selectedAddonsTotal = selectedAddons.reduce((total, addon) => total + addon.price, 0);
+  const bookingTotal = (service?.price ?? 0) + selectedAddonsTotal;
 
   useEffect(() => {
     if (isPreview) {
@@ -177,7 +185,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
     );
   }
 
-  const currentStep = bookingStepOrder[currentStepIndex];
+  const currentStep = bookingSteps[currentStepIndex] ?? "service";
   const actionButtonLabel = currentStep !== "summary" ? messages.actions.continue : messages.actions.confirmReservation;
   const isDateTimeStep = currentStep === "datetime";
 
@@ -194,7 +202,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
     }
 
     setValidationMessage("");
-    setCurrentStepIndex((current) => Math.min(current + 1, bookingStepOrder.length - 1));
+    setCurrentStepIndex((current) => Math.min(current + 1, bookingSteps.length - 1));
   }
 
   function goToPreviousStep() {
@@ -240,6 +248,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
         employeeId: selectedEmployee.id,
         partySize: draft.partySize,
         paymentMethod: mapPaymentOptionToMethod(selectedPaymentOption),
+        addonIds: draft.selectedAddonIds,
         timeZone: getBrowserTimeZone(),
         slot: {
           date: selectedSlot.date,
@@ -253,7 +262,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
         return;
       }
 
-      setCurrentStepIndex(bookingStepOrder.length);
+      setCurrentStepIndex(bookingSteps.length);
     } catch (error) {
       setValidationMessage(getErrorMessage(error, copy.submitError));
     } finally {
@@ -268,7 +277,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
           {topToastMessage}
         </div>
       ) : null}
-      {currentStepIndex < bookingStepOrder.length ? (
+      {currentStepIndex < bookingSteps.length ? (
         <>
           <header className="grid gap-4">
             {!isPreview ? (
@@ -279,10 +288,12 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
             <StepProgress steps={stepItems} currentStepIndex={currentStepIndex} onStepSelect={setCurrentStepIndex} />
             <BookingWizardActions
               backLabel={messages.actions.back}
+              cancelLabel={messages.actions.cancel}
               currentStepIndex={currentStepIndex}
               isSubmitDisabled={isPreview && currentStep === "summary"}
               isSubmitting={isSubmitting && currentStep === "summary"}
               submitLabel={isPreview && currentStep === "summary" ? copy.previewBlocked : actionButtonLabel}
+              onCancel={restartBookingFlow}
               onNext={currentStep !== "summary" ? goToNextStep : () => void confirmReservation()}
               onPrevious={goToPreviousStep}
             />
@@ -301,6 +312,21 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
                   service={service}
                   selectedPartySize={draft.partySize}
                   onPartySizeChange={(partySize) => setDraft((current) => ({ ...current, partySize }))}
+                />
+              ) : null}
+
+              {currentStep === "addons" ? (
+                <AddonsStep
+                  addons={activeAddons}
+                  messages={messages}
+                  selectedAddonIds={draft.selectedAddonIds}
+                  total={bookingTotal}
+                  onToggleAddon={(addonId) => setDraft((current) => ({
+                    ...current,
+                    selectedAddonIds: current.selectedAddonIds.includes(addonId)
+                      ? current.selectedAddonIds.filter((id) => id !== addonId)
+                      : [...current.selectedAddonIds, addonId]
+                  }))}
                 />
               ) : null}
 
@@ -371,6 +397,8 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
                   service={service}
                   employeeName={selectedEmployee?.name ?? ""}
                   draft={{ ...draft, paymentOption: selectedPaymentOption, selectedSlot }}
+                  selectedAddons={selectedAddons}
+                  total={bookingTotal}
                 />
               ) : null}
             </div>
@@ -400,16 +428,19 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
                 service={service}
                 selectedEmployeeName={selectedEmployee?.name ?? null}
                 draft={{ ...draft, paymentOption: selectedPaymentOption, selectedSlot }}
+                total={bookingTotal}
               />
             )}
           </div>
 
           <BookingWizardActions
             backLabel={messages.actions.back}
+            cancelLabel={messages.actions.cancel}
             currentStepIndex={currentStepIndex}
             isSubmitDisabled={isPreview && currentStep === "summary"}
             isSubmitting={isSubmitting && currentStep === "summary"}
             submitLabel={isPreview && currentStep === "summary" ? copy.previewBlocked : actionButtonLabel}
+            onCancel={restartBookingFlow}
             onNext={currentStep !== "summary" ? goToNextStep : () => void confirmReservation()}
             onPrevious={goToPreviousStep}
           />

@@ -5,8 +5,14 @@ import { Appointment, Employee, Service } from "@/features/scheduling/types";
 import { freePlanLimits, getCurrentMonthRange, isFreePlan } from "@/features/scheduling/plan-limits";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 import { createApiErrorResponse, getSafeErrorMessage } from "@/lib/networking/api-errors";
-import { mapScheduleToAvailabilityRows } from "@/lib/networking/mappers/scheduling";
+import {
+  mapAppointments,
+  mapEmployees,
+  mapScheduleToAvailabilityRows,
+  mapServices
+} from "@/lib/networking/mappers/scheduling";
 import { buildIsoInTimeZone } from "@/lib/networking/utils/date-time";
+import { getAvailableSlotsForEmployee } from "@/features/booking-flow/utils/booking";
 import { sendBookingCancelledEmails } from "@/lib/email/booking-emails";
 import { refundMercadoPagoPayment } from "@/lib/mercadopago/checkout";
 import { notifyPlanLimitReached } from "@/lib/notifications/plan-limits";
@@ -38,10 +44,18 @@ type SchedulingMutationPayload =
       action: "markAppointmentPaid";
       appointmentId: string;
       businessId: string;
+    }
+  | {
+      action: "rescheduleAppointment";
+      appointmentId: string;
+      businessId: string;
+      date: string;
+      employeeId: string;
     };
 
 type BusinessContext = {
   subscriptionTier: string;
+  timeZone: string;
 };
 
 export async function POST(request: NextRequest) {
@@ -87,6 +101,17 @@ export async function POST(request: NextRequest) {
 
     if (payload.action === "markAppointmentPaid") {
       await markAppointmentPaid(supabase, payload.businessId, payload.appointmentId);
+    }
+
+    if (payload.action === "rescheduleAppointment") {
+      await rescheduleAppointment(
+        supabase,
+        payload.businessId,
+        payload.appointmentId,
+        payload.date,
+        payload.employeeId,
+        contextResult.context.timeZone
+      );
     }
 
     return NextResponse.json({ ok: true });
@@ -162,7 +187,8 @@ async function getBusinessContext(supabase: SupabaseClient, businessId: string) 
 
   return {
     context: {
-      subscriptionTier: data.subscription_tier
+      subscriptionTier: data.subscription_tier,
+      timeZone: data.timezone
     } satisfies BusinessContext
   };
 }
@@ -382,6 +408,36 @@ async function saveService(supabase: SupabaseClient, businessId: string, service
       throw new Error("Unable to save service assignments.");
     }
   }
+
+  const { error: addonsDeleteError } = await supabase
+    .from("service_addons")
+    .delete()
+    .eq("service_id", service.id);
+
+  if (addonsDeleteError) {
+    throw new Error("Unable to save service add-ons.");
+  }
+
+  const addonRows = service.addons
+    .map((addon, index) => ({
+      id: addon.id,
+      service_id: service.id,
+      name: addon.name.trim(),
+      price_amount: addon.price,
+      is_active: addon.isActive,
+      sort_order: index
+    }))
+    .filter((addon) => addon.name && addon.price_amount >= 0);
+
+  if (addonRows.length > 0) {
+    const { error: addonsInsertError } = await supabase
+      .from("service_addons")
+      .insert(addonRows);
+
+    if (addonsInsertError) {
+      throw new Error("Unable to save service add-ons.");
+    }
+  }
 }
 
 async function createAppointment(
@@ -500,6 +556,133 @@ async function markAppointmentPaid(supabase: SupabaseClient, businessId: string,
 
   if (updateError) {
     throw new Error("Unable to mark the appointment as paid.");
+  }
+}
+
+async function rescheduleAppointment(
+  supabase: SupabaseClient,
+  businessId: string,
+  appointmentId: string,
+  date: string,
+  employeeId: string,
+  timeZone: string
+) {
+  const { data: appointment, error: appointmentError } = await supabase
+    .from("appointments")
+    .select("id, service_id, employee_id, starts_at, ends_at, status, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+    .eq("id", appointmentId)
+    .eq("business_id", businessId)
+    .limit(1)
+    .maybeSingle();
+
+  if (appointmentError || !appointment) {
+    throw new Error("Unable to find the appointment.");
+  }
+
+  if (appointment.status === "cancelled") {
+    throw new Error("Unable to reschedule a cancelled appointment.");
+  }
+
+  const [
+    serviceResult,
+    serviceEmployeesResult,
+    serviceAvailabilityResult,
+    employeeResult,
+    employeeAvailabilityResult,
+    appointmentsResult
+  ] = await Promise.all([
+    supabase
+      .from("services")
+      .select("id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, payment_mode, is_public")
+      .eq("id", appointment.service_id)
+      .eq("business_id", businessId)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("service_employees")
+      .select("service_id, employee_id")
+      .eq("service_id", appointment.service_id),
+    supabase
+      .from("service_weekly_availability")
+      .select("id, service_id, weekday, start_time, end_time")
+      .eq("service_id", appointment.service_id),
+    supabase
+      .from("employees")
+      .select("id, name, role, description, image_url, color_token")
+      .eq("id", employeeId)
+      .eq("business_id", businessId)
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("employee_weekly_availability")
+      .select("id, employee_id, weekday, start_time, end_time")
+      .eq("employee_id", employeeId),
+    supabase
+      .from("appointments")
+      .select("id, service_id, employee_id, starts_at, ends_at, status, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+      .eq("business_id", businessId)
+  ]);
+
+  if (
+    serviceResult.error ||
+    serviceEmployeesResult.error ||
+    serviceAvailabilityResult.error ||
+    employeeResult.error ||
+    employeeAvailabilityResult.error ||
+    appointmentsResult.error ||
+    !serviceResult.data ||
+    !employeeResult.data
+  ) {
+    throw new Error("Unable to validate the new appointment time.");
+  }
+
+  const service = mapServices(
+    [serviceResult.data],
+    serviceEmployeesResult.data ?? [],
+    serviceAvailabilityResult.data ?? []
+  )[0];
+  const employee = mapEmployees(
+    [employeeResult.data],
+    employeeAvailabilityResult.data ?? []
+  )[0];
+  const currentAppointment = mapAppointments([appointment], timeZone)[0];
+  const appointmentList = mapAppointments(appointmentsResult.data ?? [], timeZone)
+    .filter((item) => item.id !== appointmentId);
+
+  if (!service || !employee || !currentAppointment || !service.employeeIds.includes(employee.id)) {
+    throw new Error("The selected professional is not available for this service.");
+  }
+
+  const availableSlots = getAvailableSlotsForEmployee(
+    service,
+    employee,
+    appointmentList,
+    new Date(`${date}T12:00:00`),
+    currentAppointment.partySize
+  );
+  const selectedSlot = availableSlots.find((slot) => (
+    slot.date === date &&
+    slot.startTime === currentAppointment.startTime &&
+    slot.endTime === currentAppointment.endTime
+  ));
+
+  if (!selectedSlot) {
+    throw new Error("The selected professional is not available at that time.");
+  }
+
+  const { error: updateError } = await supabase
+    .from("appointments")
+    .update({
+      employee_id: employeeId,
+      starts_at: buildIsoInTimeZone(date, currentAppointment.startTime, timeZone),
+      ends_at: buildIsoInTimeZone(date, currentAppointment.endTime, timeZone)
+    })
+    .eq("id", appointmentId)
+    .eq("business_id", businessId);
+
+  if (updateError) {
+    throw new Error("Unable to reschedule the appointment.");
   }
 }
 

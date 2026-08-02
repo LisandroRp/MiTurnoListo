@@ -7,11 +7,13 @@ import {
   PaymentMethod,
   Profile,
   Service,
+  ServiceAddon,
   ServiceSchedule,
   ThemeId,
   TimeRange
 } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
+import { formatDateForTimeZone, formatTimeForTimeZone, formatTodayForTimeZone } from "@/lib/networking/utils/date-time";
 
 type DayKey = keyof ServiceSchedule;
 
@@ -50,6 +52,15 @@ type ServiceRow = {
 type ServiceEmployeeRow = {
   service_id: string;
   employee_id: string;
+};
+
+type ServiceAddonRow = {
+  id: string;
+  service_id: string;
+  name: string;
+  price_amount: number;
+  is_active: boolean;
+  sort_order: number;
 };
 
 type AppointmentRow = {
@@ -141,7 +152,8 @@ export function mapEmployees(employeeRows: EmployeeRow[], availabilityRows: Avai
 export function mapServices(
   serviceRows: ServiceRow[],
   serviceEmployeeRows: ServiceEmployeeRow[],
-  availabilityRows: AvailabilityRow[]
+  availabilityRows: AvailabilityRow[],
+  addonRows: ServiceAddonRow[] = []
 ): Service[] {
   return serviceRows.map((service) => ({
     id: service.id,
@@ -160,8 +172,21 @@ export function mapServices(
     ),
     employeeIds: serviceEmployeeRows
       .filter((row) => row.service_id === service.id)
-      .map((row) => row.employee_id)
+      .map((row) => row.employee_id),
+    addons: mapServiceAddons(addonRows.filter((row) => row.service_id === service.id))
   }));
+}
+
+function mapServiceAddons(rows: ServiceAddonRow[]): ServiceAddon[] {
+  return rows
+    .map((row) => ({
+      id: row.id,
+      isActive: row.is_active,
+      name: row.name,
+      price: row.price_amount,
+      sortOrder: row.sort_order
+    }))
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name));
 }
 
 export function mapAppointments(appointmentRows: AppointmentRow[], timeZone: string): Appointment[] {
@@ -306,7 +331,7 @@ function getInverseDeltaTone(delta: number): DashboardMetric["trendTone"] {
 }
 
 export function getDefaultFocusedDate(_appointments: Appointment[], timeZone: string) {
-  return formatDateParts(new Date(), timeZone);
+  return formatTodayForTimeZone(timeZone);
 }
 
 export function mapScheduleToAvailabilityRows(
@@ -358,37 +383,4 @@ function getWeekdayFromDayKey(dayKey: DayKey) {
   }
 
   return Number(entry[0]);
-}
-
-function formatDateForTimeZone(dateTime: string, timeZone: string) {
-  return formatDateParts(new Date(dateTime), timeZone);
-}
-
-function formatTimeForTimeZone(dateTime: string, timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false
-  }).formatToParts(new Date(dateTime));
-
-  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
-  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
-
-  return `${hour}:${minute}`;
-}
-
-function formatDateParts(date: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).formatToParts(date);
-
-  const year = parts.find((part) => part.type === "year")?.value ?? "1970";
-  const month = parts.find((part) => part.type === "month")?.value ?? "01";
-  const day = parts.find((part) => part.type === "day")?.value ?? "01";
-
-  return `${year}-${month}-${day}`;
 }

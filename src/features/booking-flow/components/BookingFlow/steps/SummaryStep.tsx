@@ -3,7 +3,7 @@ import { SummaryRow } from "@/features/booking-flow/components/BookingFlow/share
 import { BookingDraft } from "@/features/booking-flow/types";
 import { formatLongDate } from "@/features/booking-flow/utils/booking";
 import { Messages } from "@/features/scheduling/i18n/messages";
-import { Service } from "@/features/scheduling/types";
+import { Service, ServiceAddon } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 
 export function SummaryStep({
@@ -11,13 +11,17 @@ export function SummaryStep({
   locale,
   service,
   employeeName,
-  draft
+  draft,
+  selectedAddons,
+  total
 }: {
   messages: Messages;
   locale: string;
   service: Service;
   employeeName: string;
   draft: BookingDraft;
+  selectedAddons: ServiceAddon[];
+  total: number;
 }) {
   return (
     <div className="grid gap-4">
@@ -36,6 +40,14 @@ export function SummaryStep({
           label={messages.bookingFlow.summary.time}
           value={draft.selectedSlot ? `${draft.selectedSlot.startTime} - ${draft.selectedSlot.endTime}` : "-"}
         />
+        <SummaryRow label={messages.bookingFlow.basePrice} value={formatCurrency(service.price)} />
+        {selectedAddons.length > 0 ? (
+          selectedAddons.map((addon) => (
+            <SummaryRow key={addon.id} label={addon.name} value={`+ ${formatCurrency(addon.price)}`} />
+          ))
+        ) : (
+          <SummaryRow label={messages.bookingFlow.summary.addons} value="-" />
+        )}
         <SummaryRow
           label={messages.bookingFlow.summary.payment}
           value={draft.paymentOption ? messages.bookingFlow.paymentOptions[draft.paymentOption] : "-"}
@@ -43,7 +55,7 @@ export function SummaryStep({
         <SummaryRow label={messages.bookingFlow.summary.customer} value={draft.customer.fullName || "-"} />
         <SummaryRow label={messages.bookingFlow.summary.attendees} value={String(draft.partySize)} />
         <SummaryRow label={messages.bookingFlow.summary.deposit} value={formatCurrency(service.deposit)} />
-        <SummaryRow label={messages.bookingFlow.summary.total} value={formatCurrency(service.price)} />
+        <SummaryRow label={messages.bookingFlow.summary.total} value={formatCurrency(total)} />
       </Card>
     </div>
   );

@@ -71,6 +71,7 @@ export async function loadSchedulingSnapshot() {
     serviceResult,
     serviceEmployeeResult,
     serviceAvailabilityResult,
+    serviceAddonResult,
     appointmentResult,
     paymentSettings
   ] = await Promise.all([
@@ -108,6 +109,9 @@ export async function loadSchedulingSnapshot() {
       .from("service_weekly_availability")
       .select("id, service_id, weekday, start_time, end_time"),
     supabase
+      .from("service_addons")
+      .select("id, service_id, name, price_amount, is_active, sort_order"),
+    supabase
       .from("appointments")
       .select("id, service_id, employee_id, starts_at, ends_at, status, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
       .eq("business_id", businessId)
@@ -119,7 +123,7 @@ export async function loadSchedulingSnapshot() {
     throw new Error("Unable to load the user workspace.");
   }
 
-  if (serviceResult.error || serviceEmployeeResult.error || serviceAvailabilityResult.error || appointmentResult.error) {
+  if (serviceResult.error || serviceEmployeeResult.error || serviceAvailabilityResult.error || serviceAddonResult.error || appointmentResult.error) {
     throw new Error("Unable to load scheduling data.");
   }
 
@@ -136,6 +140,9 @@ export async function loadSchedulingSnapshot() {
       (serviceResult.data ?? []).some((service) => service.id === row.service_id)
     ),
     (serviceAvailabilityResult.data ?? []).filter((row) =>
+      (serviceResult.data ?? []).some((service) => service.id === row.service_id)
+    ),
+    (serviceAddonResult.data ?? []).filter((row) =>
       (serviceResult.data ?? []).some((service) => service.id === row.service_id)
     )
   );
@@ -257,6 +264,26 @@ export async function markAppointmentPaid(businessId: string, appointmentId: str
   });
 }
 
+export async function rescheduleAppointment({
+  appointmentId,
+  businessId,
+  date,
+  employeeId
+}: {
+  appointmentId: string;
+  businessId: string;
+  date: string;
+  employeeId: string;
+}) {
+  await runSchedulingMutation({
+    action: "rescheduleAppointment",
+    appointmentId,
+    businessId,
+    date,
+    employeeId
+  });
+}
+
 export async function createDashboardAppointment({
   appointment,
   businessId,
@@ -344,6 +371,7 @@ export function createNewServiceDraft(employeeIds: string[]) {
     isVisible: true,
     reservationLeadMinutes: 30,
     schedule: createEmptySchedule(),
-    employeeIds
+    employeeIds,
+    addons: []
   };
 }

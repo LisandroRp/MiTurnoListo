@@ -19,7 +19,7 @@ import { AvailabilityEditor, dayKeys } from "@/features/scheduling/components/Av
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, isFreePlan } from "@/features/scheduling/plan-limits";
-import { Employee, PaymentMethod, Service, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
+import { Employee, PaymentMethod, Service, ServiceAddon, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 import { createNewServiceDraft } from "@/lib/networking/endpoints/scheduling";
 
@@ -64,6 +64,7 @@ export function ServicesView({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const [isSavingService, setIsSavingService] = useState(false);
   const [savingVisibilityId, setSavingVisibilityId] = useState<string | null>(null);
   const [sharingService, setSharingService] = useState<Service | null>(null);
   const [isSharingCatalog, setIsSharingCatalog] = useState(false);
@@ -89,7 +90,7 @@ export function ServicesView({
   }
 
   function startEdit(service: Service) {
-    setDraft({ ...service, schedule: structuredClone(service.schedule), employeeIds: [...service.employeeIds] });
+    setDraft({ ...service, addons: service.addons.map((addon) => ({ ...addon })), schedule: structuredClone(service.schedule), employeeIds: [...service.employeeIds] });
     setEditingId(service.id);
     setCurrentStepIndex(0);
     setValidationMessage(null);
@@ -101,6 +102,11 @@ export function ServicesView({
       ...service,
       id: globalThis.crypto.randomUUID(),
       name: `${service.name} ${messages.services.copySuffix}`,
+      addons: service.addons.map((addon, index) => ({
+        ...addon,
+        id: globalThis.crypto.randomUUID(),
+        sortOrder: index
+      })),
       schedule: structuredClone(service.schedule),
       employeeIds: [...service.employeeIds]
     });
@@ -111,6 +117,10 @@ export function ServicesView({
   }
 
   function returnToGrid() {
+    if (isSavingService) {
+      return;
+    }
+
     setMode("grid");
     setEditingId(null);
     setCurrentStepIndex(0);
@@ -131,6 +141,38 @@ export function ServicesView({
 
   function handleVisibilityChange(event: ChangeEvent<HTMLInputElement>) {
     setDraft((current) => ({ ...current, isVisible: event.target.checked }));
+  }
+
+  function addAddon() {
+    setDraft((current) => ({
+      ...current,
+      addons: [
+        ...current.addons,
+        {
+          id: globalThis.crypto.randomUUID(),
+          isActive: true,
+          name: "",
+          price: 0,
+          sortOrder: current.addons.length
+        }
+      ]
+    }));
+  }
+
+  function updateAddon(addonId: string, nextAddon: Partial<ServiceAddon>) {
+    setDraft((current) => ({
+      ...current,
+      addons: current.addons.map((addon) => (
+        addon.id === addonId ? { ...addon, ...nextAddon } : addon
+      ))
+    }));
+  }
+
+  function removeAddon(addonId: string) {
+    setDraft((current) => ({
+      ...current,
+      addons: current.addons.filter((addon) => addon.id !== addonId)
+    }));
   }
 
   function toggleAssignedEmployee(employeeId: string) {
@@ -221,16 +263,28 @@ export function ServicesView({
   }
 
   function goToStep(index: number) {
+    if (isSavingService) {
+      return;
+    }
+
     setCurrentStepIndex(index);
     setValidationMessage(null);
   }
 
   function goToPreviousStep() {
+    if (isSavingService) {
+      return;
+    }
+
     setCurrentStepIndex((current) => Math.max(current - 1, 0));
     setValidationMessage(null);
   }
 
   function goToNextStep() {
+    if (isSavingService) {
+      return;
+    }
+
     const stepValidationMessage = getServiceStepValidationMessage(currentStep, draft, messages, isMercadoPagoConfigured);
 
     if (stepValidationMessage) {
@@ -244,6 +298,10 @@ export function ServicesView({
   }
 
   async function submitForm() {
+    if (isSavingService) {
+      return;
+    }
+
     const invalidStepIndex = serviceWizardStepOrder.findIndex((step) => getServiceStepValidationMessage(step, draft, messages, isMercadoPagoConfigured));
 
     if (invalidStepIndex >= 0) {
@@ -254,10 +312,18 @@ export function ServicesView({
       return;
     }
 
-    const didSave = await onSaveService(draft);
+    setIsSavingService(true);
 
-    if (didSave) {
-      returnToGrid();
+    try {
+      const didSave = await onSaveService(draft);
+
+      if (didSave) {
+        setMode("grid");
+        setEditingId(null);
+        setValidationMessage(null);
+      }
+    } finally {
+      setIsSavingService(false);
     }
   }
 
@@ -269,7 +335,7 @@ export function ServicesView({
           title={editingId ? messages.services.formTitleEdit : messages.services.formTitleCreate}
           description={messages.services.formDisclaimer}
           actions={
-            <Button variant="secondary" onClick={returnToGrid}>{messages.actions.cancel}</Button>
+            <Button variant="secondary" disabled={isSavingService} onClick={returnToGrid}>{messages.actions.cancel}</Button>
           }
         />
 
@@ -279,6 +345,7 @@ export function ServicesView({
           className="flex"
           currentStep={currentStep}
           currentStepIndex={currentStepIndex}
+          isSaving={isSavingService}
           messages={messages}
           onCancel={returnToGrid}
           onPrevious={goToPreviousStep}
@@ -342,34 +409,47 @@ export function ServicesView({
                 </p>
               ) : null}
             </div>
+            <ServiceAddonsEditor
+              addons={draft.addons}
+              messages={messages}
+              onAddAddon={addAddon}
+              onRemoveAddon={removeAddon}
+              onUpdateAddon={updateAddon}
+            />
             </FormSection>
           ) : null}
 
           {currentStep === "staff" ? (
             <FormSection title={messages.services.staffSection} description={messages.services.staffSectionHint}>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {employees.map((employee) => {
-                const isSelected = draft.employeeIds.includes(employee.id);
+            {employees.length > 0 ? (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {employees.map((employee) => {
+                  const isSelected = draft.employeeIds.includes(employee.id);
 
-                return (
-                  <button
-                    key={employee.id}
-                    type="button"
-                    onClick={() => toggleAssignedEmployee(employee.id)}
-                    className={cx(
-                      "flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-left transition-colors",
-                      isSelected ? "border-brand bg-brand-soft" : "border-subtle bg-input hover:bg-surface-strong"
-                    )}
-                  >
-                    <span className={cx("h-3 w-3 rounded-full", employeeColorClasses[employee.color])} />
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-primary">{employee.name}</span>
-                      <span className="block truncate text-xs text-muted">{employee.role}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                  return (
+                    <button
+                      key={employee.id}
+                      type="button"
+                      onClick={() => toggleAssignedEmployee(employee.id)}
+                      className={cx(
+                        "flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-left transition-colors",
+                        isSelected ? "border-brand bg-brand-soft" : "border-subtle bg-input hover:bg-surface-strong"
+                      )}
+                    >
+                      <span className={cx("h-3 w-3 rounded-full", employeeColorClasses[employee.color])} />
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-primary">{employee.name}</span>
+                        <span className="block truncate text-xs text-muted">{employee.role}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-subtle bg-input p-4 text-sm font-semibold text-muted">
+                {messages.services.emptyAssignedStaff}
+              </p>
+            )}
             </FormSection>
           ) : null}
 
@@ -398,6 +478,7 @@ export function ServicesView({
           className="flex"
           currentStep={currentStep}
           currentStepIndex={currentStepIndex}
+          isSaving={isSavingService}
           messages={messages}
           onCancel={returnToGrid}
           onPrevious={goToPreviousStep}
@@ -729,6 +810,7 @@ function WizardActions({
   className,
   currentStep,
   currentStepIndex,
+  isSaving,
   messages,
   onCancel,
   onPrevious,
@@ -738,6 +820,7 @@ function WizardActions({
   className?: string;
   currentStep: ServiceWizardStep;
   currentStepIndex: number;
+  isSaving: boolean;
   messages: Messages;
   onCancel: () => void;
   onPrevious: () => void;
@@ -747,21 +830,26 @@ function WizardActions({
   return (
     <div className={cx("flex-row gap-3 sm:justify-between", className)}>
       {currentStepIndex > 0 ? (
-        <Button className="w-1/2 sm:w-auto" variant="secondary" icon={<FiArrowLeft />} onClick={onPrevious}>
-          {messages.actions.back}
-        </Button>
+        <div className="grid w-1/2 grid-cols-2 gap-3 sm:w-auto sm:flex">
+          <Button className="w-full sm:w-auto" variant="secondary" disabled={isSaving} onClick={onCancel}>
+            {messages.actions.cancel}
+          </Button>
+          <Button className="w-full sm:w-auto" variant="secondary" icon={<FiArrowLeft />} disabled={isSaving} onClick={onPrevious}>
+            {messages.actions.back}
+          </Button>
+        </div>
       ) : (
-        <Button className="w-1/2 sm:w-auto" variant="secondary" onClick={onCancel}>
+        <Button className="w-1/2 sm:w-auto" variant="secondary" disabled={isSaving} onClick={onCancel}>
           {messages.actions.cancel}
         </Button>
       )}
 
       {currentStep === "review" ? (
-        <Button className="w-1/2 sm:w-auto" icon={<FiCheck />} onClick={onSubmit}>
+        <Button className="w-1/2 sm:w-auto" icon={<FiCheck />} isLoading={isSaving} onClick={onSubmit}>
           {messages.actions.save}
         </Button>
       ) : (
-        <Button className="w-1/2 sm:w-auto" icon={<FiArrowRight />} onClick={onNext}>
+        <Button className="w-1/2 sm:w-auto" icon={<FiArrowRight />} disabled={isSaving} onClick={onNext}>
           {messages.actions.continue}
         </Button>
       )}
@@ -819,6 +907,7 @@ function VisibilitySwitch({
 function ServiceReview({ messages, service, employees }: { messages: Messages; service: Service; employees: Employee[] }) {
   const assignedEmployees = employees.filter((employee) => service.employeeIds.includes(employee.id));
   const scheduleRangeCount = getScheduleRangeCount(service.schedule);
+  const activeAddons = service.addons.filter((addon) => addon.name.trim() && addon.isActive);
 
   return (
     <FormSection title={messages.services.reviewSection} description={messages.services.reviewSectionHint}>
@@ -845,6 +934,22 @@ function ServiceReview({ messages, service, employees }: { messages: Messages; s
             <ServiceFact label={messages.services.schedule} value={`${scheduleRangeCount} ${messages.services.ranges}`} />
           </dl>
         </div>
+      </div>
+
+      <div className="grid gap-3">
+        <h3 className="text-sm font-bold text-primary">{messages.services.addonsSection}</h3>
+        {activeAddons.length > 0 ? (
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {activeAddons.map((addon) => (
+              <div key={addon.id} className="rounded-lg border border-subtle bg-input p-3">
+                <p className="text-sm font-semibold text-primary">{addon.name}</p>
+                <p className="mt-1 text-sm text-muted">+ {formatCurrency(addon.price)}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-lg border border-subtle bg-input p-3 text-sm text-muted">{messages.services.emptyAddons}</p>
+        )}
       </div>
 
       <div className="grid gap-3">
@@ -892,6 +997,65 @@ function ServiceReview({ messages, service, employees }: { messages: Messages; s
         )}
       </div>
     </FormSection>
+  );
+}
+
+function ServiceAddonsEditor({
+  addons,
+  messages,
+  onAddAddon,
+  onRemoveAddon,
+  onUpdateAddon
+}: {
+  addons: ServiceAddon[];
+  messages: Messages;
+  onAddAddon: () => void;
+  onRemoveAddon: (addonId: string) => void;
+  onUpdateAddon: (addonId: string, addon: Partial<ServiceAddon>) => void;
+}) {
+  return (
+    <div className="grid gap-3 rounded-xl border border-subtle bg-surface p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-base font-bold text-primary">{messages.services.addonsSection}</h3>
+          <p className="mt-1 text-sm leading-6 text-muted">{messages.services.addonsSectionHint}</p>
+        </div>
+        <Button size="sm" variant="secondary" icon={<FiPlus />} onClick={onAddAddon}>
+          {messages.services.addAddon}
+        </Button>
+      </div>
+
+      {addons.length > 0 ? (
+        <div className="grid gap-3">
+          {addons.map((addon) => (
+            <div key={addon.id} className="grid gap-3 rounded-lg border border-subtle bg-input p-3 lg:grid-cols-[1fr_180px_120px_auto] lg:items-end">
+              <TextField
+                label={messages.services.addonName}
+                value={addon.name}
+                onChange={(event) => onUpdateAddon(addon.id, { name: event.target.value })}
+              />
+              <TextField
+                label={messages.services.addonPrice}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={formatNumericInputValue(addon.price, true)}
+                onChange={(event) => onUpdateAddon(addon.id, { price: parseNumericInput(event.target.value) })}
+              />
+              <CheckboxField
+                label={messages.services.addonActive}
+                checked={addon.isActive}
+                onChange={(event) => onUpdateAddon(addon.id, { isActive: event.target.checked })}
+              />
+              <Button size="icon" variant="ghost" aria-label={messages.actions.delete} onClick={() => onRemoveAddon(addon.id)}>
+                <FiTrash2 />
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-lg border border-subtle bg-input p-3 text-sm text-muted">{messages.services.emptyAddons}</p>
+      )}
+    </div>
   );
 }
 

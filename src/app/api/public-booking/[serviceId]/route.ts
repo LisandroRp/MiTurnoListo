@@ -5,7 +5,7 @@ import {
   getAvailableSlotsForEmployee
 } from "@/features/booking-flow/utils/booking";
 import { freePlanLimits, getCurrentMonthRange, isFreePlan } from "@/features/scheduling/plan-limits";
-import { AppointmentStatus, PaymentMethod } from "@/features/scheduling/types";
+import { AppointmentStatus, PaymentMethod, ServiceAddon } from "@/features/scheduling/types";
 import { sendBookingCreatedEmails } from "@/lib/email/booking-emails";
 import { createMercadoPagoPreference, getMercadoPagoPublicOrigin } from "@/lib/mercadopago/checkout";
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
@@ -50,7 +50,8 @@ export async function GET(_: NextRequest, context: RouteContext) {
     employeesResult,
     employeeAvailabilityResult,
     appointmentsResult,
-    paymentSettingsResult
+    paymentSettingsResult,
+    serviceAddonsResult
   ] = await Promise.all([
     supabase
       .from("businesses")
@@ -92,7 +93,13 @@ export async function GET(_: NextRequest, context: RouteContext) {
       .select("allow_mercadopago, mercadopago_public_key, transfer_account_holder, transfer_cbu, transfer_alias, transfer_receipt_whatsapp")
       .eq("business_id", businessId)
       .limit(1)
-      .maybeSingle()
+      .maybeSingle(),
+    supabase
+      .from("service_addons")
+      .select("id, service_id, name, price_amount, is_active, sort_order")
+      .eq("service_id", service.id)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
   ]);
 
   if (
@@ -103,7 +110,8 @@ export async function GET(_: NextRequest, context: RouteContext) {
     employeesResult.error ||
     employeeAvailabilityResult.error ||
     appointmentsResult.error ||
-    paymentSettingsResult.error
+    paymentSettingsResult.error ||
+    serviceAddonsResult.error
   ) {
     return NextResponse.json({ error: "Unable to load booking data." }, { status: 500 });
   }
@@ -126,7 +134,8 @@ export async function GET(_: NextRequest, context: RouteContext) {
   const serviceModel = mapServices(
     [service],
     serviceEmployeesResult.data ?? [],
-    serviceAvailabilityResult.data ?? []
+    serviceAvailabilityResult.data ?? [],
+    serviceAddonsResult.data ?? []
   )[0];
   const appointments = mapAppointments(
     (appointmentsResult.data ?? []).filter((appointment) => assignedEmployeeIds.includes(appointment.employee_id)),
@@ -162,6 +171,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     employeeId?: string;
     partySize?: number;
     paymentMethod?: Exclude<PaymentMethod, "mixed">;
+    addonIds?: string[];
     timeZone?: string;
     slot?: {
       date?: string;
@@ -215,7 +225,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       employeeResult,
       employeeAvailabilityResult,
       appointmentsResult,
-      paymentSettingsResult
+      paymentSettingsResult,
+      serviceAddonsResult
     ] = await Promise.all([
       supabase
         .from("businesses")
@@ -254,7 +265,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .select("allow_mercadopago, mercadopago_public_key, mercadopago_access_token, transfer_account_holder, transfer_cbu, transfer_alias, transfer_receipt_whatsapp")
         .eq("business_id", service.business_id)
         .limit(1)
-        .maybeSingle()
+        .maybeSingle(),
+      supabase
+        .from("service_addons")
+        .select("id, service_id, name, price_amount, is_active, sort_order")
+        .eq("service_id", service.id)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
     ]);
 
     if (
@@ -265,6 +282,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       employeeAvailabilityResult.error ||
       appointmentsResult.error ||
       paymentSettingsResult.error ||
+      serviceAddonsResult.error ||
       !employeeResult.data
     ) {
       return NextResponse.json({ error: "Unable to validate the booking." }, { status: 500 });
@@ -293,7 +311,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const serviceModel = mapServices(
       [service],
       serviceEmployeesResult.data ?? [],
-      serviceAvailabilityResult.data ?? []
+      serviceAvailabilityResult.data ?? [],
+      serviceAddonsResult.data ?? []
     )[0];
 
     if (!employee || !serviceModel) {
@@ -330,6 +349,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const appointmentId = crypto.randomUUID();
+    const selectedAddonIds = new Set((payload.addonIds ?? []).filter((addonId) => typeof addonId === "string"));
+    const selectedAddons = serviceModel.addons.filter((addon) => selectedAddonIds.has(addon.id));
+    const addonsAmount = selectedAddons.reduce((total, addon) => total + addon.price, 0);
+    const totalAmount = service.price_amount + addonsAmount;
 
     if (payload.paymentMethod === "card") {
       const accessToken = paymentSettingsResult.data?.mercadopago_access_token?.trim();
@@ -338,7 +361,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ error: "Mercado Pago is not configured for this business." }, { status: 409 });
       }
 
-      const checkoutAmount = service.deposit_amount > 0 ? service.deposit_amount : service.price_amount;
+      const checkoutAmount = service.deposit_amount > 0 ? service.deposit_amount : totalAmount;
       const preference = await createMercadoPagoPreference({
         accessToken,
         amount: checkoutAmount,
@@ -367,7 +390,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           ends_at: endsAt,
           party_size: payload.partySize,
           unit_price_amount: service.price_amount,
-          total_amount: service.price_amount,
+          total_amount: totalAmount,
           deposit_amount: service.deposit_amount,
           selected_payment_method: payload.paymentMethod,
           customer_name_snapshot: customer.fullName,
@@ -380,6 +403,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ error: "Unable to create the booking." }, { status: 500 });
       }
 
+      await insertAppointmentAddons(supabase, appointmentId, selectedAddons);
       await sendBookingCreatedEmails({ appointmentId });
 
       return NextResponse.json({
@@ -408,7 +432,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         ends_at: endsAt,
         party_size: payload.partySize,
         unit_price_amount: service.price_amount,
-        total_amount: service.price_amount,
+        total_amount: totalAmount,
         deposit_amount: service.deposit_amount,
         selected_payment_method: payload.paymentMethod,
         customer_name_snapshot: customer.fullName,
@@ -423,6 +447,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Unable to create the booking." }, { status: 500 });
     }
 
+    await insertAppointmentAddons(supabase, appointment.id, selectedAddons);
     await sendBookingCreatedEmails({ appointmentId: appointment.id });
 
     return NextResponse.json({
@@ -488,6 +513,29 @@ async function upsertCustomer(
   }
 
   return data.id;
+}
+
+async function insertAppointmentAddons(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  appointmentId: string,
+  addons: ServiceAddon[]
+) {
+  if (addons.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("appointment_addons")
+    .insert(addons.map((addon) => ({
+      appointment_id: appointmentId,
+      service_addon_id: addon.id,
+      name_snapshot: addon.name,
+      price_amount_snapshot: addon.price
+    })));
+
+  if (error) {
+    throw new Error("Unable to save booking add-ons.");
+  }
 }
 
 function isValidEmail(value: string) {

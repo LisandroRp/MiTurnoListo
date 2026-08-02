@@ -19,6 +19,28 @@ export function buildIsoInTimeZone(date: string, time: string, timeZone: string)
   return zonedDate.toISOString();
 }
 
+export function formatDateForTimeZone(dateTime: string, timeZone: string) {
+  return formatDateParts(new Date(dateTime), timeZone);
+}
+
+export function formatTodayForTimeZone(timeZone: string) {
+  return formatDateParts(new Date(), timeZone);
+}
+
+export function formatTimeForTimeZone(dateTime: string, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(new Date(dateTime));
+
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
+
+  return `${hour}:${minute}`;
+}
+
 function parseDateAndTime(date: string, time: string) {
   const [year, month, day] = date.split("-").map(Number);
   const [hours, minutes] = time.split(":").map(Number);
@@ -58,4 +80,19 @@ function getTimeZoneOffsetMilliseconds(date: Date, timeZone: string) {
   );
 
   return zonedTimestamp - date.getTime();
+}
+
+function formatDateParts(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === "year")?.value ?? "1970";
+  const month = parts.find((part) => part.type === "month")?.value ?? "01";
+  const day = parts.find((part) => part.type === "day")?.value ?? "01";
+
+  return `${year}-${month}-${day}`;
 }

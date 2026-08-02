@@ -11,6 +11,7 @@ export type BookingSlot = {
 
 export type BookingDraft = {
   employeeId: string | null;
+  selectedAddonIds: string[];
   selectedSlot: BookingSlot | null;
   paymentOption: BookingPaymentOption | null;
   customer: BookingCustomer;

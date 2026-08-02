@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { FiBarChart2, FiCalendar, FiCreditCard, FiGrid, FiHome, FiMenu, FiPlusCircle, FiSettings, FiUserCheck, FiUsers } from "react-icons/fi";
+import { FiBarChart2, FiCalendar, FiCreditCard, FiDollarSign, FiGrid, FiHome, FiMenu, FiPlusCircle, FiSettings, FiUserCheck, FiUsers } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
 import { WorkspaceLoadingState } from "@/components/composed/WorkspaceLoadingState";
@@ -32,23 +32,26 @@ export function AppShell({ children }: AppShellProps) {
       ? "services"
         : pathname.startsWith("/personal")
           ? "personnel"
-          : pathname.startsWith("/clientes")
-            ? "customers"
-            : pathname.startsWith("/nueva-reserva")
-              ? "newBooking"
-              : pathname.startsWith("/estadisticas")
-                ? "statistics"
-                : pathname.startsWith("/metodos-de-pago")
-                  ? "paymentMethods"
-                  : pathname.startsWith("/perfil")
-                    ? "profile"
-                    : "home";
+            : pathname.startsWith("/clientes")
+              ? "customers"
+              : pathname.startsWith("/pagos")
+                ? "payments"
+                : pathname.startsWith("/nueva-reserva")
+                  ? "newBooking"
+                  : pathname.startsWith("/estadisticas")
+                    ? "statistics"
+                    : pathname.startsWith("/metodos-de-pago")
+                      ? "paymentMethods"
+                      : pathname.startsWith("/perfil")
+                        ? "profile"
+                        : "home";
   const navigationItems: NavigationItem[] = [
     { id: "home", label: messages.nav.home, icon: FiHome, href: "/inicio" },
     { id: "calendar", label: messages.nav.calendar, icon: FiCalendar, href: "/calendario" },
     { id: "services", label: messages.nav.services, icon: FiGrid, href: "/servicios" },
     { id: "personnel", label: messages.nav.personnel, icon: FiUsers, href: "/personal" },
     { id: "customers", label: messages.nav.customers, icon: FiUserCheck, href: "/clientes" },
+    { id: "payments", label: messages.nav.payments, icon: FiDollarSign, href: "/pagos" },
     { id: "newBooking", label: messages.nav.newBooking, icon: FiPlusCircle, href: "/nueva-reserva" },
     { id: "statistics", label: messages.nav.statistics, icon: FiBarChart2, href: "/estadisticas" },
     { id: "paymentMethods", label: messages.nav.paymentMethods, icon: FiCreditCard, href: "/metodos-de-pago" },

@@ -24,6 +24,7 @@ import {
   deleteService as deleteServiceRequest,
   loadSchedulingSnapshot,
   markAppointmentPaid as markAppointmentPaidRequest,
+  rescheduleAppointment as rescheduleAppointmentRequest,
   refreshWorkspaceSubscription as refreshWorkspaceSubscriptionRequest,
   saveEmployee as saveEmployeeRequest,
   savePaymentSettings as savePaymentSettingsRequest,
@@ -77,6 +78,7 @@ type SchedulingContextValue = {
   createAppointment: (appointment: Appointment) => Promise<boolean>;
   deleteAppointment: (appointmentId: string) => Promise<boolean>;
   markAppointmentPaid: (appointmentId: string) => Promise<boolean>;
+  rescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean>;
   deleteEmployee: (employeeId: string) => Promise<boolean>;
   deleteService: (serviceId: string) => Promise<boolean>;
 };
@@ -421,6 +423,18 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  async function rescheduleAppointment(appointmentId: string, date: string, employeeId: string) {
+    if (!businessId) {
+      return false;
+    }
+
+    return runMutation(
+      () => rescheduleAppointmentRequest({ appointmentId, businessId, date, employeeId }),
+      copy.toast.appointmentRescheduled,
+      "Unable to reschedule the appointment."
+    );
+  }
+
   async function setLocale(localeValue: Locale) {
     if (!businessId) {
       return false;
@@ -533,6 +547,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         createAppointment,
         deleteAppointment,
         markAppointmentPaid,
+        rescheduleAppointment,
         deleteEmployee,
         deleteService
       }}

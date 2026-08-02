@@ -17,27 +17,67 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("customers")
-    .select("id, full_name, email, phone, last_booked_at")
-    .eq("business_id", businessId)
-    .order("last_booked_at", { ascending: false });
+  const [customersResult, appointmentsResult, servicesResult] = await Promise.all([
+    supabase
+      .from("customers")
+      .select("id, full_name, email, phone, last_booked_at")
+      .eq("business_id", businessId)
+      .order("last_booked_at", { ascending: false }),
+    supabase
+      .from("appointments")
+      .select("customer_id, service_id, starts_at, status, total_amount")
+      .eq("business_id", businessId)
+      .not("customer_id", "is", null)
+      .order("starts_at", { ascending: false }),
+    supabase
+      .from("services")
+      .select("id, name")
+      .eq("business_id", businessId)
+  ]);
 
-  if (error) {
-    return createApiErrorResponse(error, {
+  if (customersResult.error || appointmentsResult.error || servicesResult.error) {
+    return createApiErrorResponse(customersResult.error ?? appointmentsResult.error ?? servicesResult.error, {
       code: "CUSTOMERS_LOAD_FAILED",
       fallbackMessage: "Unable to load customers.",
       status: 500
     });
   }
 
+  const bookingCountByCustomerId = new Map<string, number>();
+  const totalRevenueByCustomerId = new Map<string, number>();
+  const lastServiceByCustomerId = new Map<string, string>();
+  const serviceNameById = new Map((servicesResult.data ?? []).map((service) => [service.id, service.name ?? ""]));
+
+  for (const appointment of appointmentsResult.data ?? []) {
+    if (appointment.customer_id) {
+      bookingCountByCustomerId.set(
+        appointment.customer_id,
+        (bookingCountByCustomerId.get(appointment.customer_id) ?? 0) + 1
+      );
+
+      if (appointment.status !== "cancelled") {
+        totalRevenueByCustomerId.set(
+          appointment.customer_id,
+          (totalRevenueByCustomerId.get(appointment.customer_id) ?? 0) + (appointment.total_amount ?? 0)
+        );
+      }
+
+      if (!lastServiceByCustomerId.has(appointment.customer_id)) {
+        lastServiceByCustomerId.set(appointment.customer_id, serviceNameById.get(appointment.service_id) ?? "");
+      }
+    }
+  }
+
   return NextResponse.json({
-    customers: (data ?? []).map((customer) => ({
+    customers: (customersResult.data ?? []).map((customer) => ({
+      bookingCount: bookingCountByCustomerId.get(customer.id) ?? 0,
       email: customer.email ?? "",
       fullName: customer.full_name ?? "",
       id: customer.id,
       lastBookedAt: customer.last_booked_at ?? "",
-      phone: customer.phone ?? ""
+      lastServiceName: lastServiceByCustomerId.get(customer.id) ?? "",
+      phone: customer.phone ?? "",
+      totalRevenue: totalRevenueByCustomerId.get(customer.id) ?? 0
     }))
   });
 }

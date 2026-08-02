@@ -1,11 +1,26 @@
-import { useEffect, useRef, useState } from "react";
-import { FiCheck, FiChevronDown, FiChevronLeft, FiChevronRight, FiSearch, FiTrash2 } from "react-icons/fi";
+import { ReactNode, useEffect, useRef, useState } from "react";
+import {
+  FiCalendar,
+  FiCheck,
+  FiChevronDown,
+  FiChevronLeft,
+  FiChevronRight,
+  FiMail,
+  FiPhone,
+  FiSearch,
+  FiTrash2,
+  FiUser,
+  FiX
+} from "react-icons/fi";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Modal } from "@/components/ui/Modal";
+import { SelectField } from "@/components/ui/SelectField";
 import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
 import { SectionHeader } from "@/components/composed/SectionHeader";
+import { getAvailableSlotsForEmployee } from "@/features/booking-flow/utils/booking";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, getMonthlyAppointmentUsage, isFreePlan } from "@/features/scheduling/plan-limits";
 import { Appointment, CalendarMode, Employee, Service } from "@/features/scheduling/types";
@@ -34,6 +49,7 @@ type CalendarViewProps = {
   onToggleEmployee: (employeeId: string) => void;
   onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
+  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
 };
 
 const modes: CalendarMode[] = ["day", "week", "month"];
@@ -53,13 +69,15 @@ export function CalendarView({
   onEmployeeQueryChange,
   onToggleEmployee,
   onDeleteAppointment,
-  onMarkAppointmentPaid
+  onMarkAppointmentPaid,
+  onRescheduleAppointment
 }: CalendarViewProps) {
   const visibleEmployees = employees.filter((employee) => selectedEmployeeIds.includes(employee.id));
   const filteredEmployeeOptions = employees.filter((employee) =>
     employee.name.toLowerCase().includes(employeeQuery.toLowerCase())
   );
   const safeFocusedDate = getSafeFocusedDate(focusedDate);
+  const activeAppointments = appointments.filter((appointment) => appointment.status !== "cancelled");
   const visibleAppointments = appointments.filter((appointment) => (
     appointment.status !== "cancelled" &&
     selectedEmployeeIds.includes(appointment.employeeId)
@@ -187,10 +205,13 @@ export function CalendarView({
               messages={messages}
               focusedDate={safeFocusedDate}
               employees={visibleEmployees}
+              allEmployees={employees}
               services={services}
+              allAppointments={activeAppointments}
               appointments={visibleAppointments.filter((appointment) => appointment.date === safeFocusedDate)}
               onDeleteAppointment={onDeleteAppointment}
               onMarkAppointmentPaid={onMarkAppointmentPaid}
+              onRescheduleAppointment={onRescheduleAppointment}
             />
           ) : null}
 
@@ -201,6 +222,7 @@ export function CalendarView({
               focusedDate={safeFocusedDate}
               services={services}
               employees={employees}
+              allAppointments={activeAppointments}
               appointments={visibleAppointments}
               onDateClick={(date) => {
                 onFocusedDateChange(date);
@@ -208,6 +230,7 @@ export function CalendarView({
               }}
               onDeleteAppointment={onDeleteAppointment}
               onMarkAppointmentPaid={onMarkAppointmentPaid}
+              onRescheduleAppointment={onRescheduleAppointment}
             />
           ) : null}
 
@@ -311,13 +334,27 @@ type CalendarContentProps = {
   messages: Messages;
   focusedDate?: string;
   employees: Employee[];
+  allEmployees: Employee[];
   services: Service[];
+  allAppointments: Appointment[];
   appointments: Appointment[];
   onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
+  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
 };
 
-function DayCalendar({ messages, focusedDate, employees, services, appointments, onDeleteAppointment, onMarkAppointmentPaid }: CalendarContentProps) {
+function DayCalendar({
+  messages,
+  focusedDate,
+  employees,
+  allEmployees,
+  services,
+  allAppointments,
+  appointments,
+  onDeleteAppointment,
+  onMarkAppointmentPaid,
+  onRescheduleAppointment
+}: CalendarContentProps) {
   if (appointments.length === 0) {
     return <EmptyCalendar messages={messages} />;
   }
@@ -351,14 +388,18 @@ function DayCalendar({ messages, focusedDate, employees, services, appointments,
               return (
                 <div key={`${employee.id}-${time}`} className="min-h-24 border-b border-r border-subtle p-2">
                   {appointment ? (
-                  <AppointmentCard
-                    messages={messages}
-                    appointment={appointment}
-                    employee={employee}
-                    serviceName={service?.name}
-                    onDeleteAppointment={onDeleteAppointment}
-                    onMarkAppointmentPaid={onMarkAppointmentPaid}
-                  />
+                    <AppointmentCard
+                      messages={messages}
+                      appointment={appointment}
+                      employee={employee}
+                      service={service}
+                      serviceName={service?.name}
+                      employees={allEmployees}
+                      appointments={allAppointments}
+                      onDeleteAppointment={onDeleteAppointment}
+                      onMarkAppointmentPaid={onMarkAppointmentPaid}
+                      onRescheduleAppointment={onRescheduleAppointment}
+                    />
                   ) : null}
                 </div>
               );
@@ -376,10 +417,12 @@ type DateGroupedCalendarProps = {
   focusedDate: string;
   services: Service[];
   employees: Employee[];
+  allAppointments: Appointment[];
   appointments: Appointment[];
   onDateClick: (date: string) => void;
   onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
+  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
 };
 
 function DateGroupedCalendar({
@@ -388,10 +431,12 @@ function DateGroupedCalendar({
   focusedDate,
   services,
   employees,
+  allAppointments,
   appointments,
   onDateClick,
   onDeleteAppointment,
-  onMarkAppointmentPaid
+  onMarkAppointmentPaid,
+  onRescheduleAppointment
 }: DateGroupedCalendarProps) {
   const focusedDateRef = useRef<HTMLDivElement>(null);
   const todayDate = getTodayDateValue();
@@ -439,13 +484,17 @@ function DateGroupedCalendar({
                   return (
                     <AppointmentCard
                       key={appointment.id}
-                    messages={messages}
-                    appointment={appointment}
-                    employee={employee}
-                    serviceName={service?.name}
-                    employeeName={employee?.name}
-                    onDeleteAppointment={onDeleteAppointment}
-                    onMarkAppointmentPaid={onMarkAppointmentPaid}
+                      messages={messages}
+                      appointment={appointment}
+                      employee={employee}
+                      service={service}
+                      serviceName={service?.name}
+                      employeeName={employee?.name}
+                      employees={employees}
+                      appointments={allAppointments}
+                      onDeleteAppointment={onDeleteAppointment}
+                      onMarkAppointmentPaid={onMarkAppointmentPaid}
+                      onRescheduleAppointment={onRescheduleAppointment}
                     />
                   );
                 }) : <p className="text-sm text-muted">{messages.calendar.noAppointments}</p>}
@@ -462,37 +511,44 @@ type AppointmentCardProps = {
   messages: Messages;
   appointment: Appointment;
   employee?: Employee;
+  service?: Service;
   serviceName?: string;
   employeeName?: string;
+  employees: Employee[];
+  appointments: Appointment[];
   onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
+  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
 };
 
 function AppointmentCard({
   messages,
   appointment,
   employee,
+  service,
   serviceName,
   employeeName,
+  employees,
+  appointments,
   onDeleteAppointment,
-  onMarkAppointmentPaid
+  onMarkAppointmentPaid,
+  onRescheduleAppointment
 }: AppointmentCardProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [loadingAction, setLoadingAction] = useState<"paid" | "cancel" | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [isRescheduling, setIsRescheduling] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState(appointment.date);
+  const [rescheduleEmployeeId, setRescheduleEmployeeId] = useState(appointment.employeeId);
+  const [loadingAction, setLoadingAction] = useState<"paid" | "cancel" | "reschedule" | null>(null);
   const appointmentToneClass = employee ? appointmentToneClasses[employee.color] : "border-brand bg-brand-soft";
+  const paymentState = getPaymentState(appointment.status);
+  const availableRescheduleEmployees = service
+    ? getRescheduleEmployees(service, employees, appointments, appointment, rescheduleDate)
+    : [];
+  const canReschedule = Boolean(service && rescheduleDate && rescheduleEmployeeId && availableRescheduleEmployees.some((item) => item.id === rescheduleEmployeeId));
 
   useEffect(() => {
     if (!isOpen) {
       return;
-    }
-
-    function closeOnOutsideClick(event: PointerEvent) {
-      if (menuRef.current?.contains(event.target as Node)) {
-        return;
-      }
-
-      setIsOpen(false);
     }
 
     function closeOnEscape(event: KeyboardEvent) {
@@ -501,20 +557,29 @@ function AppointmentCard({
       }
     }
 
-    document.addEventListener("pointerdown", closeOnOutsideClick);
     document.addEventListener("keydown", closeOnEscape);
 
     return () => {
-      document.removeEventListener("pointerdown", closeOnOutsideClick);
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setIsRescheduling(false);
+      setRescheduleDate(appointment.date);
+      setRescheduleEmployeeId(appointment.employeeId);
+    }
+  }, [appointment.date, appointment.employeeId, isOpen]);
+
   async function deleteAppointment() {
     setLoadingAction("cancel");
     try {
-      await onDeleteAppointment(appointment.id);
-      setIsOpen(false);
+      const didDelete = await onDeleteAppointment(appointment.id);
+
+      if (didDelete !== false) {
+        setIsOpen(false);
+      }
     } finally {
       setLoadingAction(null);
     }
@@ -523,20 +588,47 @@ function AppointmentCard({
   async function markAppointmentPaid() {
     setLoadingAction("paid");
     try {
-      await onMarkAppointmentPaid(appointment.id);
-      setIsOpen(false);
+      const didMarkPaid = await onMarkAppointmentPaid(appointment.id);
+
+      if (didMarkPaid !== false) {
+        setIsOpen(false);
+      }
     } finally {
       setLoadingAction(null);
     }
   }
 
-  const paymentState = getPaymentState(appointment.status);
+  async function rescheduleAppointment() {
+    setLoadingAction("reschedule");
+    try {
+      const didReschedule = await onRescheduleAppointment(appointment.id, rescheduleDate, rescheduleEmployeeId);
+
+      if (didReschedule !== false) {
+        setIsOpen(false);
+      }
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  function updateRescheduleDate(date: string) {
+    setRescheduleDate(date);
+
+    if (!service) {
+      setRescheduleEmployeeId("");
+      return;
+    }
+
+    const nextEmployees = getRescheduleEmployees(service, employees, appointments, appointment, date);
+    const currentEmployeeIsAvailable = nextEmployees.some((item) => item.id === rescheduleEmployeeId);
+    setRescheduleEmployeeId(currentEmployeeIsAvailable ? rescheduleEmployeeId : nextEmployees[0]?.id ?? "");
+  }
 
   return (
-    <div ref={menuRef} className="relative">
+    <>
       <button
         type="button"
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={() => setIsOpen(true)}
         className={cx(
           "w-full cursor-pointer rounded-lg border p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-md",
           appointmentToneClass
@@ -557,36 +649,172 @@ function AppointmentCard({
         </span>
       </button>
 
-      {isOpen ? (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 grid w-56 gap-2 rounded-lg border border-subtle bg-surface p-2 shadow-lg">
-          {paymentState === "pending" ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              icon={<FiCheck />}
-              isLoading={loadingAction === "paid"}
-              disabled={loadingAction !== null}
-              className="w-full justify-start !border-success !bg-success !text-white hover:!bg-surface hover:!text-success"
-              onClick={() => void markAppointmentPaid()}
-            >
-              {messages.calendar.markAsPaid}
-            </Button>
-          ) : null}
+      <Modal isOpen={isOpen} className="max-h-[calc(100vh-2rem)] overflow-y-auto">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">{messages.calendar.appointmentDetails}</p>
+            <h2 className="mt-2 text-2xl font-bold text-primary">{appointment.customerName}</h2>
+            <p className="mt-1 text-sm text-muted">
+              {[serviceName, employeeName].filter(Boolean).join(" - ")}
+            </p>
+          </div>
           <Button
-            size="sm"
-            variant="danger"
-            icon={<FiTrash2 />}
-            isLoading={loadingAction === "cancel"}
-            disabled={loadingAction !== null}
-            className="w-full justify-start"
-            onClick={() => void deleteAppointment()}
+            size="icon"
+            variant="ghost"
+            aria-label={messages.actions.cancel}
+            onClick={() => setIsOpen(false)}
           >
-            {messages.actions.cancel}
+            <FiX />
           </Button>
         </div>
-      ) : null}
+
+        <div className="mt-5 grid gap-3 rounded-xl border border-subtle bg-input p-4 text-sm">
+          <AppointmentDetail icon={<FiMail />} label={messages.calendar.customerEmail} value={appointment.customerEmail || "-"} />
+          <AppointmentDetail icon={<FiPhone />} label={messages.calendar.customerPhone} value={formatPhoneForDisplay(appointment.customerPhone)} />
+          <AppointmentDetail icon={<FiUser />} label={messages.calendar.professional} value={employeeName || "-"} />
+          <AppointmentDetail icon={<FiCalendar />} label={messages.calendar.dateAndTime} value={`${getDateLabel(appointment.date)} · ${appointment.startTime} - ${appointment.endTime}`} />
+          <AppointmentDetail
+            icon={<FiCheck />}
+            label={messages.calendar.paymentStatus}
+            value={paymentState === "paid" ? messages.calendar.paymentPaid : messages.calendar.paymentPending}
+          />
+        </div>
+
+        {isRescheduling ? (
+          <div className="mt-5 grid gap-4 rounded-xl border border-brand/25 bg-brand-soft p-4">
+            <div>
+              <h3 className="text-sm font-bold text-brand-strong">{messages.calendar.rescheduleTitle}</h3>
+              <p className="mt-1 text-sm text-muted">{messages.calendar.rescheduleDescription}</p>
+            </div>
+            <TextField
+              label={messages.calendar.newDate}
+              name={`reschedule-date-${appointment.id}`}
+              type="date"
+              min={getTodayDateValue()}
+              value={rescheduleDate}
+              onChange={(event) => updateRescheduleDate(event.target.value)}
+            />
+            <SelectField
+              label={messages.calendar.chooseProfessional}
+              name={`reschedule-employee-${appointment.id}`}
+              value={rescheduleEmployeeId}
+              disabled={availableRescheduleEmployees.length === 0}
+              options={
+                availableRescheduleEmployees.length > 0
+                  ? availableRescheduleEmployees.map((item) => ({ value: item.id, label: item.name }))
+                  : [{ value: "", label: messages.calendar.noProfessionalAvailable, disabled: true }]
+              }
+              onChange={(event) => setRescheduleEmployeeId(event.target.value)}
+            />
+          </div>
+        ) : null}
+
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          {isRescheduling ? (
+            <>
+              <Button
+                variant="secondary"
+                disabled={loadingAction !== null}
+                className="w-full"
+                onClick={() => setIsRescheduling(false)}
+              >
+                {messages.actions.cancel}
+              </Button>
+              <Button
+                icon={<FiCalendar />}
+                isLoading={loadingAction === "reschedule"}
+                disabled={loadingAction !== null || !canReschedule}
+                className="w-full"
+                onClick={() => void rescheduleAppointment()}
+              >
+                {messages.calendar.confirmReschedule}
+              </Button>
+            </>
+          ) : (
+            <>
+              {paymentState === "pending" ? (
+                <Button
+                  variant="secondary"
+                  icon={<FiCheck />}
+                  isLoading={loadingAction === "paid"}
+                  disabled={loadingAction !== null}
+                  className="w-full whitespace-nowrap !border-success !bg-success px-3 !text-white hover:!bg-success-soft hover:!text-success"
+                  onClick={() => void markAppointmentPaid()}
+                >
+                  {messages.calendar.markAsPaid}
+                </Button>
+              ) : (
+                <Button variant="secondary" icon={<FiCheck />} disabled className="w-full">
+                  {messages.calendar.paymentPaid}
+                </Button>
+              )}
+              <Button
+                variant="secondary"
+                icon={<FiCalendar />}
+                disabled={loadingAction !== null}
+                className="w-full"
+                onClick={() => setIsRescheduling(true)}
+              >
+                {messages.calendar.reschedule}
+              </Button>
+              <Button
+                variant="danger"
+                icon={<FiTrash2 />}
+                isLoading={loadingAction === "cancel"}
+                disabled={loadingAction !== null}
+                className="w-full sm:col-span-2"
+                onClick={() => void deleteAppointment()}
+              >
+                {messages.calendar.cancelAppointment}
+              </Button>
+            </>
+          )}
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+function AppointmentDetail({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="mt-0.5 text-brand-strong" aria-hidden="true">{icon}</span>
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted">{label}</p>
+        <p className="mt-1 break-words font-semibold text-primary">{value}</p>
+      </div>
     </div>
   );
+}
+
+function getRescheduleEmployees(
+  service: Service,
+  employees: Employee[],
+  appointments: Appointment[],
+  appointment: Appointment,
+  date: string
+) {
+  const activeAppointments = appointments.filter((item) => item.id !== appointment.id);
+
+  return employees.filter((employee) => {
+    if (!service.employeeIds.includes(employee.id)) {
+      return false;
+    }
+
+    const slots = getAvailableSlotsForEmployee(
+      service,
+      employee,
+      activeAppointments,
+      new Date(`${date}T12:00:00`),
+      appointment.partySize
+    );
+
+    return slots.some((slot) => (
+      slot.date === date &&
+      slot.startTime === appointment.startTime &&
+      slot.endTime === appointment.endTime
+    ));
+  });
 }
 
 function getPaymentState(status: Appointment["status"]) {
@@ -710,4 +938,10 @@ function getPeriodLabel(focusedDate: string, mode: CalendarMode) {
     month: "long",
     year: "numeric"
   }).format(date);
+}
+
+function formatPhoneForDisplay(value: string) {
+  const compactValue = value.replace(/\s+/g, "");
+
+  return compactValue || "-";
 }

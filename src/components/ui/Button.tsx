@@ -54,7 +54,11 @@ export function Button({
         className
       )}
     >
-      {icon ? <span className="grid place-items-center text-base" aria-hidden="true">{icon}</span> : null}
+      {isLoading ? (
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
+      ) : icon ? (
+        <span className="grid place-items-center text-base" aria-hidden="true">{icon}</span>
+      ) : null}
       {children}
     </button>
   );

@@ -381,9 +381,14 @@ function WizardActions({
   return (
     <div className={cx("flex-row gap-3 sm:justify-between", className)}>
       {currentStepIndex > 0 ? (
-        <Button className="w-1/2 sm:w-auto" variant="secondary" icon={<FiArrowLeft />} onClick={onPrevious}>
-          {messages.actions.back}
-        </Button>
+        <div className="grid w-1/2 grid-cols-2 gap-3 sm:w-auto sm:flex">
+          <Button className="w-full sm:w-auto" variant="secondary" onClick={onCancel}>
+            {messages.actions.cancel}
+          </Button>
+          <Button className="w-full sm:w-auto" variant="secondary" icon={<FiArrowLeft />} onClick={onPrevious}>
+            {messages.actions.back}
+          </Button>
+        </div>
       ) : (
         <Button className="w-1/2 sm:w-auto" variant="secondary" onClick={onCancel}>
           {messages.actions.cancel}

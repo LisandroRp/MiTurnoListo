@@ -19,7 +19,8 @@ export default function CalendarSectionPage() {
     setEmployeeQuery,
     toggleEmployee,
     deleteAppointment,
-    markAppointmentPaid
+    markAppointmentPaid,
+    rescheduleAppointment
   } = useScheduling();
 
   return (
@@ -39,6 +40,7 @@ export default function CalendarSectionPage() {
       onToggleEmployee={toggleEmployee}
       onDeleteAppointment={deleteAppointment}
       onMarkAppointmentPaid={markAppointmentPaid}
+      onRescheduleAppointment={rescheduleAppointment}
     />
   );
 }

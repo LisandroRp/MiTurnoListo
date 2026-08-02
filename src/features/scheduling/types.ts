@@ -7,13 +7,14 @@ export type ViewId =
   | "services"
   | "personnel"
   | "customers"
+  | "payments"
   | "newBooking"
   | "statistics"
   | "paymentMethods"
   | "profile";
 export type PaymentMethod = "cash" | "card" | "transfer" | "mixed";
 export type ToastTone = "success" | "warning" | "error";
-export type BookingStep = "service" | "employee" | "datetime" | "details" | "summary" | "success";
+export type BookingStep = "service" | "addons" | "employee" | "datetime" | "details" | "summary" | "success";
 export type SubscriptionTier = "free" | "pro";
 
 export type Employee = {
@@ -67,6 +68,15 @@ export type Service = {
   reservationLeadMinutes: number;
   schedule: ServiceSchedule;
   employeeIds: string[];
+  addons: ServiceAddon[];
+};
+
+export type ServiceAddon = {
+  id: string;
+  name: string;
+  price: number;
+  isActive: boolean;
+  sortOrder: number;
 };
 
 export type Profile = {
@@ -105,10 +115,30 @@ export type BookingCustomer = {
 
 export type Customer = {
   id: string;
+  bookingCount: number;
   fullName: string;
   email: string;
   phone: string;
   lastBookedAt: string;
+  lastServiceName: string;
+  totalRevenue: number;
+};
+
+export type PaymentStatus = "pending" | "paid" | "cancelled" | "refunded";
+
+export type PaymentRecord = {
+  id: string;
+  appointmentId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  serviceName: string;
+  employeeName: string;
+  date: string;
+  startTime: string;
+  amount: number;
+  method: PaymentMethod;
+  status: PaymentStatus;
 };
 
 export type DashboardMetric = {

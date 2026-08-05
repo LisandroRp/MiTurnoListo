@@ -979,21 +979,91 @@ function ServiceActionsMenu({
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ left: 0, top: 0 });
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    function positionMenu() {
+      const rect = buttonRef.current?.getBoundingClientRect();
+
+      if (!rect) {
+        return;
+      }
+
+      const menuWidth = menuRef.current?.offsetWidth ?? 160;
+      const menuHeight = menuRef.current?.offsetHeight ?? 180;
+      const gap = 8;
+      const viewportPadding = 16;
+      const opensUpward = rect.bottom + gap + menuHeight > window.innerHeight - viewportPadding;
+
+      setMenuPosition({
+        left: Math.min(
+          Math.max(viewportPadding, rect.right - menuWidth),
+          window.innerWidth - menuWidth - viewportPadding
+        ),
+        top: opensUpward
+          ? Math.max(viewportPadding, rect.top - menuHeight - gap)
+          : rect.bottom + gap
+      });
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as Node;
+
+      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsOpen(false);
+    }
+
+    positionMenu();
+    window.addEventListener("resize", positionMenu);
+    window.addEventListener("scroll", positionMenu, true);
+    document.addEventListener("mousedown", handlePointerDown);
+
+    return () => {
+      window.removeEventListener("resize", positionMenu);
+      window.removeEventListener("scroll", positionMenu, true);
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [isOpen]);
+
+  function closeAndRun(action: () => void) {
+    setIsOpen(false);
+    action();
+  }
+
   return (
-    <details className="group relative inline-block">
-      <summary
+    <div className="relative inline-block">
+      <button
+        ref={buttonRef}
+        type="button"
         className="grid h-8 w-8 cursor-pointer list-none place-items-center rounded-full text-muted transition hover:bg-shell hover:text-primary [&::-webkit-details-marker]:hidden"
         aria-label={messages.actions.openMenu}
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((current) => !current)}
       >
         <FiMoreHorizontal aria-hidden="true" />
-      </summary>
-      <div className="absolute right-0 top-9 z-20 grid min-w-40 overflow-hidden rounded-xl border border-subtle bg-surface p-1 text-sm shadow-lg">
+      </button>
+      {isOpen ? (
+        <div
+          ref={menuRef}
+          className="fixed z-50 grid min-w-40 overflow-hidden rounded-xl border border-subtle bg-surface p-1 text-sm shadow-lg"
+          style={{ left: menuPosition.left, top: menuPosition.top }}
+        >
         <button
           type="button"
           className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-primary hover:bg-shell disabled:cursor-not-allowed disabled:opacity-50"
           disabled={!service.isVisible}
           title={!service.isVisible ? messages.services.shareHiddenHint : messages.actions.share}
-          onClick={onShare}
+          onClick={() => closeAndRun(onShare)}
         >
           <FiShare2 aria-hidden="true" />
           {messages.actions.share}
@@ -1001,7 +1071,7 @@ function ServiceActionsMenu({
         <button
           type="button"
           className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-primary hover:bg-shell"
-          onClick={onEdit}
+          onClick={() => closeAndRun(onEdit)}
         >
           <FiEdit2 aria-hidden="true" />
           {messages.actions.edit}
@@ -1009,7 +1079,7 @@ function ServiceActionsMenu({
         <button
           type="button"
           className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-primary hover:bg-shell"
-          onClick={onDuplicate}
+          onClick={() => closeAndRun(onDuplicate)}
         >
           <FiCopy aria-hidden="true" />
           {messages.actions.duplicate}
@@ -1017,13 +1087,14 @@ function ServiceActionsMenu({
         <button
           type="button"
           className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-danger hover:bg-danger-soft"
-          onClick={onDelete}
+          onClick={() => closeAndRun(onDelete)}
         >
           <FiTrash2 aria-hidden="true" />
           {messages.actions.delete}
         </button>
       </div>
-    </details>
+      ) : null}
+    </div>
   );
 }
 

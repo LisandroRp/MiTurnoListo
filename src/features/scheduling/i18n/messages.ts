@@ -106,7 +106,7 @@ export const messages = {
       confirmedShare: "Participacion confirmada"
     },
     metrics: {
-      revenue: "Ganancias estimadas",
+      revenue: "Ingresos estimados",
       activeEmployees: "Empleados trabajando",
       bookedAppointments: "Turnos tomados",
       cancelledAppointments: "Turnos cancelados",

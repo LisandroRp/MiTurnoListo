@@ -114,6 +114,7 @@ export function DetailsStep({
             label={messages.bookingFlow.customerName}
             value={customer.fullName}
             prefix={<FiUser />}
+            required
             onChange={(event) => onCustomerChange("fullName", event.target.value)}
           />
           <TextField
@@ -123,6 +124,7 @@ export function DetailsStep({
             inputMode="numeric"
             pattern="[0-9]*"
             prefix={<FiPhone />}
+            required
             onChange={(event) => onCustomerChange("phone", event.target.value.replace(/\D/g, ""))}
           />
           <div className="lg:col-span-2">
@@ -131,6 +133,7 @@ export function DetailsStep({
               type="email"
               value={customer.email}
               prefix={<FiMail />}
+              required
               onChange={(event) => onCustomerChange("email", event.target.value)}
             />
           </div>

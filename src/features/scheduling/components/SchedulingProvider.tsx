@@ -29,6 +29,7 @@ import {
   refreshWorkspaceSubscription as refreshWorkspaceSubscriptionRequest,
   saveEmployee as saveEmployeeRequest,
   saveBusinessProfile as saveBusinessProfileRequest,
+  saveProfileAvatar as saveProfileAvatarRequest,
   savePaymentSettings as savePaymentSettingsRequest,
   saveService as saveServiceRequest,
   startProSubscription as startProSubscriptionRequest,
@@ -63,6 +64,7 @@ type SchedulingContextValue = {
   businessId: string | null;
   saveEmployee: (employee: Employee) => Promise<boolean>;
   saveBusinessProfile: (profile: BusinessProfile) => Promise<boolean>;
+  saveProfileAvatar: (avatarUrl: string) => Promise<boolean>;
   savePaymentSettings: (settings: BusinessPaymentSettings) => Promise<boolean>;
   saveService: (service: Service) => Promise<boolean>;
   selectedEmployeeIds: string[];
@@ -334,6 +336,29 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function saveProfileAvatar(avatarUrl: string) {
+    if (!businessId) {
+      return false;
+    }
+
+    try {
+      const savedAvatarUrl = await saveProfileAvatarRequest(businessId, avatarUrl);
+      setProfileState((current) => ({
+        ...current,
+        avatarUrl: savedAvatarUrl
+      }));
+      showToast({ tone: "success", title: copy.profile.avatarSavedToast });
+      return true;
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: copy.toast.error,
+        description: getErrorMessage(error, "Unable to save profile image.")
+      });
+      return false;
+    }
+  }
+
   async function startProSubscription() {
     if (!businessId) {
       return null;
@@ -563,6 +588,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         employeeQuery,
         locale,
         saveBusinessProfile,
+        saveProfileAvatar,
         saveEmployee,
         savePaymentSettings,
         saveService,

@@ -51,6 +51,7 @@ export function LoginForm({ nextPath, defaultEmail = "", forgotPasswordHref }: L
         value={email}
         autoComplete="email"
         prefix={<FiMail />}
+        required
         onChange={(event) => setEmail(event.target.value)}
       />
       <TextField
@@ -60,6 +61,7 @@ export function LoginForm({ nextPath, defaultEmail = "", forgotPasswordHref }: L
         value={password}
         autoComplete="current-password"
         prefix={<FiLock />}
+        required
         onChange={(event) => setPassword(event.target.value)}
         suffix={
           <button

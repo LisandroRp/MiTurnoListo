@@ -20,7 +20,7 @@ export function DashboardView({ messages, metrics, employees, services, appointm
   const todaysAppointments = appointments.filter((appointment) => appointment.date === referenceDate);
 
   return (
-    <div className="grid gap-6">
+    <div className="flex min-h-[calc(100vh-2.5rem)] flex-col gap-6">
       <SectionHeader
         eyebrow={messages.home.eyebrow}
         title={messages.home.title}
@@ -46,12 +46,12 @@ export function DashboardView({ messages, metrics, employees, services, appointm
         </section>
       </div>
 
-      <section className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
-        <Card className="overflow-hidden p-0">
-          <div className="border-b border-subtle p-5">
+      <section className="grid flex-1 items-stretch gap-6 xl:grid-cols-[1.5fr_1fr]">
+        <Card className="flex min-h-[28rem] flex-col overflow-hidden p-0">
+          <div className="border-b border-subtle pb-5">
             <h2 className="text-lg font-bold text-primary">{messages.home.latestAppointments}</h2>
           </div>
-          <div className="overflow-x-auto">
+          <div className="flex-1 overflow-x-auto">
             <table className="w-full min-w-[720px] border-collapse text-sm">
               <thead className="bg-surface-strong text-left text-muted">
                 <tr>
@@ -86,9 +86,9 @@ export function DashboardView({ messages, metrics, employees, services, appointm
           </div>
         </Card>
 
-        <Card>
+        <Card className="flex min-h-[28rem] flex-col">
           <h2 className="text-lg font-bold text-primary">{messages.home.teamToday}</h2>
-          <div className="mt-4 grid gap-3">
+          <div className="mt-4 grid content-start gap-3">
             {employees.map((employee) => (
               <div key={employee.id} className="flex items-center gap-3 rounded-lg border border-subtle bg-input p-3">
                 <span className={cx("grid h-10 w-10 place-items-center rounded-full text-sm font-bold text-on-brand", employeeColorClasses[employee.color])}>

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { FiArrowRight, FiCheckCircle, FiClock, FiLock, FiMapPin, FiX, FiZap } from "react-icons/fi";
+import { ChangeEvent, RefObject, useEffect, useRef, useState } from "react";
+import { FiArrowRight, FiCheckCircle, FiClock, FiLock, FiMapPin, FiUpload, FiX, FiZap } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -12,16 +12,22 @@ import { TextField } from "@/components/ui/TextField";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { BusinessProfile, Locale, Profile, SubscriptionTier, ThemeId } from "@/features/scheduling/types";
+import { uploadBusinessImageAsset } from "@/lib/storage/business-assets";
+
+const avatarAcceptedTypes = ["image/png", "image/jpeg", "image/webp", "image/heic", "image/heif"];
+const avatarAcceptedExtensions = [".heic", ".heif"];
 
 type ProfileViewProps = {
   messages: Messages;
   profile: Profile;
+  businessId: string | null;
   locale: Locale;
   theme: ThemeId;
   themeOptions: ThemeId[];
   onRequestPasswordReset: (email: string) => Promise<void>;
   onLocaleChange: (locale: Locale) => void;
   onSaveBusinessProfile: (profile: BusinessProfile) => Promise<boolean>;
+  onSaveProfileAvatar: (avatarUrl: string) => Promise<boolean>;
   onThemeChange: (theme: ThemeId) => void;
   onBusinessImageUploadError: (message: string) => void;
   onSubscribeToPro: () => Promise<void>;
@@ -31,29 +37,51 @@ type ProfileViewProps = {
 export function ProfileView({
   messages,
   profile,
+  businessId,
   locale,
   theme,
   themeOptions,
   onRequestPasswordReset,
   onLocaleChange,
   onSaveBusinessProfile,
+  onSaveProfileAvatar,
   onThemeChange,
   onBusinessImageUploadError,
   onSubscribeToPro,
   onUnsubscribeFromPro
 }: ProfileViewProps) {
   const plansRef = useRef<HTMLDivElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [activeTab, setActiveTab] = useState<"account" | "business">("account");
   const [businessDraft, setBusinessDraft] = useState<BusinessProfile>(() => createBusinessDraft(profile));
+  const [avatarDraftFile, setAvatarDraftFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
+  const [pendingBusinessLogoFile, setPendingBusinessLogoFile] = useState<File | null>(null);
   const [pendingTier, setPendingTier] = useState<SubscriptionTier | null>(null);
   const [isRequestingPasswordReset, setIsRequestingPasswordReset] = useState(false);
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const [isSavingBusiness, setIsSavingBusiness] = useState(false);
   const [isSubmittingPlanChange, setIsSubmittingPlanChange] = useState(false);
   const isProPlan = profile.subscriptionTier === "pro";
 
   useEffect(() => {
     setBusinessDraft(createBusinessDraft(profile));
+    setPendingBusinessLogoFile(null);
   }, [profile]);
+
+  useEffect(() => {
+    if (!avatarDraftFile) {
+      setAvatarPreviewUrl("");
+      return undefined;
+    }
+
+    const objectUrl = URL.createObjectURL(avatarDraftFile);
+    setAvatarPreviewUrl(objectUrl);
+
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [avatarDraftFile]);
 
   function scrollToPlans() {
     plansRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -105,8 +133,84 @@ export function ProfileView({
 
   async function handleBusinessSave() {
     setIsSavingBusiness(true);
-    await onSaveBusinessProfile(businessDraft);
-    setIsSavingBusiness(false);
+
+    try {
+      if (pendingBusinessLogoFile && !businessId) {
+        throw new Error("No pudimos identificar el negocio para subir el logo.");
+      }
+
+      const profileToSave = pendingBusinessLogoFile && businessId
+        ? {
+            ...businessDraft,
+            publicLogoUrl: await uploadBusinessImageAsset({
+              businessId,
+              file: pendingBusinessLogoFile,
+              path: `${businessId}/logo.webp`
+            })
+          }
+        : businessDraft;
+      const didSave = await onSaveBusinessProfile(profileToSave);
+
+      if (didSave) {
+        setPendingBusinessLogoFile(null);
+      }
+    } catch (error) {
+      onBusinessImageUploadError(error instanceof Error ? error.message : "No pudimos subir el logo del negocio.");
+    } finally {
+      setIsSavingBusiness(false);
+    }
+  }
+
+  function openAvatarPicker() {
+    avatarInputRef.current?.click();
+  }
+
+  function handleAvatarFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!isAcceptedAvatarFile(file)) {
+      onBusinessImageUploadError("Formatos permitidos: PNG, JPG, WEBP, HEIC o HEIF.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      onBusinessImageUploadError("La imagen debe pesar menos de 5 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    setAvatarDraftFile(file);
+    event.target.value = "";
+  }
+
+  async function confirmAvatarUpload() {
+    if (!avatarDraftFile || !businessId) {
+      return;
+    }
+
+    setIsSavingAvatar(true);
+
+    try {
+      const avatarUrl = await uploadBusinessImageAsset({
+        businessId,
+        file: avatarDraftFile,
+        path: `${businessId}/profile/avatar.webp`
+      });
+      const didSave = await onSaveProfileAvatar(avatarUrl);
+
+      if (didSave) {
+        setAvatarDraftFile(null);
+      }
+    } catch (error) {
+      onBusinessImageUploadError(error instanceof Error ? error.message : "No pudimos subir la foto de perfil.");
+    } finally {
+      setIsSavingAvatar(false);
+    }
   }
 
   return (
@@ -137,9 +241,16 @@ export function ProfileView({
       <section className={`grid gap-6 ${activeTab === "account" ? "xl:grid-cols-[22rem_1fr]" : ""}`}>
         {activeTab === "account" ? (
           <Card className="h-fit">
-            <div
-              className="mx-auto h-28 w-28 rounded-full border border-subtle bg-surface-strong bg-cover bg-center"
-              style={{ backgroundImage: `url(${profile.avatarUrl})` }}
+            <ProfileAvatarUploader
+              inputRef={avatarInputRef}
+              isSaving={isSavingAvatar}
+              messages={messages}
+              previewUrl={avatarPreviewUrl}
+              profile={profile}
+              onCancel={() => setAvatarDraftFile(null)}
+              onConfirm={() => void confirmAvatarUpload()}
+              onFileChange={handleAvatarFileChange}
+              onOpenPicker={openAvatarPicker}
             />
             <div className="mt-4 text-center">
               <h2 className="text-xl font-bold text-primary">{profile.firstName} {profile.lastName}</h2>
@@ -239,6 +350,7 @@ export function ProfileView({
             messages={messages}
             onChange={setBusinessDraft}
             onImageUploadError={onBusinessImageUploadError}
+            onSelectedLogoFileChange={setPendingBusinessLogoFile}
             onSave={() => void handleBusinessSave()}
           />
         )}
@@ -304,12 +416,89 @@ export function ProfileView({
   );
 }
 
+function ProfileAvatarUploader({
+  inputRef,
+  isSaving,
+  messages,
+  previewUrl,
+  profile,
+  onCancel,
+  onConfirm,
+  onFileChange,
+  onOpenPicker
+}: {
+  inputRef: RefObject<HTMLInputElement | null>;
+  isSaving: boolean;
+  messages: Messages;
+  previewUrl: string;
+  profile: Profile;
+  onCancel: () => void;
+  onConfirm: () => void;
+  onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onOpenPicker: () => void;
+}) {
+  const avatarUrl = previewUrl || profile.avatarUrl;
+  const hasPendingAvatar = previewUrl.trim().length > 0;
+
+  return (
+    <div className="grid justify-items-center gap-3">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif"
+        className="sr-only"
+        onChange={onFileChange}
+      />
+      <button
+        type="button"
+        aria-label={messages.profile.avatarUploadLabel}
+        className="group relative h-28 w-28 cursor-pointer overflow-hidden rounded-full border border-subtle bg-surface-strong transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-focus"
+        onClick={onOpenPicker}
+      >
+        {avatarUrl ? (
+          <span
+            className="block h-full w-full bg-contain bg-center bg-no-repeat transition duration-200 group-hover:scale-105 group-hover:blur-[2px]"
+            style={{ backgroundImage: `url(${avatarUrl})` }}
+          />
+        ) : (
+          <span className="grid h-full w-full place-items-center text-2xl font-bold text-primary transition duration-200 group-hover:blur-[2px]">
+            {getProfileInitials(profile)}
+          </span>
+        )}
+        <span className="absolute inset-0 grid place-items-center bg-primary/30 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+          <span className="grid h-10 w-10 place-items-center rounded-full bg-surface text-xl text-brand-strong shadow-sm">
+            <FiUpload aria-hidden="true" />
+          </span>
+        </span>
+      </button>
+      <p className="text-center text-xs leading-5 text-muted">{messages.profile.avatarUploadHint}</p>
+      {hasPendingAvatar ? (
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={isSaving}
+            className="border-brand bg-surface text-brand-strong hover:bg-brand-soft"
+            onClick={onCancel}
+          >
+            {messages.actions.cancel}
+          </Button>
+          <Button size="sm" isLoading={isSaving} onClick={onConfirm}>
+            {messages.profile.avatarConfirmAction}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function BusinessProfilePanel({
   draft,
   isSaving,
   messages,
   onChange,
   onImageUploadError,
+  onSelectedLogoFileChange,
   onSave
 }: {
   draft: BusinessProfile;
@@ -317,6 +506,7 @@ function BusinessProfilePanel({
   messages: Messages;
   onChange: (draft: BusinessProfile) => void;
   onImageUploadError: (message: string) => void;
+  onSelectedLogoFileChange: (file: File | null) => void;
   onSave: () => void;
 }) {
   return (
@@ -337,6 +527,7 @@ function BusinessProfilePanel({
             <TextField
               label={messages.profile.businessName}
               value={draft.name}
+              required
               onChange={(event) => onChange({ ...draft, name: event.target.value })}
             />
             <TextField
@@ -360,6 +551,7 @@ function BusinessProfilePanel({
               label={messages.profile.publicLogo}
               value={draft.publicLogoUrl}
               onChange={(value) => onChange({ ...draft, publicLogoUrl: value })}
+              onSelectedFileChange={onSelectedLogoFileChange}
               onError={onImageUploadError}
               chooseLabel={messages.actions.uploadImage}
               replaceLabel={messages.actions.replaceImage}
@@ -381,7 +573,7 @@ function BusinessProfilePanel({
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-strong">{messages.profile.businessPreview}</p>
             <div className="mt-4 flex items-center gap-4">
               <div
-                className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-subtle bg-surface bg-cover bg-center text-lg font-bold text-primary"
+                className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-subtle bg-surface bg-contain bg-center bg-no-repeat text-lg font-bold text-primary"
                 style={{ backgroundImage: draft.publicLogoUrl ? `url(${draft.publicLogoUrl})` : undefined }}
               >
                 {draft.publicLogoUrl ? null : getBusinessInitials(draft.name)}
@@ -475,6 +667,26 @@ function createBusinessDraft(profile: Profile): BusinessProfile {
     publicLogoUrl: profile.publicLogoUrl,
     publicOpeningHours: profile.publicOpeningHours
   };
+}
+
+function getProfileInitials(profile: Profile) {
+  const initials = [profile.firstName, profile.lastName]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
+  return initials || profile.email[0]?.toUpperCase() || "ML";
+}
+
+function isAcceptedAvatarFile(file: File) {
+  const normalizedName = file.name.toLowerCase();
+
+  return (
+    avatarAcceptedTypes.includes(file.type) ||
+    avatarAcceptedExtensions.some((extension) => normalizedName.endsWith(extension))
+  );
 }
 
 function getBusinessInitials(name: string) {

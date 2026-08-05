@@ -87,6 +87,8 @@ export async function POST(request: NextRequest) {
     if (payload.action === "saveService") {
       await enforceVisibleServiceLimit(supabase, payload.businessId, payload.service, contextResult.context);
       await enforceServicePaymentConfiguration(supabase, payload.businessId, payload.service);
+      enforceServiceBookingConfiguration(payload.service);
+      enforceServiceScheduleConfiguration(payload.service);
       await saveService(supabase, payload.businessId, payload.service);
     }
 
@@ -279,23 +281,62 @@ async function enforceServicePaymentConfiguration(
   businessId: string,
   service: Service
 ) {
-  if (service.paymentMethod !== "card" && service.paymentMethod !== "mixed") {
+  if (service.paymentMethod === "cash") {
     return;
   }
 
   const { data, error } = await supabase
     .from("business_payment_settings")
-    .select("allow_mercadopago")
+    .select("allow_mercadopago, transfer_account_holder, transfer_cbu, transfer_alias, transfer_receipt_whatsapp")
     .eq("business_id", businessId)
     .limit(1)
     .maybeSingle();
 
   if (error) {
-    throw new Error("Unable to validate Mercado Pago settings.");
+    throw new Error("Unable to validate payment settings.");
   }
 
-  if (!data?.allow_mercadopago) {
+  const needsMercadoPago = service.paymentMethod === "card" || service.paymentMethod === "mixed";
+  const needsTransfer = service.paymentMethod === "transfer" || service.paymentMethod === "mixed";
+  const hasTransferSettings = Boolean(
+    data?.transfer_account_holder?.trim() &&
+    data.transfer_cbu?.trim() &&
+    data.transfer_alias?.trim() &&
+    data.transfer_receipt_whatsapp?.trim()
+  );
+
+  if (needsMercadoPago && !data?.allow_mercadopago) {
     throw new Error("PAYMENT_CONFIG:Configura Mercado Pago antes de usarlo como metodo de pago del servicio.");
+  }
+
+  if (needsTransfer && !hasTransferSettings) {
+    throw new Error("PAYMENT_CONFIG:Configura transferencia bancaria antes de usarla como metodo de pago del servicio.");
+  }
+}
+
+function enforceServiceScheduleConfiguration(service: Service) {
+  if (mapScheduleToAvailabilityRows(service.schedule, "service_id", service.id).length === 0) {
+    throw new Error("SCHEDULE_CONFIG:Agrega al menos una franja horaria para guardar el servicio.");
+  }
+}
+
+function enforceServiceBookingConfiguration(service: Service) {
+  const numericValues = [
+    service.price,
+    service.durationMinutes,
+    service.capacity,
+    service.deposit,
+    service.reservationLeadMinutes,
+    service.cancellationLeadMinutes
+  ];
+
+  if (
+    !numericValues.every((value) => Number.isInteger(value) && value >= 0) ||
+    service.price <= 0 ||
+    service.durationMinutes <= 0 ||
+    service.capacity < 1
+  ) {
+    throw new Error("SERVICE_CONFIG:Precio, duracion y capacidad son obligatorios. La capacidad debe ser al menos 1.");
   }
 }
 

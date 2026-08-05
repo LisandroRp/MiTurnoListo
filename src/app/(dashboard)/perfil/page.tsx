@@ -21,6 +21,7 @@ export default function ProfileSectionPage() {
     locale,
     refreshWorkspaceSubscription,
     saveBusinessProfile,
+    saveProfileAvatar,
     startProSubscription,
     theme,
     themeOptions,
@@ -95,12 +96,14 @@ export default function ProfileSectionPage() {
     <ProfileView
       messages={messages}
       profile={profile}
+      businessId={businessId}
       locale={locale}
       theme={theme}
       themeOptions={themeOptions}
       onRequestPasswordReset={handlePasswordReset}
       onLocaleChange={setLocale}
       onSaveBusinessProfile={saveBusinessProfile}
+      onSaveProfileAvatar={saveProfileAvatar}
       onThemeChange={setTheme}
       onBusinessImageUploadError={(message) => showToast({ tone: "error", title: messages.toast.error, description: message })}
       onSubscribeToPro={handleSubscribeToPro}

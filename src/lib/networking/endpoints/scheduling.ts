@@ -329,6 +329,28 @@ export async function saveBusinessProfile(businessId: string, profile: BusinessP
   return payload.profile;
 }
 
+export async function saveProfileAvatar(businessId: string, avatarUrl: string) {
+  const token = await getAccessToken();
+  const response = await fetch("/api/profile/avatar", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({
+      avatarUrl,
+      businessId
+    })
+  });
+  const payload = await response.json().catch(() => null) as { avatarUrl?: string; error?: string } | null;
+
+  if (!response.ok || !payload) {
+    throw new Error(payload?.error ?? "Unable to save profile image.");
+  }
+
+  return payload.avatarUrl ?? "";
+}
+
 async function runSchedulingMutation(payload: unknown) {
   const accessToken = await getAccessToken();
 
@@ -379,7 +401,7 @@ export function createNewEmployeeDraft() {
   };
 }
 
-export function createNewServiceDraft(employeeIds: string[]) {
+export function createNewServiceDraft() {
   return {
     id: globalThis.crypto.randomUUID(),
     name: "",
@@ -388,13 +410,13 @@ export function createNewServiceDraft(employeeIds: string[]) {
     price: 0,
     capacity: 1,
     deposit: 0,
-    durationMinutes: 30,
-    paymentMethod: "mixed" as const,
+    durationMinutes: 0,
+    paymentMethod: "cash" as const,
     isVisible: true,
-    reservationLeadMinutes: 30,
-    cancellationLeadMinutes: 1440,
+    reservationLeadMinutes: 0,
+    cancellationLeadMinutes: 0,
     schedule: createEmptySchedule(),
-    employeeIds,
+    employeeIds: [],
     addons: []
   };
 }

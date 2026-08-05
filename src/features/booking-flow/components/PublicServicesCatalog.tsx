@@ -5,7 +5,6 @@ import { ReactNode, useEffect, useState } from "react";
 import { FiClock, FiMapPin, FiShield, FiUsers } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
-import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { cx } from "@/components/ui/utils";
 import { Messages, messages as schedulingMessages } from "@/features/scheduling/i18n/messages";
@@ -72,15 +71,37 @@ export function PublicServicesCatalog({ businessId }: PublicServicesCatalogProps
 
   return (
     <main className={cx(`theme-${theme} text-primary`, "min-h-screen bg-page px-4 py-8 sm:px-6 lg:px-8")}>
-      <div className="mx-auto grid max-w-6xl gap-8">
-        <header className="grid justify-items-center gap-4 text-center">
-          <BrandMark variant="full" size="md" />
+      <div className="mx-auto grid max-w-7xl gap-8">
+        <header className="relative grid justify-items-center gap-4 pt-8 text-center md:pt-0">
+          <div className="hidden absolute left-0 top-0 md:block">
+            <BrandMark variant="full" size="md" />
+          </div>
+          <div className="absolute left-0 top-0 md:hidden">
+            <BrandMark variant="compact" size="md" />
+          </div>
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted">{messages.publicServices.eyebrow}</p>
+            {payload?.publicLogoUrl ? (
+              <div
+                className="mx-auto grid h-36 w-36 place-items-center rounded-3xl bg-contain bg-center bg-no-repeat text-lg font-bold text-primary"
+                style={{ backgroundImage: `url(${payload.publicLogoUrl})` }}
+              />
+            ) : null}
             <h1 className="mt-3 text-4xl font-bold text-primary">{payload?.businessName ?? messages.appName}</h1>
+            {payload?.address ? (
+              <div className="mt-3 flex items-center justify-center gap-2 text-base font-semibold text-muted">
+                <FiMapPin className="shrink-0 text-brand-strong" aria-hidden="true" />
+                <span>{payload.address}</span>
+              </div>
+            ) : null}
+            {payload?.publicOpeningHours ? (
+              <div className="mt-3 flex items-start justify-center gap-2 text-sm leading-6 text-muted">
+                <FiClock className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" />
+                <span className="whitespace-pre-line">{payload.publicOpeningHours}</span>
+              </div>
+            ) : null}
             <p className="mt-3 text-base leading-7 text-muted">{payload?.publicDescription || messages.publicServices.description}</p>
           </div>
-          {payload ? <BusinessPublicSummary payload={payload} /> : null}
         </header>
 
         {isLoading ? (
@@ -88,7 +109,7 @@ export function PublicServicesCatalog({ businessId }: PublicServicesCatalogProps
         ) : errorMessage ? (
           <StateCard title={messages.publicServices.loadError} description={errorMessage} />
         ) : payload && payload.services.length > 0 ? (
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
             {payload.services.map((service) => (
               <PublicServiceCard key={service.id} messages={messages} service={service} />
             ))}
@@ -98,41 +119,6 @@ export function PublicServicesCatalog({ businessId }: PublicServicesCatalogProps
         )}
       </div>
     </main>
-  );
-}
-
-function BusinessPublicSummary({ payload }: { payload: PublicServicesPayload }) {
-  const hasDetails = payload.publicLogoUrl || payload.address || payload.publicOpeningHours;
-
-  if (!hasDetails) {
-    return null;
-  }
-
-  return (
-    <Card className="mt-2 w-full max-w-3xl">
-      <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
-        <div
-          className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl border border-subtle bg-surface-strong bg-cover bg-center text-lg font-bold text-primary"
-          style={{ backgroundImage: payload.publicLogoUrl ? `url(${payload.publicLogoUrl})` : undefined }}
-        >
-          {payload.publicLogoUrl ? null : getBusinessInitials(payload.businessName)}
-        </div>
-        <div className="grid flex-1 gap-3">
-          {payload.address ? (
-            <div className="flex items-center justify-center gap-2 text-sm text-muted sm:justify-start">
-              <FiMapPin className="shrink-0 text-brand-strong" aria-hidden="true" />
-              <span>{payload.address}</span>
-            </div>
-          ) : null}
-          {payload.publicOpeningHours ? (
-            <div className="flex items-start justify-center gap-2 text-sm text-muted sm:justify-start">
-              <FiClock className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" />
-              <span className="whitespace-pre-line">{payload.publicOpeningHours}</span>
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </Card>
   );
 }
 
@@ -159,15 +145,14 @@ function PublicServiceCard({
   return (
     <Card className="flex h-full flex-col gap-5">
       <div
-        className="min-h-44 rounded-2xl bg-surface-strong bg-cover bg-center"
+        className="min-h-44 rounded-2xl bg-surface-strong bg-contain bg-center bg-no-repeat"
         style={{ backgroundImage: service.imageUrl ? `url(${service.imageUrl})` : undefined }}
         aria-label={service.imageUrl ? service.name : undefined}
       />
 
       <div className="flex flex-1 flex-col gap-5">
         <div>
-          <Badge tone="brand">{messages.bookingFlow.steps.service}</Badge>
-          <h2 className="mt-3 text-2xl font-bold text-primary">{service.name}</h2>
+          <h2 className="text-2xl font-bold text-primary">{service.name}</h2>
           <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted">{service.description || messages.services.emptyDescription}</p>
         </div>
 
@@ -217,13 +202,4 @@ function StateCard({ title, description }: { title: string; description?: string
       {description ? <p className="mt-3 text-sm leading-6 text-muted">{description}</p> : null}
     </Card>
   );
-}
-
-function getBusinessInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "MT";
 }

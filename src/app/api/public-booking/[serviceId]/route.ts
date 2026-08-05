@@ -16,7 +16,7 @@ import {
   mapPaymentSettings,
   mapServices
 } from "@/lib/networking/mappers/scheduling";
-import { buildIsoInTimeZone } from "@/lib/networking/utils/date-time";
+import { buildIsoInTimeZone, formatDateForTimeZone } from "@/lib/networking/utils/date-time";
 import { notifyPlanLimitReached } from "@/lib/notifications/plan-limits";
 
 type RouteContext = {
@@ -55,7 +55,7 @@ export async function GET(_: NextRequest, context: RouteContext) {
   ] = await Promise.all([
     supabase
       .from("businesses")
-      .select("name, timezone, subscription_tier")
+      .select("name, address, public_description, public_logo_url, public_opening_hours, timezone, subscription_tier")
       .eq("id", businessId)
       .limit(1)
       .single(),
@@ -151,10 +151,14 @@ export async function GET(_: NextRequest, context: RouteContext) {
 
   return NextResponse.json({
     appointments,
+    address: businessResult.data.address ?? "",
     businessName: businessResult.data.name,
     employees,
     locale: membershipResult.data?.locale ?? "es",
     paymentSettings: mapPaymentSettings(paymentSettingsResult.data),
+    publicDescription: businessResult.data.public_description ?? "",
+    publicLogoUrl: businessResult.data.public_logo_url ?? "",
+    publicOpeningHours: businessResult.data.public_opening_hours ?? "",
     service: serviceModel,
     theme: membershipResult.data?.theme ?? "coral"
   });
@@ -348,6 +352,29 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "The selected time is no longer available." }, { status: 409 });
     }
 
+    const bookingDateLimitResult = await enforceOneCustomerBookingForSelectedDate(
+      supabase,
+      service.business_id,
+      customer.email,
+      payload.slot.date,
+      businessResult.data.timezone
+    );
+
+    if ("response" in bookingDateLimitResult) {
+      return bookingDateLimitResult.response;
+    }
+
+    const submissionDayLimitResult = await enforceOneCustomerBookingSubmissionPerDay(
+      supabase,
+      service.business_id,
+      customer.email,
+      businessResult.data.timezone
+    );
+
+    if ("response" in submissionDayLimitResult) {
+      return submissionDayLimitResult.response;
+    }
+
     const appointmentId = crypto.randomUUID();
     const selectedAddonIds = new Set((payload.addonIds ?? []).filter((addonId) => typeof addonId === "string"));
     const selectedAddons = serviceModel.addons.filter((addon) => selectedAddonIds.has(addon.id));
@@ -404,7 +431,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
 
       await insertAppointmentAddons(supabase, appointmentId, selectedAddons);
-      await sendBookingCreatedEmails({ appointmentId });
 
       return NextResponse.json({
         appointmentId,
@@ -586,4 +612,83 @@ async function getMonthlyAppointmentLimitStatus(
   }
 
   return { canBook: true };
+}
+
+async function enforceOneCustomerBookingForSelectedDate(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  businessId: string,
+  customerEmail: string,
+  date: string,
+  timeZone: string
+) {
+  const dayStart = buildIsoInTimeZone(date, "00:00", timeZone);
+  const dayEnd = buildIsoInTimeZone(addDaysToDateKey(date, 1), "00:00", timeZone);
+  const { count, error } = await supabase
+    .from("appointments")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .ilike("customer_email_snapshot", customerEmail)
+    .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[])
+    .gte("starts_at", dayStart)
+    .lt("starts_at", dayEnd);
+
+  if (error) {
+    return {
+      response: NextResponse.json({ error: "Unable to validate existing bookings." }, { status: 500 })
+    };
+  }
+
+  if ((count ?? 0) > 0) {
+    return {
+      response: NextResponse.json(
+        { error: "Ya tenes una reserva para este dia. Elegi otra fecha para sacar un nuevo turno." },
+        { status: 409 }
+      )
+    };
+  }
+
+  return { canBook: true };
+}
+
+async function enforceOneCustomerBookingSubmissionPerDay(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  businessId: string,
+  customerEmail: string,
+  timeZone: string
+) {
+  const today = formatDateForTimeZone(new Date().toISOString(), timeZone);
+  const dayStart = buildIsoInTimeZone(today, "00:00", timeZone);
+  const dayEnd = buildIsoInTimeZone(addDaysToDateKey(today, 1), "00:00", timeZone);
+  const { count, error } = await supabase
+    .from("appointments")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .ilike("customer_email_snapshot", customerEmail)
+    .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[])
+    .gte("created_at", dayStart)
+    .lt("created_at", dayEnd);
+
+  if (error) {
+    return {
+      response: NextResponse.json({ error: "Unable to validate existing bookings." }, { status: 500 })
+    };
+  }
+
+  if ((count ?? 0) > 0) {
+    return {
+      response: NextResponse.json(
+        { error: "Ya hiciste una reserva hoy. Podes volver a reservar manana." },
+        { status: 409 }
+      )
+    };
+  }
+
+  return { canBook: true };
+}
+
+function addDaysToDateKey(date: string, days: number) {
+  const nextDate = new Date(`${date}T12:00:00`);
+  nextDate.setDate(nextDate.getDate() + days);
+
+  return nextDate.toISOString().slice(0, 10);
 }

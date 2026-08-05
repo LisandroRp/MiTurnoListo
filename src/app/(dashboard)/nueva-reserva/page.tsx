@@ -53,7 +53,7 @@ export default function NewBookingPreviewPage() {
                   className="flex h-full w-full flex-col overflow-hidden p-0 transition duration-200 hover:-translate-y-1 hover:scale-[1.01] hover:border-brand hover:shadow-lg"
                 >
                   <div
-                    className="h-36 bg-surface-strong bg-cover bg-center"
+                    className="h-36 bg-surface-strong bg-contain bg-center bg-no-repeat"
                     style={{ backgroundImage: service.imageUrl ? `url(${service.imageUrl})` : undefined }}
                   />
                   <div className="flex flex-1 flex-col gap-4 p-5">

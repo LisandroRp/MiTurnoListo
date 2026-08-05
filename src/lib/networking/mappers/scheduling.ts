@@ -13,6 +13,7 @@ import {
   TimeRange
 } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
+import { normalizeStoredImageUrl } from "@/lib/networking/utils/assets";
 import { formatDateForTimeZone, formatTimeForTimeZone, formatTodayForTimeZone } from "@/lib/networking/utils/date-time";
 
 type DayKey = keyof ServiceSchedule;
@@ -144,7 +145,7 @@ export function mapEmployees(employeeRows: EmployeeRow[], availabilityRows: Avai
     name: employee.name,
     role: employee.role,
     description: employee.description,
-    imageUrl: employee.image_url ?? "",
+    imageUrl: normalizeStoredImageUrl(employee.image_url),
     color: employee.color_token,
     initials: getInitials(employee.name),
     schedule: buildSchedule(
@@ -163,7 +164,7 @@ export function mapServices(
     id: service.id,
     name: service.name,
     description: service.description,
-    imageUrl: service.image_url ?? "",
+    imageUrl: normalizeStoredImageUrl(service.image_url),
     price: service.price_amount,
     capacity: service.capacity,
     deposit: service.deposit_amount,
@@ -231,9 +232,9 @@ export function mapProfile(
     businessName: business.name,
     address: business.address ?? "",
     publicDescription: business.public_description ?? "",
-    publicLogoUrl: business.public_logo_url ?? "",
+    publicLogoUrl: normalizeStoredImageUrl(business.public_logo_url),
     publicOpeningHours: business.public_opening_hours ?? "",
-    avatarUrl: userProfile.avatar_url ?? ""
+    avatarUrl: normalizeStoredImageUrl(userProfile.avatar_url)
   };
 }
 

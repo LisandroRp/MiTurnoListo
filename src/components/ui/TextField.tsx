@@ -14,7 +14,10 @@ export function TextField({ label, helperText, prefix, suffix, className, id, ..
 
   return (
     <label className="grid gap-2 text-sm font-medium text-primary" htmlFor={fieldId}>
-      {label}
+      <span>
+        {label}
+        {props.required ? <span className="ml-1 text-danger">*</span> : null}
+      </span>
       <span className="relative">
         {prefix ? <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted">{prefix}</span> : null}
         <input

@@ -11,7 +11,10 @@ export function TextAreaField({ label, className, id, ...props }: TextAreaFieldP
 
   return (
     <label className="grid gap-2 text-sm font-medium text-primary" htmlFor={fieldId}>
-      {label}
+      <span>
+        {label}
+        {props.required ? <span className="ml-1 text-danger">*</span> : null}
+      </span>
       <textarea
         {...props}
         id={fieldId}

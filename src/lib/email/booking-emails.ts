@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { bookingConfirmationEmail } from "@/emails/booking-confirmation";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 import { sendEmail } from "@/lib/email/resend";
@@ -40,12 +41,19 @@ export async function sendBookingCreatedEmails(input: BookingEmailInput) {
 
   const results = await Promise.all([
     sendEmail({
-      html: buildBookingCreatedCustomerHtml(context),
-      subject: `Reserva recibida en ${context.businessName}`,
+      html: bookingConfirmationEmail({
+        appointmentDate: formatAppointmentDateOnly(context.startsAt),
+        appointmentTime: formatAppointmentTimeOnly(context.startsAt),
+        businessName: context.businessName,
+        customerName: context.customerName,
+        employeeName: context.employeeName,
+        manageBookingUrl: buildCancellationUrl(context.publicCancelToken),
+        serviceName: context.serviceName
+      }),
+      subject: `Tu reserva en ${context.businessName} fue recibida`,
       text: buildBookingCreatedCustomerText(context),
       to: context.customerEmail
-    }),
-    sendBusinessBookingNotificationEmail(context)
+    })
   ]);
   logSkippedEmailResults(results);
 }
@@ -59,12 +67,19 @@ export async function sendBookingConfirmedEmails(input: BookingEmailInput) {
 
   const results = await Promise.all([
     sendEmail({
-      html: buildBookingConfirmedHtml(context),
+      html: bookingConfirmationEmail({
+        appointmentDate: formatAppointmentDateOnly(context.startsAt),
+        appointmentTime: formatAppointmentTimeOnly(context.startsAt),
+        businessName: context.businessName,
+        customerName: context.customerName,
+        employeeName: context.employeeName,
+        manageBookingUrl: buildCancellationUrl(context.publicCancelToken),
+        serviceName: context.serviceName
+      }),
       subject: `Turno confirmado en ${context.businessName}`,
       text: buildBookingConfirmedText(context),
       to: context.customerEmail
-    }),
-    sendBusinessPaymentConfirmedEmail(context)
+    })
   ]);
   logSkippedEmailResults(results);
 }
@@ -82,8 +97,7 @@ export async function sendBookingCancelledEmails(input: BookingCancellationEmail
       subject: `Turno cancelado en ${context.businessName}`,
       text: buildBookingCancelledCustomerText(context, input.wasRefunded),
       to: context.customerEmail
-    }),
-    sendBusinessBookingCancelledEmail(context, input.wasRefunded)
+    })
   ]);
   logSkippedEmailResults(results);
 }
@@ -269,22 +283,23 @@ function formatAppointmentDate(startsAt: string) {
   }).format(new Date(startsAt));
 }
 
-function buildBookingCreatedCustomerText(context: AppointmentEmailContext) {
-  return `Hola ${context.customerName}, recibimos tu reserva para ${context.serviceName} en ${context.businessName}. Fecha: ${formatAppointmentDate(context.startsAt)}. Profesional: ${context.employeeName}.${buildTransferReceiptText(context)} ${buildCancellationText(context)}`;
+function formatAppointmentDateOnly(startsAt: string) {
+  return new Intl.DateTimeFormat("es-AR", {
+    dateStyle: "full",
+    timeZone: "America/Argentina/Buenos_Aires"
+  }).format(new Date(startsAt));
 }
 
-function buildBookingCreatedCustomerHtml(context: AppointmentEmailContext) {
-  return buildEmailShell({
-    body: `
-      <p>Hola ${escapeHtml(context.customerName)},</p>
-      <p>Recibimos tu reserva para <strong>${escapeHtml(context.serviceName)}</strong> en ${escapeHtml(context.businessName)}.</p>
-      ${buildAppointmentDetails(context)}
-      ${buildTransferReceiptHtml(context)}
-      ${buildCancellationHtml(context)}
-      <p>El negocio va a confirmar el turno o el pago segun corresponda.</p>
-    `,
-    title: "Reserva recibida"
-  });
+function formatAppointmentTimeOnly(startsAt: string) {
+  return new Intl.DateTimeFormat("es-AR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Argentina/Buenos_Aires"
+  }).format(new Date(startsAt));
+}
+
+function buildBookingCreatedCustomerText(context: AppointmentEmailContext) {
+  return `Hola ${context.customerName}, recibimos tu reserva para ${context.serviceName} en ${context.businessName}. Fecha: ${formatAppointmentDate(context.startsAt)}. Profesional: ${context.employeeName}.${buildTransferReceiptText(context)} ${buildCancellationText(context)}`;
 }
 
 function buildBookingConfirmedText(context: AppointmentEmailContext) {

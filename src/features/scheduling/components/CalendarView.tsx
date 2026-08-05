@@ -692,6 +692,7 @@ function AppointmentCard({
               type="date"
               min={getTodayDateValue()}
               value={rescheduleDate}
+              required
               onChange={(event) => updateRescheduleDate(event.target.value)}
             />
             <SelectField
@@ -699,6 +700,7 @@ function AppointmentCard({
               name={`reschedule-employee-${appointment.id}`}
               value={rescheduleEmployeeId}
               disabled={availableRescheduleEmployees.length === 0}
+              required
               options={
                 availableRescheduleEmployees.length > 0
                   ? availableRescheduleEmployees.map((item) => ({ value: item.id, label: item.name }))

@@ -82,6 +82,7 @@ export function ResetPasswordForm({ forgotPasswordHref, loginHref }: ResetPasswo
         autoComplete="new-password"
         helperText="Usa al menos 6 caracteres."
         prefix={<FiLock />}
+        required
         onChange={(event) => setPassword(event.target.value)}
         suffix={
           <button
@@ -101,6 +102,7 @@ export function ResetPasswordForm({ forgotPasswordHref, loginHref }: ResetPasswo
         value={confirmPassword}
         autoComplete="new-password"
         prefix={<FiLock />}
+        required
         onChange={(event) => setConfirmPassword(event.target.value)}
         suffix={
           <button

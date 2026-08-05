@@ -6,6 +6,7 @@ import { SectionHeader } from "@/components/composed/SectionHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { SelectField } from "@/components/ui/SelectField";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
 import { getPayments } from "@/lib/networking/endpoints/payments";
 import { LoadingDotsText } from "@/features/scheduling/components/LoadingDotsText";
@@ -108,24 +109,26 @@ export function PaymentsView({ businessId, messages, onMarkAppointmentPaid }: Pa
             label={messages.payments.statusFilter}
             value={statusFilter}
             onChange={(value) => setStatusFilter(value as StatusFilter)}
-          >
-            <option value="all">{messages.payments.allStatuses}</option>
-            <option value="pending">{messages.payments.statuses.pending}</option>
-            <option value="paid">{messages.payments.statuses.paid}</option>
-            <option value="cancelled">{messages.payments.statuses.cancelled}</option>
-            <option value="refunded">{messages.payments.statuses.refunded}</option>
-          </FilterSelect>
+            options={[
+              { value: "all", label: messages.payments.allStatuses },
+              { value: "pending", label: messages.payments.statuses.pending },
+              { value: "paid", label: messages.payments.statuses.paid },
+              { value: "cancelled", label: messages.payments.statuses.cancelled },
+              { value: "refunded", label: messages.payments.statuses.refunded }
+            ]}
+          />
           <FilterSelect
             label={messages.payments.methodFilter}
             value={methodFilter}
             onChange={(value) => setMethodFilter(value as MethodFilter)}
-          >
-            <option value="all">{messages.payments.allMethods}</option>
-            <option value="card">{messages.paymentMethods.card}</option>
-            <option value="transfer">{messages.paymentMethods.transfer}</option>
-            <option value="cash">{messages.paymentMethods.cash}</option>
-            <option value="mixed">{messages.paymentMethods.mixed}</option>
-          </FilterSelect>
+            options={[
+              { value: "all", label: messages.payments.allMethods },
+              { value: "card", label: messages.paymentMethods.card },
+              { value: "transfer", label: messages.paymentMethods.transfer },
+              { value: "cash", label: messages.paymentMethods.cash },
+              { value: "mixed", label: messages.paymentMethods.mixed }
+            ]}
+          />
         </div>
 
         {isLoading ? (
@@ -240,27 +243,24 @@ function PaymentMetricCard({
 }
 
 function FilterSelect({
-  children,
   label,
   onChange,
+  options,
   value
 }: {
-  children: ReactNode;
   label: string;
   onChange: (value: string) => void;
+  options: { value: string; label: string }[];
   value: string;
 }) {
   return (
-    <label className="grid gap-2 text-sm font-semibold text-primary">
-      {label}
-      <select
-        className="h-11 min-w-52 rounded-lg border border-subtle bg-input px-3 text-sm text-primary outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-focus"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {children}
-      </select>
-    </label>
+    <SelectField
+      label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="min-w-52 font-semibold"
+      options={options}
+    />
   );
 }
 

@@ -68,6 +68,7 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
         value={email}
         autoComplete="email"
         prefix={<FiMail />}
+        required
         onChange={(event) => setEmail(event.target.value)}
       />
       <TextField
@@ -78,6 +79,7 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
         autoComplete="new-password"
         helperText="Usa al menos 6 caracteres."
         prefix={<FiLock />}
+        required
         onChange={(event) => setPassword(event.target.value)}
         suffix={
           <button
@@ -97,6 +99,7 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
         value={confirmPassword}
         autoComplete="new-password"
         prefix={<FiLock />}
+        required
         onChange={(event) => setConfirmPassword(event.target.value)}
         suffix={
           <button

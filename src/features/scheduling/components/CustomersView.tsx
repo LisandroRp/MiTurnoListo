@@ -6,6 +6,7 @@ import { FiSearch } from "react-icons/fi";
 import { Badge } from "@/components/ui/Badge";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { Card } from "@/components/ui/Card";
+import { cx } from "@/components/ui/utils";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
 import { getCustomers } from "@/lib/networking/endpoints/customers";
 import { LoadingDotsText } from "@/features/scheduling/components/LoadingDotsText";
@@ -13,7 +14,7 @@ import { Messages } from "@/features/scheduling/i18n/messages";
 import { Customer } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 
-const tableHeaderClassName = "relative px-5 py-3 text-center font-semibold after:absolute after:right-0 after:top-2 after:bottom-2 after:w-px after:bg-subtle last:after:hidden";
+const tableHeaderClassName = "px-4 py-3 text-xs font-bold uppercase tracking-[0.04em] text-muted";
 
 type CustomersViewProps = {
   businessId: string | null;
@@ -87,23 +88,19 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
         <CustomerMetricCard label={messages.customers.estimatedRevenue} value={formatCurrency(estimatedRevenue)} isLoading={isLoading} />
       </div>
 
-      <Card className="grid gap-4 overflow-hidden p-0">
-        <div className="border-b border-subtle bg-sidebar p-4 sm:p-5">
-          <label className="grid gap-2 text-sm font-semibold text-primary">
-            {messages.actions.search}
-            <span className="relative">
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
-              <input
-                type="search"
-                value={searchQuery}
-                placeholder={messages.customers.searchPlaceholder}
-                className="h-11 w-full rounded-lg border border-subtle bg-input px-3 pl-9 text-sm text-primary outline-none transition-colors placeholder:text-placeholder focus:border-brand focus:ring-2 focus:ring-focus"
-                onChange={(event) => setSearchQuery(event.target.value)}
-              />
-            </span>
-          </label>
-        </div>
+      <label className="relative block max-w-xl">
+        <FiSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
+        <span className="sr-only">{messages.actions.search}</span>
+        <input
+          type="search"
+          value={searchQuery}
+          placeholder={messages.customers.searchPlaceholder}
+          className="h-11 w-full rounded-xl border border-subtle bg-input px-4 pl-10 text-sm text-primary shadow-sm outline-none transition placeholder:text-placeholder focus:border-brand focus:ring-2 focus:ring-focus"
+          onChange={(event) => setSearchQuery(event.target.value)}
+        />
+      </label>
 
+      <section className="overflow-hidden rounded-3xl border border-subtle bg-surface shadow-sm">
         {isLoading ? (
           <CustomersState title={<LoadingDotsText text={messages.customers.loading} />} />
         ) : errorMessage ? (
@@ -116,34 +113,37 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
           <>
             <div className="hidden overflow-x-auto lg:block">
               <table className="w-full min-w-[980px] border-collapse text-sm">
-                <thead className="bg-surface-strong text-muted">
+                <thead className="bg-shell">
                   <tr>
                     <th className={tableHeaderClassName}>{messages.customers.name}</th>
                     <th className={tableHeaderClassName}>{messages.customers.email}</th>
-                    <th className={tableHeaderClassName}>{messages.customers.phone}</th>
                     <th className={tableHeaderClassName}>{messages.customers.bookings}</th>
                     <th className={tableHeaderClassName}>{messages.customers.totalSpent}</th>
                     <th className={tableHeaderClassName}>{messages.customers.lastService}</th>
                     <th className={tableHeaderClassName}>{messages.customers.lastBooking}</th>
+                    <th className={cx(tableHeaderClassName, "min-w-28")}>{messages.customers.tag}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-subtle">
-                  {visibleCustomers.map((customer) => (
-                    <tr key={customer.id}>
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-primary">{customer.fullName || "-"}</span>
-                          {customer.bookingCount > 1 ? <Badge tone="brand">{messages.customers.recurrent}</Badge> : null}
-                        </div>
+                  {visibleCustomers.map((customer) => {
+                    const customerTag = getCustomerTag(customer, messages);
+
+                    return (
+                    <tr key={customer.id} className="transition-colors hover:bg-brand-soft/45">
+                      <td className="px-4 py-4">
+                        <CustomerIdentity customer={customer} />
                       </td>
-                      <td className="px-5 py-4 text-muted">{customer.email || "-"}</td>
-                      <td className="whitespace-nowrap px-5 py-4 text-muted">{formatPhoneForDisplay(customer.phone)}</td>
-                      <td className="px-5 py-4 font-semibold text-primary">{customer.bookingCount}</td>
-                      <td className="px-5 py-4 font-semibold text-primary">{formatCurrency(customer.totalRevenue)}</td>
-                      <td className="px-5 py-4 text-muted">{customer.lastServiceName || "-"}</td>
-                      <td className="px-5 py-4 text-muted">{formatCustomerDate(customer.lastBookedAt)}</td>
+                      <td className="px-4 py-4 text-muted">{customer.email || "-"}</td>
+                      <td className="px-4 py-4 font-semibold text-primary">{customer.bookingCount}</td>
+                      <td className="px-4 py-4 font-semibold text-primary">{formatCurrency(customer.totalRevenue)}</td>
+                      <td className="px-4 py-4 text-muted">{customer.lastServiceName || "-"}</td>
+                      <td className="whitespace-nowrap px-4 py-4 text-muted">{formatLastBookingLabel(customer.lastBookedAt, messages)}</td>
+                      <td className="min-w-28 px-4 py-4">
+                        <Badge tone={customerTag.tone} className={cx("whitespace-nowrap", customerTag.className)}>{customerTag.label}</Badge>
+                      </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -155,7 +155,7 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
             </div>
           </>
         )}
-      </Card>
+      </section>
     </div>
   );
 }
@@ -174,21 +174,34 @@ function CustomerMetricCard({ isLoading, label, value }: { isLoading: boolean; l
 }
 
 function CustomerMobileCard({ customer, messages }: { customer: Customer; messages: Messages }) {
+  const customerTag = getCustomerTag(customer, messages);
+
   return (
     <div className="rounded-xl border border-subtle bg-input p-4">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-bold text-primary">{customer.fullName || "-"}</p>
-          <p className="mt-1 text-sm text-muted">{customer.email || "-"}</p>
-        </div>
-        {customer.bookingCount > 1 ? <Badge tone="brand">{messages.customers.recurrent}</Badge> : null}
+        <CustomerIdentity customer={customer} />
+        <Badge tone={customerTag.tone} className={customerTag.className}>{customerTag.label}</Badge>
       </div>
       <div className="mt-4 grid gap-2 text-sm text-muted">
+        <CustomerDetail label={messages.customers.email} value={customer.email || "-"} />
         <CustomerDetail label={messages.customers.phone} value={formatPhoneForDisplay(customer.phone)} />
         <CustomerDetail label={messages.customers.bookings} value={String(customer.bookingCount)} />
         <CustomerDetail label={messages.customers.totalSpent} value={formatCurrency(customer.totalRevenue)} />
         <CustomerDetail label={messages.customers.lastService} value={customer.lastServiceName || "-"} />
-        <CustomerDetail label={messages.customers.lastBooking} value={formatCustomerDate(customer.lastBookedAt)} />
+        <CustomerDetail label={messages.customers.lastBooking} value={formatLastBookingLabel(customer.lastBookedAt, messages)} />
+      </div>
+    </div>
+  );
+}
+
+function CustomerIdentity({ customer }: { customer: Customer }) {
+  const initials = getCustomerInitials(customer.fullName || customer.email);
+
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <div className="min-w-0">
+        <p className="truncate font-bold text-primary">{customer.fullName || "-"}</p>
+        <p className="mt-1 truncate text-xs leading-5 text-muted">{formatPhoneForDisplay(customer.phone)}</p>
       </div>
     </div>
   );
@@ -227,13 +240,96 @@ function formatCustomerDate(value: string) {
 
   return new Intl.DateTimeFormat("es-AR", {
     day: "2-digit",
-    month: "short",
+    month: "2-digit",
     year: "numeric"
   }).format(date);
+}
+
+function formatLastBookingLabel(value: string, messages: Messages) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const visitStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.max(0, Math.floor((todayStart.getTime() - visitStart.getTime()) / 86400000));
+
+  if (diffDays === 0) {
+    return messages.customers.lastVisitRelative.today;
+  }
+
+  if (diffDays <= 6) {
+    return messages.customers.lastVisitRelative.daysAgo.replace("{count}", String(diffDays));
+  }
+
+  if (diffDays <= 27) {
+    const weeks = Math.max(1, Math.round(diffDays / 7));
+
+    return messages.customers.lastVisitRelative.weeksAgo.replace("{count}", String(weeks));
+  }
+
+  if (diffDays <= 37) {
+    return messages.customers.lastVisitRelative.oneMonthAgo;
+  }
+
+  return formatCustomerDate(value);
 }
 
 function formatPhoneForDisplay(value: string) {
   const compactValue = value.replace(/\s+/g, "");
 
   return compactValue || "-";
+}
+
+function getCustomerInitials(value: string) {
+  return value
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "CL";
+}
+
+function getCustomerTag(customer: Customer, messages: Messages) {
+  if (isCustomerAtRisk(customer.lastBookedAt)) {
+    return { label: messages.customers.tags.atRisk, tone: "danger" as const };
+  }
+
+  if (customer.bookingCount > 20) {
+    return { label: messages.customers.tags.vip, tone: "warning" as const, className: "bg-warning-soft text-warning" };
+  }
+
+  if (customer.bookingCount > 10) {
+    return { label: messages.customers.tags.frequent, tone: "brand" as const };
+  }
+
+  if (customer.bookingCount <= 2) {
+    return { label: messages.customers.tags.new, tone: "neutral" as const, className: "bg-shell !text-black" };
+  }
+
+  return { label: messages.customers.tags.active, tone: "success" as const };
+}
+
+function isCustomerAtRisk(lastBookedAt: string) {
+  if (!lastBookedAt) {
+    return false;
+  }
+
+  const lastBookingDate = new Date(lastBookedAt);
+
+  if (Number.isNaN(lastBookingDate.getTime())) {
+    return false;
+  }
+
+  const riskThreshold = new Date();
+  riskThreshold.setDate(riskThreshold.getDate() - 45);
+
+  return lastBookingDate < riskThreshold;
 }

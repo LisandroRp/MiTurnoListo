@@ -4,12 +4,16 @@ import { PersonnelView } from "@/features/scheduling/components/PersonnelView";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
 
 export default function PersonnelSectionPage() {
-  const { messages, employees, profile, saveEmployee, deleteEmployee, showToast } = useScheduling();
+  const { appointments, businessId, employees, focusedDate, messages, profile, saveEmployee, deleteEmployee, services, showToast } = useScheduling();
 
   return (
     <PersonnelView
       messages={messages}
       employees={employees}
+      services={services}
+      appointments={appointments}
+      businessId={businessId}
+      referenceDate={focusedDate}
       subscriptionTier={profile.subscriptionTier}
       onSaveEmployee={saveEmployee}
       onDeleteEmployee={deleteEmployee}

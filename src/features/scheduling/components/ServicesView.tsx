@@ -1,7 +1,7 @@
 import { ChangeEvent, ReactNode, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import QRCode from "qrcode";
-import { FiArrowLeft, FiArrowRight, FiCheck, FiCopy, FiEdit2, FiInfo, FiLink, FiPlus, FiShare2, FiTrash2, FiX } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight, FiCheck, FiCopy, FiEdit2, FiInfo, FiLink, FiMoreHorizontal, FiPlus, FiSearch, FiShare2, FiTrash2, FiX } from "react-icons/fi";
 
 import { PlanLimitModal } from "@/components/composed/PlanLimitModal";
 import { SectionHeader } from "@/components/composed/SectionHeader";
@@ -19,17 +19,20 @@ import { AvailabilityEditor, dayKeys } from "@/features/scheduling/components/Av
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, isFreePlan } from "@/features/scheduling/plan-limits";
-import { Employee, PaymentMethod, Service, ServiceAddon, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
+import { Appointment, Employee, PaymentMethod, Service, ServiceAddon, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 import { createNewServiceDraft } from "@/lib/networking/endpoints/scheduling";
+import { uploadBusinessImageAsset } from "@/lib/storage/business-assets";
 
 type ServicesViewProps = {
   messages: Messages;
   services: Service[];
   employees: Employee[];
+  appointments: Appointment[];
   businessId: string | null;
   subscriptionTier: SubscriptionTier;
   isMercadoPagoConfigured: boolean;
+  isTransferConfigured: boolean;
   onSaveService: (service: Service) => Promise<boolean>;
   onDeleteService: (serviceId: string) => Promise<boolean>;
   onValidationWarning: () => void;
@@ -40,17 +43,21 @@ type ServicesViewProps = {
 
 type ServicesMode = "grid" | "form";
 type ServiceWizardStep = "details" | "booking" | "staff" | "schedule" | "review";
+type ServiceStatusFilter = "all" | "visible" | "hidden";
 
 const paymentMethods: PaymentMethod[] = ["cash", "card", "transfer", "mixed"];
 const serviceWizardStepOrder: ServiceWizardStep[] = ["details", "booking", "staff", "schedule", "review"];
+const visibleServiceEmployeeLimit = 1;
 
 export function ServicesView({
   messages,
   services,
   employees,
+  appointments,
   businessId,
   subscriptionTier,
   isMercadoPagoConfigured,
+  isTransferConfigured,
   onSaveService,
   onDeleteService,
   onValidationWarning,
@@ -60,15 +67,19 @@ export function ServicesView({
 }: ServicesViewProps) {
   const rangeIdCounter = useRef(1);
   const [mode, setMode] = useState<ServicesMode>("grid");
-  const [draft, setDraft] = useState<Service>(() => createNewServiceDraft(employees.map((employee) => employee.id)));
+  const [draft, setDraft] = useState<Service>(() => createNewServiceDraft());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const [pendingServiceImageFile, setPendingServiceImageFile] = useState<File | null>(null);
   const [isSavingService, setIsSavingService] = useState(false);
   const [savingVisibilityId, setSavingVisibilityId] = useState<string | null>(null);
   const [sharingService, setSharingService] = useState<Service | null>(null);
   const [isSharingCatalog, setIsSharingCatalog] = useState(false);
   const [lockedService, setLockedService] = useState<Service | null>(null);
+  const [serviceSearchTerm, setServiceSearchTerm] = useState("");
+  const [serviceStatusFilter, setServiceStatusFilter] = useState<ServiceStatusFilter>("all");
+  const [serviceEmployeeFilter, setServiceEmployeeFilter] = useState("all");
   const unlockedVisibleServiceIds = new Set(
     isFreePlan(subscriptionTier)
       ? services.filter((service) => service.isVisible).slice(0, freePlanLimits.visibleServices).map((service) => service.id)
@@ -80,11 +91,21 @@ export function ServicesView({
     id: step,
     label: messages.services.steps[step]
   }));
+  const filteredServices = services.filter((service) => {
+    const normalizedSearch = serviceSearchTerm.trim().toLowerCase();
+    const matchesSearch = !normalizedSearch || `${service.name} ${service.description}`.toLowerCase().includes(normalizedSearch);
+    const matchesStatus = serviceStatusFilter === "all" || (serviceStatusFilter === "visible" ? service.isVisible : !service.isVisible);
+    const matchesEmployee = serviceEmployeeFilter === "all" || service.employeeIds.includes(serviceEmployeeFilter);
+
+    return matchesSearch && matchesStatus && matchesEmployee;
+  });
+  const monthRange = getCurrentMonthRange();
 
   function startCreate() {
-    setDraft(createNewServiceDraft(employees.map((employee) => employee.id)));
+    setDraft(createNewServiceDraft());
     setEditingId(null);
     setCurrentStepIndex(0);
+    setPendingServiceImageFile(null);
     setValidationMessage(null);
     setMode("form");
   }
@@ -93,6 +114,7 @@ export function ServicesView({
     setDraft({ ...service, addons: service.addons.map((addon) => ({ ...addon })), schedule: structuredClone(service.schedule), employeeIds: [...service.employeeIds] });
     setEditingId(service.id);
     setCurrentStepIndex(0);
+    setPendingServiceImageFile(null);
     setValidationMessage(null);
     setMode("form");
   }
@@ -112,6 +134,7 @@ export function ServicesView({
     });
     setEditingId(null);
     setCurrentStepIndex(0);
+    setPendingServiceImageFile(null);
     setValidationMessage(null);
     setMode("form");
   }
@@ -124,6 +147,7 @@ export function ServicesView({
     setMode("grid");
     setEditingId(null);
     setCurrentStepIndex(0);
+    setPendingServiceImageFile(null);
     setValidationMessage(null);
   }
 
@@ -285,7 +309,7 @@ export function ServicesView({
       return;
     }
 
-    const stepValidationMessage = getServiceStepValidationMessage(currentStep, draft, messages, isMercadoPagoConfigured);
+    const stepValidationMessage = getServiceStepValidationMessage(currentStep, draft, messages, isMercadoPagoConfigured, isTransferConfigured);
 
     if (stepValidationMessage) {
       setValidationMessage(stepValidationMessage);
@@ -302,12 +326,12 @@ export function ServicesView({
       return;
     }
 
-    const invalidStepIndex = serviceWizardStepOrder.findIndex((step) => getServiceStepValidationMessage(step, draft, messages, isMercadoPagoConfigured));
+    const invalidStepIndex = serviceWizardStepOrder.findIndex((step) => getServiceStepValidationMessage(step, draft, messages, isMercadoPagoConfigured, isTransferConfigured));
 
     if (invalidStepIndex >= 0) {
       const invalidStep = serviceWizardStepOrder[invalidStepIndex] ?? "details";
       setCurrentStepIndex(invalidStepIndex);
-      setValidationMessage(getServiceStepValidationMessage(invalidStep, draft, messages, isMercadoPagoConfigured));
+      setValidationMessage(getServiceStepValidationMessage(invalidStep, draft, messages, isMercadoPagoConfigured, isTransferConfigured));
       onValidationWarning();
       return;
     }
@@ -315,13 +339,30 @@ export function ServicesView({
     setIsSavingService(true);
 
     try {
-      const didSave = await onSaveService(draft);
+      if (pendingServiceImageFile && !businessId) {
+        throw new Error("No pudimos identificar el negocio para subir la imagen.");
+      }
+
+      const serviceToSave = pendingServiceImageFile && businessId
+        ? {
+            ...draft,
+            imageUrl: await uploadBusinessImageAsset({
+              businessId,
+              file: pendingServiceImageFile,
+              path: `${businessId}/services/${draft.id}.webp`
+            })
+          }
+        : draft;
+      const didSave = await onSaveService(serviceToSave);
 
       if (didSave) {
         setMode("grid");
         setEditingId(null);
+        setPendingServiceImageFile(null);
         setValidationMessage(null);
       }
+    } catch (error) {
+      onImageUploadError(error instanceof Error ? error.message : "No pudimos subir la imagen del servicio.");
     } finally {
       setIsSavingService(false);
     }
@@ -363,11 +404,12 @@ export function ServicesView({
           {currentStep === "details" ? (
             <FormSection title={messages.services.detailsSection} description={messages.services.detailsSectionHint}>
             <div className="grid items-start gap-4">
-              <TextField label={messages.services.name} value={draft.name} onChange={handleTextChange("name")} />
+              <TextField label={messages.services.name} value={draft.name} required onChange={handleTextChange("name")} />
               <ImageUploadField
                 label={messages.services.imageUrl}
                 value={draft.imageUrl}
                 onChange={(value) => setDraft((current) => ({ ...current, imageUrl: value }))}
+                onSelectedFileChange={setPendingServiceImageFile}
                 onError={onImageUploadError}
                 chooseLabel={messages.actions.uploadImage}
                 replaceLabel={messages.actions.replaceImage}
@@ -388,25 +430,26 @@ export function ServicesView({
           {currentStep === "booking" ? (
             <FormSection title={messages.services.bookingSection} description={messages.services.bookingSectionHint}>
             <div className="grid gap-4 lg:grid-cols-3">
-              <TextField label={messages.services.price} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.price, true)} onChange={handleNumericTextChange("price")} />
-              <TextField label={messages.services.duration} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.durationMinutes)} onChange={handleNumericTextChange("durationMinutes")} />
-              <TextField label={messages.services.capacity} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.capacity)} onChange={handleNumericTextChange("capacity")} />
+              <TextField label={messages.services.price} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.price, true)} required onChange={handleNumericTextChange("price")} />
+              <TextField label={messages.services.durationMinutesLabel} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.durationMinutes)} required onChange={handleNumericTextChange("durationMinutes")} />
+              <TextField label={messages.services.capacity} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.capacity)} required onChange={handleNumericTextChange("capacity")} />
               <TextField label={messages.services.deposit} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.deposit, true)} onChange={handleNumericTextChange("deposit")} />
               <TextField label={messages.services.leadTime} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.reservationLeadMinutes)} onChange={handleNumericTextChange("reservationLeadMinutes")} />
               <TextField label={messages.services.cancellationLeadTime} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.cancellationLeadMinutes)} onChange={handleNumericTextChange("cancellationLeadMinutes")} />
               <SelectField
                 label={messages.services.paymentMethod}
                 value={draft.paymentMethod}
+                required
                 onChange={handleTextChange("paymentMethod")}
                 options={paymentMethods.map((method) => ({
                   value: method,
                   label: messages.paymentMethods[method],
-                  disabled: isMercadoPagoPaymentMethod(method) && !isMercadoPagoConfigured
+                  disabled: isPaymentMethodDisabled(method, isMercadoPagoConfigured, isTransferConfigured)
                 }))}
               />
-              {!isMercadoPagoConfigured ? (
+              {!isMercadoPagoConfigured || !isTransferConfigured ? (
                 <p className="rounded-lg border border-warning bg-warning-soft p-3 text-sm leading-6 text-warning lg:col-span-3">
-                  {messages.services.mercadoPagoDisabledHint}
+                  {messages.services.paymentMethodDisabledHint}
                 </p>
               ) : null}
             </div>
@@ -516,85 +559,103 @@ export function ServicesView({
         </div>
       </Card>
 
-      <section className="grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {services.length > 0 ? services.map((service) => {
-          const isLockedByPlan = isFreePlan(subscriptionTier) && service.isVisible && !unlockedVisibleServiceIds.has(service.id);
+      <ServiceFilters
+        messages={messages}
+        employees={employees}
+        searchTerm={serviceSearchTerm}
+        statusFilter={serviceStatusFilter}
+        employeeFilter={serviceEmployeeFilter}
+        onSearchChange={setServiceSearchTerm}
+        onStatusChange={setServiceStatusFilter}
+        onEmployeeChange={setServiceEmployeeFilter}
+      />
 
-          return (
-          <Card
-            key={service.id}
-            className={cx(
-              "relative flex h-full w-full flex-col overflow-hidden p-0 transition duration-200 hover:-translate-y-1 hover:scale-[1.01] hover:border-brand hover:shadow-lg",
-              isLockedByPlan && "hover:translate-y-0 hover:scale-100"
-            )}
-          >
-            <div className={cx("flex h-full flex-col", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
-              <div
-                className="h-36 bg-surface-strong bg-cover bg-center"
-                style={{ backgroundImage: service.imageUrl ? `url(${service.imageUrl})` : undefined }}
-              />
-              <div className="flex flex-1 flex-col gap-4 p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-bold text-primary">{service.name}</h2>
-                    <p className="mt-1 line-clamp-2 text-sm text-muted">{service.description}</p>
-                  </div>
-                  <VisibilitySwitch
-                    messages={messages}
-                    isVisible={service.isVisible}
-                    isLoading={savingVisibilityId === service.id}
-                    onToggle={() => void toggleServiceVisibility(service)}
-                  />
-                </div>
+      <section className="overflow-hidden rounded-3xl border border-subtle bg-surface shadow-sm">
+        {filteredServices.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[58rem] border-collapse text-left">
+              <thead className="bg-shell text-xs font-bold uppercase tracking-[0.04em] text-muted">
+                <tr>
+                  <th className="px-4 py-3">{messages.services.serviceColumn}</th>
+                  <th className="px-4 py-3">{messages.services.duration}</th>
+                  <th className="px-4 py-3">{messages.services.price}</th>
+                  <th className="px-4 py-3">{messages.services.professionalsColumn}</th>
+                  <th className="px-4 py-3">{messages.services.monthBookings}</th>
+                  <th className="px-4 py-3">{messages.services.statusColumn}</th>
+                  <th className="px-4 py-3 text-right">{messages.services.actionsColumn}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-subtle">
+                {filteredServices.map((service) => {
+                  const isLockedByPlan = isFreePlan(subscriptionTier) && service.isVisible && !unlockedVisibleServiceIds.has(service.id);
+                  const serviceEmployees = employees.filter((employee) => service.employeeIds.includes(employee.id));
+                  const monthBookings = countServiceAppointmentsForMonth(service.id, appointments, monthRange);
 
-                <dl className="grid grid-cols-2 gap-3 text-sm">
-                  <ServiceFact label={messages.services.price} value={formatCurrency(service.price)} />
-                  <ServiceFact label={messages.services.duration} value={`${service.durationMinutes} ${messages.services.minutes}`} />
-                  <ServiceFact label={messages.services.capacity} value={`${service.capacity} ${messages.services.people}`} />
-                  <ServiceFact label={messages.services.deposit} value={formatCurrency(service.deposit)} />
-                </dl>
-
-                <div className="mt-auto grid gap-2 border-t border-subtle pt-4">
-                  <Button
-                    className="w-full"
-                    variant="secondary"
-                    size="sm"
-                    icon={<FiShare2 />}
-                    disabled={!service.isVisible || isLockedByPlan}
-                    title={!service.isVisible ? messages.services.shareHiddenHint : messages.actions.share}
-                    onClick={() => setSharingService(service)}
-                  >
-                    {messages.actions.share}
-                  </Button>
-                  <Button className="w-full" variant="secondary" size="sm" icon={<FiEdit2 />} disabled={isLockedByPlan} onClick={() => startEdit(service)}>
-                    {messages.actions.edit}
-                  </Button>
-                  <Button className="w-full" variant="secondary" size="sm" icon={<FiCopy />} disabled={isLockedByPlan} onClick={() => startDuplicate(service)}>
-                    {messages.actions.duplicate}
-                  </Button>
-                  <Button className="w-full" variant="danger" size="sm" icon={<FiTrash2 />} disabled={isLockedByPlan} onClick={() => void onDeleteService(service.id)}>
-                    {messages.actions.delete}
-                  </Button>
-                </div>
-              </div>
-            </div>
-            {isLockedByPlan ? (
-              <button
-                type="button"
-                className="absolute inset-0 z-10 grid cursor-pointer place-items-center bg-surface/40 p-5 text-center"
-                onClick={() => setLockedService(service)}
-              >
-                <span className="rounded-full border border-brand bg-surface px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-brand-strong shadow-sm">
-                  {messages.planLimits.lockedCardHint}
-                </span>
-              </button>
-            ) : null}
-          </Card>
-          );
-        }) : (
-          <Card className="h-fit">
-            <p className="text-sm text-muted">{messages.services.empty}</p>
-          </Card>
+                  return (
+                    <tr key={service.id} className="relative transition-colors hover:bg-brand-soft/45">
+                      <td className="px-4 py-4">
+                        <div className={cx("flex min-w-0 items-center gap-3", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
+                          <ServiceImagePreview service={service} messages={messages} />
+                          <div className="min-w-0">
+                            <h2 className="truncate text-sm font-bold text-primary">{service.name}</h2>
+                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">{service.description || messages.services.emptyDescription}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className={cx("px-4 py-4 text-sm font-semibold text-primary", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
+                        {service.durationMinutes} {messages.services.minutesShort}
+                      </td>
+                      <td className={cx("px-4 py-4 text-sm", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
+                        <p className="font-bold text-primary">{formatCurrency(service.price)}</p>
+                        {service.deposit > 0 ? (
+                          <p className="mt-1 text-xs font-semibold text-muted">{messages.services.depositShort} {formatCurrency(service.deposit)}</p>
+                        ) : null}
+                      </td>
+                      <td className={cx("px-4 py-4", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
+                        <ServiceEmployeePills messages={messages} employees={serviceEmployees} />
+                      </td>
+                      <td className={cx("px-4 py-4 text-sm font-semibold text-primary", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
+                        {monthBookings}
+                      </td>
+                      <td className={cx("px-4 py-4", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
+                        <VisibilitySwitch
+                          messages={messages}
+                          isVisible={service.isVisible}
+                          isLoading={savingVisibilityId === service.id}
+                          isDisabled={isLockedByPlan}
+                          onToggle={() => void toggleServiceVisibility(service)}
+                        />
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        {isLockedByPlan ? (
+                          <button
+                            type="button"
+                            className="rounded-full border border-brand bg-surface px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-brand-strong shadow-sm"
+                            onClick={() => setLockedService(service)}
+                          >
+                            {messages.planLimits.lockedCardHint}
+                          </button>
+                        ) : (
+                          <ServiceActionsMenu
+                            messages={messages}
+                            service={service}
+                            onShare={() => setSharingService(service)}
+                            onEdit={() => startEdit(service)}
+                            onDuplicate={() => startDuplicate(service)}
+                            onDelete={() => void onDeleteService(service.id)}
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-6">
+            <p className="text-sm text-muted">{services.length > 0 ? messages.services.noResults : messages.services.empty}</p>
+          </div>
         )}
       </section>
 
@@ -798,6 +859,174 @@ function getPublicCatalogUrl(businessId: string) {
   return `${window.location.origin}/catalogo/${businessId}`;
 }
 
+function ServiceFilters({
+  messages,
+  employees,
+  searchTerm,
+  statusFilter,
+  employeeFilter,
+  onSearchChange,
+  onStatusChange,
+  onEmployeeChange
+}: {
+  messages: Messages;
+  employees: Employee[];
+  searchTerm: string;
+  statusFilter: ServiceStatusFilter;
+  employeeFilter: string;
+  onSearchChange: (value: string) => void;
+  onStatusChange: (value: ServiceStatusFilter) => void;
+  onEmployeeChange: (value: string) => void;
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-[minmax(16rem,1fr)_auto_auto]">
+      <label className="h-fit relative block">
+        <FiSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
+        <span className="sr-only">{messages.services.searchPlaceholder}</span>
+        <input
+          type="search"
+          value={searchTerm}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder={messages.services.searchPlaceholder}
+          className="h-11 w-full rounded-xl border border-subtle bg-input px-4 pl-10 text-sm text-primary shadow-sm outline-none transition placeholder:text-placeholder focus:border-brand focus:ring-2 focus:ring-focus"
+        />
+      </label>
+
+      <SelectField
+        value={statusFilter}
+        onChange={(event) => onStatusChange(event.target.value as ServiceStatusFilter)}
+        className="rounded-xl font-semibold shadow-sm md:w-44"
+        options={[
+          { value: "all", label: messages.services.allStatuses },
+          { value: "visible", label: messages.services.visible },
+          { value: "hidden", label: messages.services.hidden }
+        ]}
+      />
+
+      <SelectField
+        value={employeeFilter}
+        onChange={(event) => onEmployeeChange(event.target.value)}
+        className="rounded-xl font-semibold shadow-sm md:w-56"
+        options={[
+          { value: "all", label: messages.services.allProfessionals },
+          ...employees.map((employee) => ({
+            value: employee.id,
+            label: employee.name
+          }))
+        ]}
+      />
+    </div>
+  );
+}
+
+function ServiceImagePreview({ service, messages }: { service: Service; messages: Messages }) {
+  return (
+    <span className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-subtle bg-shell">
+      {service.imageUrl ? (
+        <span
+          className="absolute inset-0 bg-contain bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${service.imageUrl})` }}
+        />
+      ) : (
+        <Image
+          src="/branding/short-logo.png"
+          alt={messages.appName}
+          width={32}
+          height={32}
+          className="h-8 w-8 object-contain"
+        />
+      )}
+    </span>
+  );
+}
+
+function ServiceEmployeePills({ messages, employees }: { messages: Messages; employees: Employee[] }) {
+  const visibleEmployees = employees.slice(0, visibleServiceEmployeeLimit);
+  const hiddenCount = Math.max(employees.length - visibleServiceEmployeeLimit, 0);
+
+  if (employees.length === 0) {
+    return <span className="text-sm text-muted">{messages.services.noProfessionals}</span>;
+  }
+
+  return (
+    <div className="flex max-w-64 flex-nowrap items-center gap-2">
+      {visibleEmployees.map((employee) => (
+        <span key={employee.id} className="max-w-36 truncate rounded-full bg-shell px-3 py-1 text-xs font-semibold text-primary">
+          {employee.name}
+        </span>
+      ))}
+      {hiddenCount > 0 ? (
+        <span className="shrink-0 rounded-full bg-shell px-3 py-1 text-xs font-semibold text-primary">
+          +{hiddenCount}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function ServiceActionsMenu({
+  messages,
+  service,
+  onShare,
+  onEdit,
+  onDuplicate,
+  onDelete
+}: {
+  messages: Messages;
+  service: Service;
+  onShare: () => void;
+  onEdit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <details className="group relative inline-block">
+      <summary
+        className="grid h-8 w-8 cursor-pointer list-none place-items-center rounded-full text-muted transition hover:bg-shell hover:text-primary [&::-webkit-details-marker]:hidden"
+        aria-label={messages.actions.openMenu}
+      >
+        <FiMoreHorizontal aria-hidden="true" />
+      </summary>
+      <div className="absolute right-0 top-9 z-20 grid min-w-40 overflow-hidden rounded-xl border border-subtle bg-surface p-1 text-sm shadow-lg">
+        <button
+          type="button"
+          className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-primary hover:bg-shell disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!service.isVisible}
+          title={!service.isVisible ? messages.services.shareHiddenHint : messages.actions.share}
+          onClick={onShare}
+        >
+          <FiShare2 aria-hidden="true" />
+          {messages.actions.share}
+        </button>
+        <button
+          type="button"
+          className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-primary hover:bg-shell"
+          onClick={onEdit}
+        >
+          <FiEdit2 aria-hidden="true" />
+          {messages.actions.edit}
+        </button>
+        <button
+          type="button"
+          className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-primary hover:bg-shell"
+          onClick={onDuplicate}
+        >
+          <FiCopy aria-hidden="true" />
+          {messages.actions.duplicate}
+        </button>
+        <button
+          type="button"
+          className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-danger hover:bg-danger-soft"
+          onClick={onDelete}
+        >
+          <FiTrash2 aria-hidden="true" />
+          {messages.actions.delete}
+        </button>
+      </div>
+    </details>
+  );
+}
+
 function ServiceFact({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg bg-input p-3">
@@ -862,11 +1091,13 @@ function VisibilitySwitch({
   messages,
   isVisible,
   isLoading,
+  isDisabled = false,
   onToggle
 }: {
   messages: Messages;
   isVisible: boolean;
   isLoading: boolean;
+  isDisabled?: boolean;
   onToggle: () => void;
 }) {
   return (
@@ -874,7 +1105,7 @@ function VisibilitySwitch({
       type="button"
       role="switch"
       aria-checked={isVisible}
-      disabled={isLoading}
+      disabled={isLoading || isDisabled}
       aria-busy={isLoading}
       onClick={onToggle}
       className={cx(
@@ -914,7 +1145,7 @@ function ServiceReview({ messages, service, employees }: { messages: Messages; s
     <FormSection title={messages.services.reviewSection} description={messages.services.reviewSectionHint}>
       <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
         <div
-          className="min-h-56 rounded-lg bg-surface-strong bg-cover bg-center"
+          className="min-h-56 rounded-lg bg-surface-strong bg-contain bg-center bg-no-repeat"
           style={{ backgroundImage: service.imageUrl ? `url(${service.imageUrl})` : undefined }}
         />
         <div className="grid gap-4">
@@ -1034,6 +1265,7 @@ function ServiceAddonsEditor({
               <TextField
                 label={messages.services.addonName}
                 value={addon.name}
+                required
                 onChange={(event) => onUpdateAddon(addon.id, { name: event.target.value })}
               />
               <TextField
@@ -1041,6 +1273,7 @@ function ServiceAddonsEditor({
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={formatNumericInputValue(addon.price, true)}
+                required
                 onChange={(event) => onUpdateAddon(addon.id, { price: parseNumericInput(event.target.value) })}
               />
               <CheckboxField
@@ -1077,33 +1310,104 @@ function getServiceStepValidationMessage(
   step: ServiceWizardStep,
   service: Service,
   messages: Messages,
-  isMercadoPagoConfigured: boolean
+  isMercadoPagoConfigured: boolean,
+  isTransferConfigured: boolean
 ) {
   if (step === "details" && !service.name.trim()) {
     return messages.services.validation.details;
   }
 
-  if (step === "booking" && (service.price <= 0 || service.durationMinutes <= 0 || service.capacity <= 0 || service.deposit < 0 || service.reservationLeadMinutes < 0 || service.cancellationLeadMinutes <= 0)) {
+  if (step === "booking" && !hasValidBookingNumbers(service)) {
     return messages.services.validation.booking;
   }
 
-  if (step === "booking" && isMercadoPagoPaymentMethod(service.paymentMethod) && !isMercadoPagoConfigured) {
-    return messages.services.validation.mercadoPago;
+  if (step === "booking" && isPaymentMethodDisabled(service.paymentMethod, isMercadoPagoConfigured, isTransferConfigured)) {
+    return messages.services.validation.paymentMethod;
   }
 
   if (step === "staff" && service.employeeIds.length === 0) {
     return messages.services.validation.staff;
   }
 
+  if (step === "schedule" && getScheduleRangeCount(service.schedule) === 0) {
+    return messages.services.validation.schedule;
+  }
+
   return null;
 }
 
-function isMercadoPagoPaymentMethod(paymentMethod: PaymentMethod) {
-  return paymentMethod === "card" || paymentMethod === "mixed";
+function isPaymentMethodDisabled(
+  paymentMethod: PaymentMethod,
+  isMercadoPagoConfigured: boolean,
+  isTransferConfigured: boolean
+) {
+  if (paymentMethod === "card") {
+    return !isMercadoPagoConfigured;
+  }
+
+  if (paymentMethod === "transfer") {
+    return !isTransferConfigured;
+  }
+
+  if (paymentMethod === "mixed") {
+    return !isMercadoPagoConfigured || !isTransferConfigured;
+  }
+
+  return false;
+}
+
+function hasValidBookingNumbers(service: Service) {
+  const numericValues = [
+    service.price,
+    service.durationMinutes,
+    service.capacity,
+    service.deposit,
+    service.reservationLeadMinutes,
+    service.cancellationLeadMinutes
+  ];
+
+  return (
+    numericValues.every((value) => Number.isInteger(value) && value >= 0) &&
+    service.price > 0 &&
+    service.durationMinutes > 0 &&
+    service.capacity >= 1
+  );
 }
 
 function getScheduleRangeCount(schedule: ServiceSchedule) {
   return Object.values(schedule).reduce((total, ranges) => total + ranges.length, 0);
+}
+
+function getCurrentMonthRange() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  return {
+    start: formatDateKey(start),
+    end: formatDateKey(end)
+  };
+}
+
+function countServiceAppointmentsForMonth(
+  serviceId: string,
+  appointments: Appointment[],
+  monthRange: { start: string; end: string }
+) {
+  return appointments.filter((appointment) => (
+    appointment.serviceId === serviceId &&
+    appointment.status !== "cancelled" &&
+    appointment.date >= monthRange.start &&
+    appointment.date <= monthRange.end
+  )).length;
+}
+
+function formatDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function formatLeadTime(minutes: number) {

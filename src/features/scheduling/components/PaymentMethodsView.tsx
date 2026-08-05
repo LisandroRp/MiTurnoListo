@@ -217,6 +217,7 @@ function MercadoPagoPanel({
                   ? copy.accessTokenStoredHint
                   : copy.accessTokenHint
               }
+              required
               onChange={(event) => onAccessTokenChange(event.target.value)}
             />
             <p className="rounded-lg border border-subtle bg-surface p-3 text-sm leading-6 text-muted">
@@ -297,6 +298,7 @@ function TransfersPanel({
               placeholder={copy.accountHolder}
               prefix={<FiUser />}
               helperText={copy.accountHolderHint}
+              required
               onChange={(event) => onAccountHolderChange(event.target.value)}
             />
             <div className="grid gap-5 lg:grid-cols-2">
@@ -306,6 +308,7 @@ function TransfersPanel({
                 placeholder={copy.cbuPlaceholder}
                 prefix={<FiCreditCard />}
                 inputMode="numeric"
+                required
                 onChange={(event) => onCbuChange(event.target.value)}
               />
               <TextField
@@ -313,6 +316,7 @@ function TransfersPanel({
                 value={alias}
                 placeholder={copy.aliasPlaceholder}
                 prefix={<FiAtSign />}
+                required
                 onChange={(event) => onAliasChange(event.target.value)}
               />
             </div>
@@ -323,6 +327,7 @@ function TransfersPanel({
               prefix={<FiPhone />}
               helperText={copy.receiptWhatsappHint}
               inputMode="tel"
+              required
               onChange={(event) => onReceiptWhatsappChange(event.target.value)}
             />
           </div>

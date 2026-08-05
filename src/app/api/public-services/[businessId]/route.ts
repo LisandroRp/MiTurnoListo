@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { Locale, PaymentMethod, ThemeId } from "@/features/scheduling/types";
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
+import { normalizeStoredImageUrl } from "@/lib/networking/utils/assets";
 
 type RouteContext = {
   params: Promise<{
@@ -53,7 +54,7 @@ export async function GET(_: Request, context: RouteContext) {
     businessName: businessResult.data.name,
     locale: (membershipResult.data?.locale ?? "es") as Locale,
     publicDescription: businessResult.data.public_description ?? "",
-    publicLogoUrl: businessResult.data.public_logo_url ?? "",
+    publicLogoUrl: normalizeStoredImageUrl(businessResult.data.public_logo_url),
     publicOpeningHours: businessResult.data.public_opening_hours ?? "",
     services: (servicesResult.data ?? []).map((service) => ({
       capacity: service.capacity,
@@ -61,7 +62,7 @@ export async function GET(_: Request, context: RouteContext) {
       description: service.description ?? "",
       durationMinutes: service.duration_minutes,
       id: service.id,
-      imageUrl: service.image_url ?? "",
+      imageUrl: normalizeStoredImageUrl(service.image_url),
       name: service.name,
       paymentMethod: service.payment_mode as PaymentMethod,
       price: service.price_amount

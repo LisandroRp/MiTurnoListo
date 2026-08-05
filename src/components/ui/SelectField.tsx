@@ -10,7 +10,7 @@ type SelectOption = {
 };
 
 type SelectFieldProps = SelectHTMLAttributes<HTMLSelectElement> & {
-  label: string;
+  label?: string;
   options: SelectOption[];
 };
 
@@ -19,7 +19,12 @@ export function SelectField({ label, options, className, id, ...props }: SelectF
 
   return (
     <label className="grid gap-2 text-sm font-medium text-primary" htmlFor={fieldId}>
-      {label}
+      {label ? (
+        <span>
+          {label}
+          {props.required ? <span className="ml-1 text-danger">*</span> : null}
+        </span>
+      ) : null}
       <span className="relative">
         <select
           {...props}

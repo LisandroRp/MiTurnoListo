@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { FiClock, FiMapPin } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
 import { StepProgress } from "@/components/composed/StepProgress";
@@ -74,6 +75,13 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   const employees = isPreview ? previewEmployees : publicPayload?.employees ?? [];
   const appointments = isPreview ? previewAppointments : publicPayload?.appointments ?? [];
   const paymentSettings = isPreview ? previewPaymentSettings : publicPayload?.paymentSettings ?? emptyPaymentSettings;
+  const publicHeader = {
+    address: isPreview ? profile.address : publicPayload?.address ?? "",
+    businessName: isPreview ? profile.businessName : publicPayload?.businessName ?? messages.appName,
+    publicDescription: isPreview ? profile.publicDescription : publicPayload?.publicDescription ?? "",
+    publicLogoUrl: isPreview ? profile.publicLogoUrl : publicPayload?.publicLogoUrl ?? "",
+    publicOpeningHours: isPreview ? profile.publicOpeningHours : publicPayload?.publicOpeningHours ?? ""
+  };
   const localeCode = bookingLocaleMap[locale];
   const activeAddons = service?.addons.filter((addon) => addon.isActive && addon.name.trim()) ?? [];
   const bookingSteps = activeAddons.length > 0
@@ -281,10 +289,15 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
         <>
           <header className="grid gap-4">
             {!isPreview ? (
-              <Link href="/" className="inline-flex w-full cursor-pointer items-center justify-center gap-2 text-sm font-semibold text-muted hover:text-primary">
-                <BrandMark variant="full" size="sm" />
-              </Link>
+              <BookingPublicHeader
+                address={publicHeader.address}
+                businessName={publicHeader.businessName}
+                description={publicHeader.publicDescription}
+                logoUrl={publicHeader.publicLogoUrl}
+                openingHours={publicHeader.publicOpeningHours}
+              />
             ) : null}
+            <div className="flex flex-col h-fit self-end gap-4">
             <StepProgress steps={stepItems} currentStepIndex={currentStepIndex} onStepSelect={setCurrentStepIndex} />
             <BookingWizardActions
               backLabel={messages.actions.back}
@@ -298,10 +311,11 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
               onPrevious={goToPreviousStep}
             />
             {validationMessage ? (
-              <div className="rounded-2xl border border-danger bg-danger-soft p-4 text-sm font-semibold text-danger">
+              <div className="rounded-2xl border border-danger bg-danger-soft p-4 text-sm font-semibold text-danger h-fit">
                 {validationMessage}
               </div>
             ) : null}
+            </div>
           </header>
 
           <div className="grid items-start gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -458,5 +472,57 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
         />
       )}
     </BookingShell>
+  );
+}
+
+function BookingPublicHeader({
+  address,
+  businessName,
+  description,
+  logoUrl,
+  openingHours
+}: {
+  address: string;
+  businessName: string;
+  description: string;
+  logoUrl: string;
+  openingHours: string;
+}) {
+  return (
+    <div className="relative grid justify-items-center gap-4 pt-8 text-center md:pt-0">
+      <Link href="/" className="hidden absolute left-0 top-0 cursor-pointer md:block" aria-label="Ir al inicio">
+        <BrandMark variant="full" size="md" />
+      </Link>
+      <Link href="/" className="absolute left-0 top-0 cursor-pointer md:hidden" aria-label="Ir al inicio">
+        <BrandMark variant="compact" size="md" />
+      </Link>
+
+      <div>
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted">Reserva online</p>
+        {logoUrl ? (
+          <div
+            className="mx-auto mt-4 grid h-28 w-28 place-items-center rounded-3xl bg-contain bg-center bg-no-repeat text-lg font-bold text-primary sm:h-32 sm:w-32"
+            style={{ backgroundImage: `url(${logoUrl})` }}
+            aria-label={businessName}
+          />
+        ) : null}
+        <h1 className="mt-3 text-4xl font-bold text-primary">{businessName}</h1>
+        {address ? (
+          <div className="mt-3 flex items-center justify-center gap-2 text-base font-semibold text-muted">
+            <FiMapPin className="shrink-0 text-brand-strong" aria-hidden="true" />
+            <span>{address}</span>
+          </div>
+        ) : null}
+        {openingHours ? (
+          <div className="mt-3 flex items-start justify-center gap-2 text-sm leading-6 text-muted">
+            <FiClock className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" />
+            <span className="whitespace-pre-line">{openingHours}</span>
+          </div>
+        ) : null}
+        {description ? (
+          <p className="mt-3 max-w-2xl text-base leading-7 text-muted">{description}</p>
+        ) : null}
+      </div>
+    </div>
   );
 }

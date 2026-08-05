@@ -17,9 +17,11 @@ type ImageUploadFieldProps = {
   className?: string;
   accept?: string;
   maxSizeInMb?: number;
+  onSelectedFileChange?: (file: File | null) => void;
 };
 
-const defaultAcceptedTypes = ["image/png", "image/jpeg", "image/webp"];
+const defaultAcceptedTypes = ["image/png", "image/jpeg", "image/webp", "image/heic", "image/heif"];
+const defaultAcceptedExtensions = [".heic", ".heif"];
 
 export function ImageUploadField({
   label,
@@ -32,8 +34,9 @@ export function ImageUploadField({
   removeLabel,
   requirementsLabel,
   className,
-  accept = "image/png,image/jpeg,image/webp",
-  maxSizeInMb = 3
+  accept = "image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif",
+  maxSizeInMb = 5,
+  onSelectedFileChange
 }: ImageUploadFieldProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -46,20 +49,21 @@ export function ImageUploadField({
 
   function clearImage() {
     onChange("");
+    onSelectedFileChange?.(null);
     if (inputRef.current) {
       inputRef.current.value = "";
     }
   }
 
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
 
     if (!file) {
       return;
     }
 
-    if (!defaultAcceptedTypes.includes(file.type)) {
-      onError(`Formatos permitidos: PNG, JPG o WEBP.`);
+    if (!isAcceptedImageFile(file)) {
+      onError(`Formatos permitidos: PNG, JPG, WEBP, HEIC o HEIF.`);
       event.target.value = "";
       return;
     }
@@ -70,22 +74,18 @@ export function ImageUploadField({
       return;
     }
 
-    const reader = new FileReader();
     setIsReading(true);
 
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
+    try {
+      const result = await readFileAsDataUrl(file);
       onChange(result);
-      setIsReading(false);
-    };
-
-    reader.onerror = () => {
-      onError("No pudimos leer la imagen. Intenta con otro archivo.");
+      onSelectedFileChange?.(file);
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "No pudimos procesar la imagen. Intenta con otro archivo.");
+    } finally {
       setIsReading(false);
       event.target.value = "";
-    };
-
-    reader.readAsDataURL(file);
+    }
   }
 
   return (
@@ -108,7 +108,7 @@ export function ImageUploadField({
                 <div
                   role="img"
                   aria-label={label}
-                  className="h-full w-full bg-cover bg-center"
+                  className="h-full w-full bg-contain bg-center bg-no-repeat"
                   style={{ backgroundImage: `url(${value})` }}
                 />
               ) : (
@@ -145,4 +145,29 @@ export function ImageUploadField({
       </div>
     </div>
   );
+}
+
+function isAcceptedImageFile(file: File) {
+  const normalizedName = file.name.toLowerCase();
+
+  return (
+    defaultAcceptedTypes.includes(file.type) ||
+    defaultAcceptedExtensions.some((extension) => normalizedName.endsWith(extension))
+  );
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      resolve(typeof reader.result === "string" ? reader.result : "");
+    };
+
+    reader.onerror = () => {
+      reject(new Error("No pudimos leer la imagen. Intenta con otro archivo."));
+    };
+
+    reader.readAsDataURL(file);
+  });
 }

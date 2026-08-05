@@ -1,5 +1,5 @@
-import { ChangeEvent, ReactNode, useRef, useState } from "react";
-import { FiArrowLeft, FiArrowRight, FiCheck, FiEdit2, FiInfo, FiPlus, FiTrash2 } from "react-icons/fi";
+import { ChangeEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { FiArrowLeft, FiArrowRight, FiCheck, FiEdit2, FiMoreHorizontal, FiPlus, FiSearch, FiTrash2 } from "react-icons/fi";
 
 import { PlanLimitModal } from "@/components/composed/PlanLimitModal";
 import { SectionHeader } from "@/components/composed/SectionHeader";
@@ -14,12 +14,17 @@ import { AvailabilityEditor, dayKeys } from "@/features/scheduling/components/Av
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, isFreePlan } from "@/features/scheduling/plan-limits";
-import { Employee, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
+import { Appointment, Employee, Service, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
 import { createNewEmployeeDraft } from "@/lib/networking/endpoints/scheduling";
+import { uploadBusinessImageAsset } from "@/lib/storage/business-assets";
 
 type PersonnelViewProps = {
   messages: Messages;
   employees: Employee[];
+  services: Service[];
+  appointments: Appointment[];
+  businessId: string | null;
+  referenceDate: string;
   subscriptionTier: SubscriptionTier;
   onSaveEmployee: (employee: Employee) => Promise<boolean>;
   onDeleteEmployee: (employeeId: string) => Promise<boolean>;
@@ -29,8 +34,10 @@ type PersonnelViewProps = {
 
 type PersonnelMode = "grid" | "form";
 type PersonnelWizardStep = "details" | "schedule" | "review";
+type PersonnelFilter = "all" | "active";
 
 const personnelWizardStepOrder: PersonnelWizardStep[] = ["details", "schedule", "review"];
+const visibleServiceBadgeLimit = 3;
 
 function getInitials(name: string) {
   return name
@@ -44,6 +51,10 @@ function getInitials(name: string) {
 export function PersonnelView({
   messages,
   employees,
+  services,
+  appointments,
+  businessId,
+  referenceDate,
   subscriptionTier,
   onSaveEmployee,
   onDeleteEmployee,
@@ -56,6 +67,10 @@ export function PersonnelView({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const [pendingEmployeeImageFile, setPendingEmployeeImageFile] = useState<File | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [personnelFilter, setPersonnelFilter] = useState<PersonnelFilter>("all");
   const [lockedEmployee, setLockedEmployee] = useState<Employee | null>(null);
 
   const currentStep = personnelWizardStepOrder[currentStepIndex] ?? "details";
@@ -68,11 +83,29 @@ export function PersonnelView({
       ? employees.slice(0, freePlanLimits.activeEmployees).map((employee) => employee.id)
       : employees.map((employee) => employee.id)
   );
+  const todayKey = getDayKeyForDate(referenceDate);
+  const filteredEmployees = employees.filter((employee) => {
+    const matchesSearch = employee.name.toLowerCase().includes(debouncedSearchTerm.trim().toLowerCase());
+    const matchesFilter = personnelFilter === "all" || hasAnySchedule(employee);
+
+    return matchesSearch && matchesFilter;
+  });
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 2000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [searchTerm]);
 
   function startCreate() {
     setDraft(createNewEmployeeDraft());
     setEditingId(null);
     setCurrentStepIndex(0);
+    setPendingEmployeeImageFile(null);
     setValidationMessage(null);
     setMode("form");
   }
@@ -81,6 +114,7 @@ export function PersonnelView({
     setDraft({ ...employee, schedule: structuredClone(employee.schedule) });
     setEditingId(employee.id);
     setCurrentStepIndex(0);
+    setPendingEmployeeImageFile(null);
     setValidationMessage(null);
     setMode("form");
   }
@@ -89,6 +123,7 @@ export function PersonnelView({
     setMode("grid");
     setEditingId(null);
     setCurrentStepIndex(0);
+    setPendingEmployeeImageFile(null);
     setValidationMessage(null);
   }
 
@@ -171,10 +206,28 @@ export function PersonnelView({
       return;
     }
 
-    const didSave = await onSaveEmployee({ ...draft, initials: getInitials(draft.name) });
+    try {
+      if (pendingEmployeeImageFile && !businessId) {
+        throw new Error("No pudimos identificar el negocio para subir la foto.");
+      }
 
-    if (didSave) {
-      returnToGrid();
+      const employeeToSave = pendingEmployeeImageFile && businessId
+        ? {
+            ...draft,
+            imageUrl: await uploadBusinessImageAsset({
+              businessId,
+              file: pendingEmployeeImageFile,
+              path: `${businessId}/employees/${draft.id}.webp`
+            })
+          }
+        : draft;
+      const didSave = await onSaveEmployee({ ...employeeToSave, initials: getInitials(employeeToSave.name) });
+
+      if (didSave) {
+        returnToGrid();
+      }
+    } catch (error) {
+      onImageUploadError(error instanceof Error ? error.message : "No pudimos subir la foto del profesional.");
     }
   }
 
@@ -213,12 +266,13 @@ export function PersonnelView({
           {currentStep === "details" ? (
             <FormSection title={messages.personnel.detailsSection} description={messages.personnel.detailsSectionHint}>
             <div className="grid gap-4 lg:grid-cols-2">
-              <TextField label={messages.personnel.name} value={draft.name} onChange={handleTextChange("name")} />
-              <TextField label={messages.personnel.role} value={draft.role} onChange={handleTextChange("role")} />
+              <TextField label={messages.personnel.name} value={draft.name} required onChange={handleTextChange("name")} />
+              <TextField label={messages.personnel.role} value={draft.role} required onChange={handleTextChange("role")} />
               <ImageUploadField
                 label={messages.personnel.imageUrl}
                 value={draft.imageUrl}
                 onChange={(value) => setDraft((current) => ({ ...current, imageUrl: value }))}
+                onSelectedFileChange={setPendingEmployeeImageFile}
                 onError={onImageUploadError}
                 chooseLabel={messages.actions.uploadImage}
                 replaceLabel={messages.actions.replaceImage}
@@ -279,52 +333,95 @@ export function PersonnelView({
         }
       />
 
-      <Card className="flex items-start gap-3 bg-brand-soft">
-        <FiInfo className="mt-1 shrink-0 text-brand-strong" aria-hidden="true" />
-        <div>
-          <h2 className="text-sm font-bold text-primary">{messages.personnel.disclaimerTitle}</h2>
-          <p className="mt-1 text-sm leading-6 text-muted">{messages.personnel.disclaimerDescription}</p>
-        </div>
-      </Card>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <label className="relative w-full md:max-w-sm">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
+          <input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder={messages.personnel.searchPlaceholder}
+            className="h-11 w-full rounded-xl border border-subtle bg-input px-4 pl-10 text-sm text-primary shadow-sm outline-none transition placeholder:text-placeholder focus:border-brand focus:ring-2 focus:ring-focus"
+          />
+        </label>
 
-      <section className="grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {employees.length > 0 ? employees.map((employee) => {
+        <div className="flex w-fit rounded-xl border border-subtle bg-surface p-1 shadow-sm">
+          <button
+            type="button"
+            className={cx(
+              "cursor-pointer rounded-lg px-4 py-2 text-sm font-bold transition-colors",
+              personnelFilter === "all" ? "bg-brand text-on-brand" : "text-muted hover:bg-surface-strong hover:text-primary"
+            )}
+            onClick={() => setPersonnelFilter("all")}
+          >
+            {messages.personnel.allFilter}
+          </button>
+          <button
+            type="button"
+            className={cx(
+              "cursor-pointer rounded-lg px-4 py-2 text-sm font-bold transition-colors",
+              personnelFilter === "active" ? "bg-brand text-on-brand" : "text-muted hover:bg-surface-strong hover:text-primary"
+            )}
+            onClick={() => setPersonnelFilter("active")}
+          >
+            {messages.personnel.activeFilter}
+          </button>
+        </div>
+      </div>
+
+      <section className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {filteredEmployees.length > 0 ? filteredEmployees.map((employee) => {
           const isLockedByPlan = isFreePlan(subscriptionTier) && !unlockedEmployeeIds.has(employee.id);
+          const employeeServices = services.filter((service) => service.employeeIds.includes(employee.id));
+          const todayRanges = employee.schedule[todayKey] ?? [];
+          const todayAppointments = appointments.filter((appointment) => (
+            appointment.employeeId === employee.id &&
+            appointment.date === referenceDate &&
+            appointment.status !== "cancelled"
+          ));
+          const weeklyOccupation = getWeeklyOccupation(employee, employeeServices, appointments, referenceDate);
 
           return (
           <Card
             key={employee.id}
             className={cx(
-              "relative flex h-full w-full flex-col overflow-hidden p-0 transition duration-200 hover:-translate-y-1 hover:scale-[1.01] hover:border-brand hover:shadow-lg",
+              "relative flex h-full min-h-[22rem] w-full flex-col transition duration-200 hover:-translate-y-1 hover:scale-[1.01] hover:border-brand hover:shadow-lg",
               isLockedByPlan && "hover:translate-y-0 hover:scale-100"
             )}
           >
-            <div className={cx("flex h-full flex-col", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
-              <div
-                className="h-36 bg-surface-strong bg-cover bg-center"
-                style={{ backgroundImage: employee.imageUrl ? `url(${employee.imageUrl})` : undefined }}
-              />
-              <div className="flex flex-1 flex-col gap-4 p-5">
-                <div className="flex items-start gap-3">
-                  <span className={cx("grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-bold text-on-brand", employeeColorClasses[employee.color])}>
-                    {employee.initials}
-                  </span>
-                  <div className="min-w-0">
-                    <h2 className="truncate text-lg font-bold text-primary">{employee.name}</h2>
-                    <p className="text-sm text-muted">{employee.role}</p>
+            <div className={cx("flex h-full flex-col gap-4", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                  <EmployeeAvatar employee={employee} />
+                  <div className="min-w-0 pt-1">
+                    <h2 className="truncate text-base font-bold text-primary">{employee.name}</h2>
+                    <p className="truncate text-sm text-muted">{employee.role || messages.personnel.emptyRole}</p>
                   </div>
                 </div>
-
-                <p className="line-clamp-3 text-sm leading-6 text-muted">{employee.description}</p>
-
-                <div className="mt-auto grid gap-2 border-t border-subtle pt-4">
-                  <Button className="w-full" variant="secondary" size="sm" icon={<FiEdit2 />} disabled={isLockedByPlan} onClick={() => startEdit(employee)}>
-                    {messages.actions.edit}
-                  </Button>
-                  <Button className="w-full" variant="danger" size="sm" icon={<FiTrash2 />} disabled={isLockedByPlan} onClick={() => void onDeleteEmployee(employee.id)}>
-                    {messages.actions.delete}
-                  </Button>
+                <div className="flex shrink-0 items-start gap-2">
+                  <span className="rounded-full bg-brand px-3 py-1 text-xs font-bold text-on-brand">
+                    {messages.personnel.active}
+                  </span>
+                  <EmployeeActionsMenu
+                    disabled={isLockedByPlan}
+                    messages={messages}
+                    onDelete={() => void onDeleteEmployee(employee.id)}
+                  />
                 </div>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <EmployeeStat label={messages.personnel.todaySchedule} value={formatTodayRanges(todayRanges)} />
+                <EmployeeStat label={messages.personnel.todayAppointments} value={String(todayAppointments.length)} />
+                <WeeklyOccupationBar label={messages.personnel.weeklyOccupation} value={weeklyOccupation} />
+              </div>
+
+              <ServiceBadges messages={messages} services={employeeServices} />
+
+              <div className="mt-auto grid justify-items-center gap-3 pt-2">
+                <WeekdayPills employee={employee} messages={messages} />
+                <Button className="w-full" variant="secondary" size="sm" icon={<FiEdit2 />} disabled={isLockedByPlan} onClick={() => startEdit(employee)}>
+                  {messages.personnel.editProfile}
+                </Button>
               </div>
             </div>
             {isLockedByPlan ? (
@@ -355,6 +452,123 @@ export function PersonnelView({
         actionLabel={messages.planLimits.lockedAction}
         onClose={() => setLockedEmployee(null)}
       />
+    </div>
+  );
+}
+
+function EmployeeAvatar({ employee }: { employee: Employee }) {
+  return (
+    <span className={cx(
+      "grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full text-sm font-bold text-on-brand",
+      employee.imageUrl ? "bg-surface-strong bg-contain bg-center bg-no-repeat" : employeeColorClasses[employee.color]
+    )}
+    style={{ backgroundImage: employee.imageUrl ? `url(${employee.imageUrl})` : undefined }}
+    >
+      {employee.imageUrl ? null : employee.initials}
+    </span>
+  );
+}
+
+function EmployeeActionsMenu({
+  disabled,
+  messages,
+  onDelete
+}: {
+  disabled: boolean;
+  messages: Messages;
+  onDelete: () => void;
+}) {
+  return (
+    <details className="group relative">
+      <summary
+        className={cx(
+          "grid h-8 w-8 cursor-pointer list-none place-items-center rounded-full text-muted transition hover:bg-surface-strong hover:text-primary [&::-webkit-details-marker]:hidden",
+          disabled && "pointer-events-none opacity-50"
+        )}
+        aria-label={messages.actions.openMenu}
+      >
+        <FiMoreHorizontal aria-hidden="true" />
+      </summary>
+      <div className="absolute right-0 top-9 z-20 grid min-w-36 overflow-hidden rounded-xl border border-subtle bg-surface p-1 text-sm shadow-lg">
+        <button
+          type="button"
+          className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-danger hover:bg-danger-soft"
+          onClick={onDelete}
+        >
+          <FiTrash2 aria-hidden="true" />
+          {messages.actions.delete}
+        </button>
+      </div>
+    </details>
+  );
+}
+
+function WeeklyOccupationBar({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="grid gap-2 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-muted">{label}</span>
+        <span className="font-bold text-primary">{value}%</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-shell">
+        <div className="h-full rounded-full bg-brand" style={{ width: `${value}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function EmployeeStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-muted">{label}</span>
+      <span className="text-right font-bold text-primary">{value}</span>
+    </div>
+  );
+}
+
+function ServiceBadges({ messages, services }: { messages: Messages; services: Service[] }) {
+  const visibleServices = services.slice(0, visibleServiceBadgeLimit);
+  const hiddenCount = Math.max(services.length - visibleServiceBadgeLimit, 0);
+
+  if (services.length === 0) {
+    return <div className="min-h-14" />;
+  }
+
+  return (
+    <div className="flex max-h-15 flex-wrap content-start gap-2 overflow-hidden">
+      {visibleServices.map((service) => (
+        <span key={service.id} className="rounded-full bg-shell px-3 py-1 text-xs font-semibold text-primary">
+          {service.name}
+        </span>
+      ))}
+      {hiddenCount > 0 ? (
+        <span className="rounded-full bg-shell px-3 py-1 text-xs font-semibold text-primary">
+          {messages.personnel.moreServices.replace("{count}", String(hiddenCount))}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function WeekdayPills({ employee, messages }: { employee: Employee; messages: Messages }) {
+  return (
+    <div className="flex flex-wrap justify-center gap-2">
+      {dayKeys.map((day) => {
+        const isAvailable = (employee.schedule[day] ?? []).length > 0;
+
+        return (
+          <span
+            key={day}
+            className={cx(
+              "grid h-7 w-7 place-items-center rounded-full text-xs font-bold",
+              isAvailable ? "bg-brand text-on-brand" : "bg-shell text-muted"
+            )}
+            title={messages.days[day]}
+          >
+            {getShortDayLabel(messages.days[day])}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -415,7 +629,7 @@ function PersonnelReview({ messages, employee }: { messages: Messages; employee:
     <FormSection title={messages.personnel.reviewSection} description={messages.personnel.reviewSectionHint}>
       <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
         <div
-          className="min-h-56 rounded-lg bg-surface-strong bg-cover bg-center"
+          className="min-h-56 rounded-lg bg-surface-strong bg-contain bg-center bg-no-repeat"
           style={{ backgroundImage: employee.imageUrl ? `url(${employee.imageUrl})` : undefined }}
         />
         <div className="grid content-start gap-4">
@@ -497,4 +711,85 @@ function getPersonnelStepValidationMessage(step: PersonnelWizardStep, employee: 
 
 function getScheduleRangeCount(schedule: ServiceSchedule) {
   return Object.values(schedule).reduce((total, ranges) => total + ranges.length, 0);
+}
+
+function hasAnySchedule(employee: Employee) {
+  return dayKeys.some((day) => (employee.schedule[day] ?? []).length > 0);
+}
+
+function getWeeklyOccupation(
+  employee: Employee,
+  employeeServices: Service[],
+  appointments: Appointment[],
+  referenceDate: string
+) {
+  const weekDates = Array.from({ length: 7 }, (_, index) => addDays(referenceDate, index));
+  const weeklyAppointments = appointments.filter((appointment) => (
+    appointment.employeeId === employee.id &&
+    appointment.status !== "cancelled" &&
+    weekDates.includes(appointment.date)
+  ));
+  const estimatedCapacity = weekDates.reduce((total, date) => {
+    const ranges = employee.schedule[getDayKeyForDate(date)] ?? [];
+
+    return total + getEstimatedSlotCapacity(ranges, employeeServices);
+  }, 0);
+
+  if (estimatedCapacity === 0) {
+    return 0;
+  }
+
+  return Math.min(100, Math.round((weeklyAppointments.length / estimatedCapacity) * 100));
+}
+
+function getEstimatedSlotCapacity(ranges: TimeRange[], services: Service[]) {
+  const averageDuration = services.length > 0
+    ? services.reduce((total, service) => total + service.durationMinutes, 0) / services.length
+    : 60;
+
+  return ranges.reduce((total, range) => {
+    const duration = Math.max(getMinutesFromTime(range.end) - getMinutesFromTime(range.start), 0);
+
+    return total + Math.max(Math.floor(duration / averageDuration), 0);
+  }, 0);
+}
+
+function formatTodayRanges(ranges: TimeRange[]) {
+  if (ranges.length === 0) {
+    return "-";
+  }
+
+  return ranges.map((range) => `${range.start}-${range.end}`).join(", ");
+}
+
+function addDays(date: string, days: number) {
+  const nextDate = new Date(`${date}T00:00:00`);
+  nextDate.setDate(nextDate.getDate() + days);
+
+  return nextDate.toISOString().slice(0, 10);
+}
+
+function getMinutesFromTime(value: string) {
+  const [hours = "0", minutes = "0"] = value.split(":");
+
+  return Number(hours) * 60 + Number(minutes);
+}
+
+function getDayKeyForDate(date: string) {
+  const weekday = new Date(`${date}T00:00:00`).getDay();
+  const dayByWeekday: Record<number, keyof ServiceSchedule> = {
+    0: "sunday",
+    1: "monday",
+    2: "tuesday",
+    3: "wednesday",
+    4: "thursday",
+    5: "friday",
+    6: "saturday"
+  };
+
+  return dayByWeekday[weekday] ?? "monday";
+}
+
+function getShortDayLabel(label: string) {
+  return label.slice(0, 2);
 }

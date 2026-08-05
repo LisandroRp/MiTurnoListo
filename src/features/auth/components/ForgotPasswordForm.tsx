@@ -45,6 +45,7 @@ export function ForgotPasswordForm({ defaultEmail = "" }: ForgotPasswordFormProp
         value={email}
         autoComplete="email"
         prefix={<FiMail />}
+        required
         onChange={(event) => setEmail(event.target.value)}
       />
 

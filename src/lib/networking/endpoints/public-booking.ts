@@ -11,11 +11,15 @@ import {
 import { getResponseErrorMessage } from "@/lib/networking/response-errors";
 
 export type PublicBookingPayload = {
+  address: string;
   appointments: Appointment[];
   businessName: string;
   employees: Employee[];
   locale: Locale;
   paymentSettings: BusinessPaymentSettings;
+  publicDescription: string;
+  publicLogoUrl: string;
+  publicOpeningHours: string;
   service: Service;
   theme: ThemeId;
 };

@@ -121,6 +121,7 @@ export function AppShell({ children }: AppShellProps) {
         <Card className="w-full max-w-md text-center">
           <BrandMark variant="full" size="md" align="center" className="mx-auto" priority />
           <h1 className="mt-2 text-xl font-bold text-primary">No pudimos cargar tu espacio</h1>
+          <p className="mt-3 text-sm leading-6 text-muted">{loadError}</p>
           <Button
             type="button"
             variant="secondary"

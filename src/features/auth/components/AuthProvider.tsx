@@ -52,6 +52,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const isAuthActionInProgress = useRef(false);
   const isBootstrappingWorkspace = useRef(false);
   const [authState, setAuthState] = useState<{ status: AuthStatus; userEmail: string | null; userId: string | null }>({
     status: "loading",
@@ -113,6 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const syncAuthState = useEffectEvent(async () => {
+    if (isAuthActionInProgress.current || isBootstrappingWorkspace.current) {
+      return;
+    }
+
     const hasRecoveryReturn = hasPasswordRecoveryReturn();
     const hasConfirmationReturn = hasEmailConfirmationReturn();
     const hasStoredPasswordRecoverySession = window.sessionStorage.getItem(passwordRecoverySessionKey) === "true";
@@ -141,6 +146,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const hasPasswordRecoverySession = hasRecoveryReturn || hasStoredPasswordRecoverySession;
+
+    if (hasConfirmationReturn && !hasPasswordRecoverySession) {
+      isBootstrappingWorkspace.current = true;
+      setAuthState({
+        status: "bootstrapping",
+        userEmail: session.user.email ?? null,
+        userId: session.user.id
+      });
+
+      try {
+        await bootstrapWorkspace(session.access_token);
+      } catch {
+        isBootstrappingWorkspace.current = false;
+        await supabase.auth.signOut({ scope: "local" });
+        clearAllAuthState();
+        setAuthState({ status: "guest", userEmail: null, userId: null });
+        return;
+      }
+
+      isBootstrappingWorkspace.current = false;
+    }
 
     const {
       data: { user },
@@ -201,8 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(email: string, password: string, rememberSession: boolean): Promise<LoginResult> {
     setSupabaseSessionPersistence(rememberSession);
-    isBootstrappingWorkspace.current = true;
-    setAuthState((current) => ({ ...current, status: "bootstrapping" }));
+    isAuthActionInProgress.current = true;
     const supabase = getSupabaseBrowserClient();
     const normalizedEmail = email.trim().toLowerCase();
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -211,7 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error || !data.user) {
-      isBootstrappingWorkspace.current = false;
+      isAuthActionInProgress.current = false;
       setAuthState({ status: "guest", userEmail: null, userId: null });
       clearLocalAuthStorage();
       if (error?.code === emailNotConfirmedCode) {
@@ -227,6 +252,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         message: "Credenciales incorrectas. Revisa tu mail y password e intenta otra vez."
       };
     }
+
+    isAuthActionInProgress.current = false;
+    isBootstrappingWorkspace.current = true;
+    setAuthState((current) => ({ ...current, status: "bootstrapping" }));
 
     try {
       await bootstrapWorkspace(data.session?.access_token);
@@ -252,6 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signUp(email: string, password: string, rememberSession: boolean): Promise<SignUpResult> {
     setSupabaseSessionPersistence(rememberSession);
+    isAuthActionInProgress.current = true;
     const supabase = getSupabaseBrowserClient();
     const normalizedEmail = email.trim().toLowerCase();
     const { data, error } = await supabase.auth.signUp({
@@ -263,6 +293,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) {
+      isAuthActionInProgress.current = false;
       setAuthState({ status: "guest", userEmail: null, userId: null });
       clearLocalAuthStorage();
       return {
@@ -272,6 +303,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (data.user && !data.session && data.user.identities && data.user.identities.length === 0) {
+      isAuthActionInProgress.current = false;
       clearLocalAuthStorage();
       setAuthState({ status: "guest", userEmail: null, userId: null });
 
@@ -282,6 +314,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (data.session?.user) {
+      isAuthActionInProgress.current = false;
       isBootstrappingWorkspace.current = true;
       setAuthState((current) => ({ ...current, status: "bootstrapping" }));
 
@@ -308,6 +341,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (data.user) {
+      isAuthActionInProgress.current = false;
       clearLocalAuthStorage();
       setAuthState({ status: "guest", userEmail: null, userId: null });
 
@@ -317,6 +351,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
+    isAuthActionInProgress.current = false;
     setAuthState({ status: "guest", userEmail: null, userId: null });
 
     return {

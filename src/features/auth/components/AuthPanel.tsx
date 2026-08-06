@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { FiArrowLeft } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
+import { PublicSupportContact } from "@/components/composed/PublicSupportContact";
 import { WorkspaceLoadingState } from "@/components/composed/WorkspaceLoadingState";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
@@ -127,87 +128,90 @@ export function AuthPanel() {
     }
   }, [mode, nextPath, router, status]);
 
-  if (status === "loading" || (status === "authenticated" && mode !== "recovery")) {
-    return <WorkspaceLoadingState title="Verificando tu sesion..." />;
+  if (status === "loading" || status === "bootstrapping" || (status === "authenticated" && mode !== "recovery")) {
+    return <WorkspaceLoadingState title={status === "bootstrapping" ? "Preparando tu espacio..." : "Verificando tu sesion..."} />;
   }
 
   return (
-    <main className="grid min-h-screen bg-page px-4 py-8 text-primary lg:grid-cols-[1fr_0.9fr] lg:p-0">
-      <section className="hidden bg-brand-soft p-10 lg:flex lg:flex-col lg:justify-between">
-        <Link href="/" className="flex w-fit cursor-pointer items-center gap-2 text-sm font-semibold text-brand-strong">
-          <FiArrowLeft aria-hidden="true" />
-          Volver
-        </Link>
-        <div className="max-w-xl">
-          <BrandMark variant="full" size="xl" priority />
-          <Badge tone="brand" className="mt-4">{copy.sideBadge}</Badge>
-          <h1 className="mt-5 text-5xl font-bold leading-tight text-primary">
-            {copy.sideTitle}
-          </h1>
-          <p className="mt-5 text-lg leading-8 text-muted">
-            {copy.sideDescription}
-          </p>
-        </div>
-        {"sideFooterTitle" in copy ? (
-          <div className="grid gap-3 text-sm text-muted">
-            <p className="font-semibold text-primary">{copy.sideFooterTitle}</p>
-            {copy.sideFooterLines.map((line) => (
-              <p key={line}>{line}</p>
-            ))}
-          </div>
-        ) : <span />}
-      </section>
-
-      <section
-        className={cx(
-          "mx-auto flex w-full max-w-md lg:max-w-none lg:justify-center",
-          mode === "signup" ? "items-start py-3 lg:items-center lg:py-0" : "items-center"
-        )}
-      >
-        <div className="w-full lg:max-w-md">
-          <Link href="/" className="mb-6 flex w-fit cursor-pointer items-center gap-2 text-sm font-semibold text-muted hover:text-primary lg:hidden">
+    <>
+      <main className="grid min-h-screen bg-page px-4 py-8 text-primary lg:grid-cols-[1fr_0.9fr] lg:p-0">
+        <section className="hidden bg-brand-soft p-10 lg:flex lg:flex-col lg:justify-between">
+          <Link href="/" className="flex w-fit cursor-pointer items-center gap-2 text-sm font-semibold text-brand-strong">
             <FiArrowLeft aria-hidden="true" />
             Volver
           </Link>
-          <Card className={cx("bg-sidebar p-6 sm:p-8", mode === "signup" ? "my-5 sm:my-11" : "")}>
-            <div>
-              <Link href="/" className="w-fit">
-                <BrandMark variant="compact" size="lg" priority />
-              </Link>
-              <Badge tone="brand" className="mt-4">{copy.cardBadge}</Badge>
-              <h2 className="mt-4 text-3xl font-bold text-primary">{copy.cardTitle}</h2>
-              <p className="mt-2 text-sm leading-6 text-muted">
-                {copy.cardDescription}
-              </p>
-            </div>
-
-            <div className="mt-7">
-              {mode === "login" ? (
-                <LoginForm
-                  nextPath={nextPath}
-                  forgotPasswordHref={forgotPasswordHref}
-                />
-              ) : mode === "signup" ? (
-                <SignUpForm nextPath={nextPath} />
-              ) : mode === "forgot" ? (
-                <ForgotPasswordForm />
-              ) : (
-                <ResetPasswordForm forgotPasswordHref={forgotPasswordHref} loginHref={loginHref} />
-              )}
-            </div>
-
-            <p className="mt-6 text-sm text-muted-strong">
-              {copy.switchPrompt}{" "}
-              <Link
-                href={createModeHref(alternateMode, nextPath)}
-                className="font-semibold !text-brand-hover underline decoration-brand-hover/45 underline-offset-4 hover:!text-brand-strong"
-              >
-                {copy.switchLabel}
-              </Link>
+          <div className="max-w-xl">
+            <BrandMark variant="full" size="xl" priority />
+            <Badge tone="brand" className="mt-4">{copy.sideBadge}</Badge>
+            <h1 className="mt-5 text-5xl font-bold leading-tight text-primary">
+              {copy.sideTitle}
+            </h1>
+            <p className="mt-5 text-lg leading-8 text-muted">
+              {copy.sideDescription}
             </p>
-          </Card>
-        </div>
-      </section>
-    </main>
+          </div>
+          {"sideFooterTitle" in copy ? (
+            <div className="grid gap-3 text-sm text-muted">
+              <p className="font-semibold text-primary">{copy.sideFooterTitle}</p>
+              {copy.sideFooterLines.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
+          ) : <span />}
+        </section>
+
+        <section
+          className={cx(
+            "mx-auto flex w-full max-w-md lg:max-w-none lg:justify-center",
+            mode === "signup" ? "items-start py-3 lg:items-center lg:py-0" : "items-center"
+          )}
+        >
+          <div className="w-full lg:max-w-md">
+            <Link href="/" className="mb-6 flex w-fit cursor-pointer items-center gap-2 text-sm font-semibold text-muted hover:text-primary lg:hidden">
+              <FiArrowLeft aria-hidden="true" />
+              Volver
+            </Link>
+            <Card className={cx("bg-sidebar p-6 sm:p-8", mode === "signup" ? "my-5 sm:my-11" : "")}>
+              <div>
+                <Link href="/" className="w-fit">
+                  <BrandMark variant="compact" size="lg" priority />
+                </Link>
+                <Badge tone="brand" className="mt-4">{copy.cardBadge}</Badge>
+                <h2 className="mt-4 text-3xl font-bold text-primary">{copy.cardTitle}</h2>
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  {copy.cardDescription}
+                </p>
+              </div>
+
+              <div className="mt-7">
+                {mode === "login" ? (
+                  <LoginForm
+                    nextPath={nextPath}
+                    forgotPasswordHref={forgotPasswordHref}
+                  />
+                ) : mode === "signup" ? (
+                  <SignUpForm nextPath={nextPath} />
+                ) : mode === "forgot" ? (
+                  <ForgotPasswordForm />
+                ) : (
+                  <ResetPasswordForm forgotPasswordHref={forgotPasswordHref} loginHref={loginHref} />
+                )}
+              </div>
+
+              <p className="mt-6 text-sm text-muted-strong">
+                {copy.switchPrompt}{" "}
+                <Link
+                  href={createModeHref(alternateMode, nextPath)}
+                  className="font-semibold !text-brand-hover underline decoration-brand-hover/45 underline-offset-4 hover:!text-brand-strong"
+                >
+                  {copy.switchLabel}
+                </Link>
+              </p>
+            </Card>
+          </div>
+        </section>
+      </main>
+      <PublicSupportContact />
+    </>
   );
 }

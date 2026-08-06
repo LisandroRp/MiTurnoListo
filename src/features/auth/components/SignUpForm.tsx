@@ -56,7 +56,7 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
       return;
     }
 
-    setSuccessMessage(`Te enviamos un mail a ${result.email}. Confirma la cuenta y despues inicia sesion.`);
+    setSuccessMessage(`Tu cuenta se creo correctamente. Te enviamos un mail a ${result.email} para confirmar tu cuenta antes de iniciar sesion.`);
   }
 
   return (

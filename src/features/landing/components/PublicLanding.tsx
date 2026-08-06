@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { FiArrowRight, FiBarChart2, FiCalendar, FiCheckCircle, FiClock, FiMail, FiUsers } from "react-icons/fi";
+import { FiArrowRight, FiBarChart2, FiCalendar, FiCheckCircle, FiClock, FiUsers } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
+import { PublicSupportContact } from "@/components/composed/PublicSupportContact";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { cx } from "@/components/ui/utils";
@@ -39,8 +40,6 @@ const ctaPrimary = "inline-flex h-10 cursor-pointer items-center justify-center 
 const ctaSecondary = "inline-flex h-10 cursor-pointer items-center justify-center rounded-lg border border-subtle bg-surface px-4 text-sm font-semibold text-primary transition-colors hover:bg-surface-strong";
 const ctaLarge = "h-12 px-5 text-base";
 const landingCardHover = "transition-all duration-200 hover:-translate-y-1 hover:shadow-lg";
-const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "contacto@miturnolisto.com";
-const supportMailHref = `mailto:${supportEmail}`;
 
 export function PublicLanding() {
   return (
@@ -148,26 +147,7 @@ export function PublicLanding() {
         </div>
       </section>
 
-      <footer className="border-t border-subtle bg-sidebar">
-        <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-8 sm:px-6 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm font-bold text-primary">MiTurnoListo</p>
-            <p className="mt-1 text-sm leading-6 text-muted">Soporte para negocios que quieren mantener su agenda funcionando sin vueltas.</p>
-          </div>
-          <a
-            href={supportMailHref}
-            className="inline-flex w-fit items-center gap-3 rounded-full border border-subtle bg-brand-soft px-4 py-3 text-sm font-semibold text-brand-strong shadow-sm transition-colors hover:bg-surface-strong"
-          >
-            <span className="grid h-9 w-9 place-items-center rounded-full bg-brand text-on-brand">
-              <FiMail aria-hidden="true" />
-            </span>
-            <span className="grid gap-0.5">
-              <span>Dudas o soporte</span>
-              <span className="text-xs font-semibold text-muted">{supportEmail}</span>
-            </span>
-          </a>
-        </div>
-      </footer>
+      <PublicSupportContact />
     </main>
   );
 }

@@ -12,15 +12,16 @@ export function ProtectedDashboard({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isWaitingForAuth = status === "loading" || status === "bootstrapping";
 
   useEffect(() => {
-    if (status !== "authenticated" && status !== "loading") {
+    if (status !== "authenticated" && !isWaitingForAuth) {
       const queryString = searchParams.toString();
       const nextPath = queryString ? `${pathname}?${queryString}` : pathname;
 
       router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
     }
-  }, [pathname, router, searchParams, status]);
+  }, [isWaitingForAuth, pathname, router, searchParams, status]);
 
   if (status !== "authenticated") {
     return <WorkspaceLoadingState />;

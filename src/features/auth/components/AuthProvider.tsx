@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, ReactNode, useContext, useEffect, useEffectEvent, useState } from "react";
+import { createContext, ReactNode, useContext, useEffect, useEffectEvent, useRef, useState } from "react";
 import type { AuthChangeEvent } from "@supabase/supabase-js";
 
 import {
@@ -15,11 +15,13 @@ import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
 
 const passwordRecoverySessionKey = "miturnolisto_password_recovery";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+const emailNotConfirmedCode = "email_not_confirmed";
 
-type AuthStatus = "loading" | "authenticated" | "guest" | "recovery";
+type AuthStatus = "loading" | "bootstrapping" | "authenticated" | "guest" | "recovery";
 
 type LoginResult =
   | { status: "authenticated" }
+  | { status: "email_not_confirmed"; email: string; message: string }
   | { status: "error"; message: string };
 
 type SignUpResult =
@@ -41,6 +43,7 @@ type AuthContextValue = {
   userEmail: string | null;
   login: (email: string, password: string, rememberSession: boolean) => Promise<LoginResult>;
   signUp: (email: string, password: string, rememberSession: boolean) => Promise<SignUpResult>;
+  resendEmailConfirmation: (email: string) => Promise<PasswordResetRequestResult>;
   requestPasswordReset: (email: string) => Promise<PasswordResetRequestResult>;
   updatePassword: (password: string) => Promise<PasswordUpdateResult>;
   logout: () => Promise<void>;
@@ -49,6 +52,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const isBootstrappingWorkspace = useRef(false);
   const [authState, setAuthState] = useState<{ status: AuthStatus; userEmail: string | null; userId: string | null }>({
     status: "loading",
     userEmail: null,
@@ -84,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const fallbackOrigin = window.location.origin;
     const baseUrl = (siteUrl ?? fallbackOrigin).trim().replace(/\/+$/, "");
 
-    return `${baseUrl}/login`;
+    return `${baseUrl}/login?confirmed=1`;
   }
 
   function hasPasswordRecoveryReturn() {
@@ -94,12 +98,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return searchParams.get("mode") === "recovery" || searchParams.get("type") === "recovery" || hashParams.get("type") === "recovery";
   }
 
+  function hasEmailConfirmationReturn() {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+
+    return searchParams.get("confirmed") === "1" ||
+      searchParams.get("type") === "signup" ||
+      searchParams.get("type") === "email" ||
+      hashParams.get("type") === "signup" ||
+      hashParams.get("type") === "email" ||
+      hashParams.has("access_token") ||
+      hashParams.has("refresh_token") ||
+      searchParams.has("code");
+  }
+
   const syncAuthState = useEffectEvent(async () => {
     const hasRecoveryReturn = hasPasswordRecoveryReturn();
+    const hasConfirmationReturn = hasEmailConfirmationReturn();
     const hasStoredPasswordRecoverySession = window.sessionStorage.getItem(passwordRecoverySessionKey) === "true";
     const hasRememberedSession = hasSupabaseSessionPersistence();
 
-    if (!hasRecoveryReturn && !hasStoredPasswordRecoverySession && !hasRememberedSession) {
+    if (!hasRecoveryReturn && !hasConfirmationReturn && !hasStoredPasswordRecoverySession && !hasRememberedSession) {
       clearAllAuthState();
       setAuthState({ status: "guest", userEmail: null, userId: null });
       return;
@@ -135,7 +154,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setAuthState({
-      status: hasPasswordRecoverySession ? "recovery" : "authenticated",
+      status: hasPasswordRecoverySession
+        ? "recovery"
+        : isBootstrappingWorkspace.current
+          ? "bootstrapping"
+          : "authenticated",
       userEmail: user.email ?? null,
       userId: user.id
     });
@@ -178,15 +201,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(email: string, password: string, rememberSession: boolean): Promise<LoginResult> {
     setSupabaseSessionPersistence(rememberSession);
+    isBootstrappingWorkspace.current = true;
+    setAuthState((current) => ({ ...current, status: "bootstrapping" }));
     const supabase = getSupabaseBrowserClient();
+    const normalizedEmail = email.trim().toLowerCase();
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       password
     });
 
     if (error || !data.user) {
+      isBootstrappingWorkspace.current = false;
       setAuthState({ status: "guest", userEmail: null, userId: null });
       clearLocalAuthStorage();
+      if (error?.code === emailNotConfirmedCode) {
+        return {
+          status: "email_not_confirmed",
+          email: normalizedEmail,
+          message: "Tu email todavia no esta confirmado. Revisa tu casilla y confirma la cuenta antes de iniciar sesion."
+        };
+      }
+
       return {
         status: "error",
         message: "Credenciales incorrectas. Revisa tu mail y password e intenta otra vez."
@@ -196,6 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await bootstrapWorkspace(data.session?.access_token);
     } catch (bootstrapError) {
+      isBootstrappingWorkspace.current = false;
       await signOutLocally();
       return {
         status: "error",
@@ -204,6 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     clearRecoverySession();
+    isBootstrappingWorkspace.current = false;
     setAuthState({
       status: "authenticated",
       userEmail: data.user.email ?? null,
@@ -245,9 +282,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (data.session?.user) {
+      isBootstrappingWorkspace.current = true;
+      setAuthState((current) => ({ ...current, status: "bootstrapping" }));
+
       try {
         await bootstrapWorkspace(data.session.access_token);
       } catch (bootstrapError) {
+        isBootstrappingWorkspace.current = false;
         await signOutLocally();
         return {
           status: "error",
@@ -256,6 +297,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       clearRecoverySession();
+      isBootstrappingWorkspace.current = false;
       setAuthState({
         status: "authenticated",
         userEmail: data.session.user.email ?? null,
@@ -275,9 +317,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
+    setAuthState({ status: "guest", userEmail: null, userId: null });
+
     return {
       status: "error",
       message: "No pudimos crear la cuenta. Intenta otra vez."
+    };
+  }
+
+  async function resendEmailConfirmation(email: string): Promise<PasswordResetRequestResult> {
+    const supabase = getSupabaseBrowserClient();
+    const normalizedEmail = email.trim().toLowerCase();
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: normalizedEmail,
+      options: {
+        emailRedirectTo: getEmailConfirmationRedirectUrl()
+      }
+    });
+
+    if (error) {
+      return {
+        status: "error",
+        message: error.message || "No pudimos reenviar el mail de confirmacion. Intenta otra vez."
+      };
+    }
+
+    return {
+      status: "success",
+      email: normalizedEmail
     };
   }
 
@@ -344,6 +412,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userEmail: authState.userEmail,
         login,
         signUp,
+        resendEmailConfirmation,
         requestPasswordReset,
         updatePassword,
         logout

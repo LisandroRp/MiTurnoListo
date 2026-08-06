@@ -186,6 +186,10 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (authStatus !== "authenticated") {
+      if (authStatus === "loading" || authStatus === "bootstrapping") {
+        return;
+      }
+
       const resetTimer = window.setTimeout(() => {
         clearWorkspace();
       }, 0);
@@ -203,10 +207,6 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       void hydrateWorkspace().then((didLoad) => {
         if (!isActive) {
           return;
-        }
-
-        if (!didLoad) {
-          setLoadError("Unable to load the workspace.");
         }
 
         setIsLoading(false);

@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { FiBarChart2, FiCalendar, FiCreditCard, FiDollarSign, FiGrid, FiHome, FiMenu, FiPlusCircle, FiSettings, FiUserCheck, FiUsers } from "react-icons/fi";
+import { FiBarChart2, FiCalendar, FiCreditCard, FiDollarSign, FiGrid, FiHome, FiMenu, FiPlusCircle, FiRefreshCw, FiSettings, FiUserCheck, FiUsers } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
 import { WorkspaceLoadingState } from "@/components/composed/WorkspaceLoadingState";
@@ -121,7 +121,15 @@ export function AppShell({ children }: AppShellProps) {
         <Card className="w-full max-w-md text-center">
           <BrandMark variant="full" size="md" align="center" className="mx-auto" priority />
           <h1 className="mt-2 text-xl font-bold text-primary">No pudimos cargar tu espacio</h1>
-          <p className="mt-3 text-sm leading-6 text-muted">{loadError}</p>
+          <Button
+            type="button"
+            variant="secondary"
+            icon={<FiRefreshCw />}
+            className="mx-auto mt-5 border-brand !text-brand-strong hover:bg-brand-soft hover:!text-brand-strong"
+            onClick={() => window.location.reload()}
+          >
+            Refrescar
+          </Button>
         </Card>
       </main>
     );

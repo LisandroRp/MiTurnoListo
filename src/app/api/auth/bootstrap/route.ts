@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
       .from("businesses")
       .insert({
         id: businessId,
+        slug: buildBusinessSlug(seed.businessName, businessId),
         name: seed.businessName,
         address: null,
         subscription_tier: defaultSubscriptionTier,
@@ -180,4 +181,17 @@ function toTitleCase(value: string) {
     .filter(Boolean)
     .map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`)
     .join(" ");
+}
+
+function buildBusinessSlug(name: string, businessId: string) {
+  const normalizedName = name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  const suffix = businessId.replace(/-/g, "").slice(0, 8);
+
+  return `${normalizedName || "negocio"}-${suffix}`;
 }

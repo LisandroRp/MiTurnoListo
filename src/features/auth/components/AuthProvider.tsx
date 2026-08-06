@@ -147,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const hasPasswordRecoverySession = hasRecoveryReturn || hasStoredPasswordRecoverySession;
 
-    if (hasConfirmationReturn && !hasPasswordRecoverySession) {
+    if (!hasPasswordRecoverySession) {
       isBootstrappingWorkspace.current = true;
       setAuthState({
         status: "bootstrapping",

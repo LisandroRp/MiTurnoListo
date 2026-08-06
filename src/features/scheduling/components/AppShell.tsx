@@ -122,15 +122,25 @@ export function AppShell({ children }: AppShellProps) {
           <BrandMark variant="full" size="md" align="center" className="mx-auto" priority />
           <h1 className="mt-2 text-xl font-bold text-primary">No pudimos cargar tu espacio</h1>
           <p className="mt-3 text-sm leading-6 text-muted">{loadError}</p>
-          <Button
-            type="button"
-            variant="secondary"
-            icon={<FiRefreshCw />}
-            className="mx-auto mt-5 border-brand !text-brand-strong hover:bg-brand-soft hover:!text-brand-strong"
-            onClick={() => window.location.reload()}
-          >
-            Refrescar
-          </Button>
+          <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
+            <Button
+              type="button"
+              variant="secondary"
+              icon={<FiRefreshCw />}
+              className="border-brand !text-brand-strong hover:bg-brand-soft hover:!text-brand-strong"
+              onClick={() => window.location.reload()}
+            >
+              Refrescar
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="!text-brand-strong hover:bg-brand-soft hover:!text-brand-strong"
+              onClick={() => void logout()}
+            >
+              Cerrar sesion
+            </Button>
+          </div>
         </Card>
       </main>
     );

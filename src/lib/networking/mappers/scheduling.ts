@@ -34,6 +34,7 @@ type EmployeeRow = {
   description: string;
   image_url: string | null;
   color_token: string;
+  is_active: boolean;
 };
 
 type ServiceRow = {
@@ -49,6 +50,7 @@ type ServiceRow = {
   cancellation_lead_minutes: number;
   payment_mode: PaymentMethod;
   is_public: boolean;
+  is_active: boolean;
 };
 
 type ServiceEmployeeRow = {
@@ -148,6 +150,7 @@ export function mapEmployees(employeeRows: EmployeeRow[], availabilityRows: Avai
     imageUrl: normalizeStoredImageUrl(employee.image_url),
     color: employee.color_token,
     initials: getInitials(employee.name),
+    isArchived: !employee.is_active,
     schedule: buildSchedule(
       availabilityRows.filter((row) => row.employee_id === employee.id)
     )
@@ -171,6 +174,7 @@ export function mapServices(
     durationMinutes: service.duration_minutes,
     paymentMethod: service.payment_mode,
     isVisible: service.is_public,
+    isArchived: !service.is_active,
     reservationLeadMinutes: service.reservation_lead_minutes,
     cancellationLeadMinutes: service.cancellation_lead_minutes,
     schedule: buildSchedule(

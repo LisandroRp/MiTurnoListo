@@ -85,9 +85,11 @@ export function PublicServicesCatalog({ businessId }: PublicServicesCatalogProps
               <div
                 className="mx-auto grid h-36 w-36 place-items-center rounded-3xl bg-contain bg-center bg-no-repeat text-lg font-bold text-primary"
                 style={{ backgroundImage: `url(${payload.publicLogoUrl})` }}
+                aria-label={payload.businessName}
               />
-            ) : null}
-            <h1 className="mt-3 text-4xl font-bold text-primary">{payload?.businessName ?? messages.appName}</h1>
+            ) : (
+              <h1 className="mt-3 text-4xl font-bold text-primary">{payload?.businessName ?? messages.appName}</h1>
+            )}
             {payload?.address ? (
               <div className="mt-3 flex items-center justify-center gap-2 text-base font-semibold text-muted">
                 <FiMapPin className="shrink-0 text-brand-strong" aria-hidden="true" />

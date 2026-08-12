@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { Appointment, Employee, Service } from "@/features/scheduling/types";
 import { freePlanLimits, getCurrentMonthRange, isFreePlan } from "@/features/scheduling/plan-limits";
+import { hasValidCancellationLeadMinutes } from "@/features/scheduling/service-cancellation-policy";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 import { createApiErrorResponse, getSafeErrorMessage } from "@/lib/networking/api-errors";
 import {
@@ -27,6 +28,16 @@ type SchedulingMutationPayload =
       action: "saveService";
       businessId: string;
       service: Service;
+    }
+  | {
+      action: "archiveEmployee" | "unarchiveEmployee" | "deleteEmployee";
+      businessId: string;
+      employeeId: string;
+    }
+  | {
+      action: "archiveService" | "unarchiveService" | "deleteService";
+      businessId: string;
+      serviceId: string;
     }
   | {
       action: "createAppointment";
@@ -92,6 +103,30 @@ export async function POST(request: NextRequest) {
       await saveService(supabase, payload.businessId, payload.service);
     }
 
+    if (payload.action === "archiveService") {
+      await archiveService(supabase, payload.businessId, payload.serviceId);
+    }
+
+    if (payload.action === "unarchiveService") {
+      await setServiceArchived(supabase, payload.businessId, payload.serviceId, false);
+    }
+
+    if (payload.action === "deleteService") {
+      await deleteArchivedService(supabase, payload.businessId, payload.serviceId);
+    }
+
+    if (payload.action === "archiveEmployee") {
+      await archiveEmployee(supabase, payload.businessId, payload.employeeId);
+    }
+
+    if (payload.action === "unarchiveEmployee") {
+      await setEmployeeArchived(supabase, payload.businessId, payload.employeeId, false);
+    }
+
+    if (payload.action === "deleteEmployee") {
+      await deleteArchivedEmployee(supabase, payload.businessId, payload.employeeId);
+    }
+
     if (payload.action === "createAppointment") {
       await enforceMonthlyAppointmentLimit(supabase, payload.businessId, contextResult.context);
       await createAppointment(supabase, payload.businessId, payload.appointment, payload.service, payload.timeZone);
@@ -119,9 +154,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = getSafeErrorMessage(error, "Unable to save changes.");
-    const status = message.startsWith("PLAN_LIMIT:") ? 402 : message.startsWith("PAYMENT_CONFIG:") ? 409 : 500;
+    const status = message.startsWith("PLAN_LIMIT:") ? 402 : message.startsWith("PAYMENT_CONFIG:") || message.startsWith("ARCHIVE_RULE:") ? 409 : 500;
 
-    return createApiErrorResponse(message.replace(/^(PLAN_LIMIT|PAYMENT_CONFIG):/, ""), {
+    return createApiErrorResponse(message.replace(/^(PLAN_LIMIT|PAYMENT_CONFIG|ARCHIVE_RULE):/, ""), {
       code: "SCHEDULING_MUTATION_FAILED",
       fallbackMessage: "Unable to save changes.",
       status
@@ -332,11 +367,149 @@ function enforceServiceBookingConfiguration(service: Service) {
 
   if (
     !numericValues.every((value) => Number.isInteger(value) && value >= 0) ||
+    !hasValidCancellationLeadMinutes(service.cancellationLeadMinutes) ||
     service.price <= 0 ||
     service.durationMinutes <= 0 ||
     service.capacity < 1
   ) {
-    throw new Error("SERVICE_CONFIG:Precio, duracion y capacidad son obligatorios. La capacidad debe ser al menos 1.");
+    throw new Error("SERVICE_CONFIG:Precio, duracion y capacidad son obligatorios. La capacidad debe ser al menos 1 y la anticipacion para cancelar al menos 1 dia.");
+  }
+}
+
+async function archiveService(supabase: SupabaseClient, businessId: string, serviceId: string) {
+  await enforceNoFutureAppointments(supabase, businessId, "service_id", serviceId, "No se puede archivar este servicio porque tiene turnos futuros. Ocultalo para frenar nuevas reservas o cancela/reprograma esos turnos.");
+  await setServiceArchived(supabase, businessId, serviceId, true);
+}
+
+async function setServiceArchived(supabase: SupabaseClient, businessId: string, serviceId: string, isArchived: boolean) {
+  const { error } = await supabase
+    .from("services")
+    .update({
+      is_active: !isArchived,
+      ...(isArchived ? { is_public: false } : {})
+    })
+    .eq("business_id", businessId)
+    .eq("id", serviceId);
+
+  if (error) {
+    throw new Error("Unable to update the service archive state.");
+  }
+}
+
+async function deleteArchivedService(supabase: SupabaseClient, businessId: string, serviceId: string) {
+  await enforceEntityIsArchived(supabase, businessId, "services", serviceId, "El servicio debe estar archivado antes de eliminarlo.");
+  await enforceNoAppointments(supabase, businessId, "service_id", serviceId, "No se puede eliminar este servicio porque tiene turnos asociados. Podés dejarlo archivado para conservar el historial.");
+
+  const { error } = await supabase
+    .from("services")
+    .delete()
+    .eq("business_id", businessId)
+    .eq("id", serviceId);
+
+  if (error) {
+    throw new Error("Unable to delete the service.");
+  }
+}
+
+async function archiveEmployee(supabase: SupabaseClient, businessId: string, employeeId: string) {
+  await enforceNoFutureAppointments(supabase, businessId, "employee_id", employeeId, "No se puede archivar este profesional porque tiene turnos futuros. Cancela o reprograma esos turnos antes de archivarlo.");
+  await setEmployeeArchived(supabase, businessId, employeeId, true);
+}
+
+async function setEmployeeArchived(supabase: SupabaseClient, businessId: string, employeeId: string, isArchived: boolean) {
+  const { error } = await supabase
+    .from("employees")
+    .update({ is_active: !isArchived })
+    .eq("business_id", businessId)
+    .eq("id", employeeId);
+
+  if (error) {
+    throw new Error("Unable to update the employee archive state.");
+  }
+}
+
+async function deleteArchivedEmployee(supabase: SupabaseClient, businessId: string, employeeId: string) {
+  await enforceEntityIsArchived(supabase, businessId, "employees", employeeId, "El profesional debe estar archivado antes de eliminarlo.");
+  await enforceNoAppointments(supabase, businessId, "employee_id", employeeId, "No se puede eliminar este profesional porque tiene turnos asociados. Podés dejarlo archivado para conservar el historial.");
+
+  const { error } = await supabase
+    .from("employees")
+    .delete()
+    .eq("business_id", businessId)
+    .eq("id", employeeId);
+
+  if (error) {
+    throw new Error("Unable to delete the employee.");
+  }
+}
+
+async function enforceEntityIsArchived(
+  supabase: SupabaseClient,
+  businessId: string,
+  table: "employees" | "services",
+  entityId: string,
+  message: string
+) {
+  const { data, error } = await supabase
+    .from(table)
+    .select("is_active")
+    .eq("business_id", businessId)
+    .eq("id", entityId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error("Unable to inspect archive state.");
+  }
+
+  if (!data || data.is_active) {
+    throw new Error(`ARCHIVE_RULE:${message}`);
+  }
+}
+
+async function enforceNoFutureAppointments(
+  supabase: SupabaseClient,
+  businessId: string,
+  foreignKey: "employee_id" | "service_id",
+  entityId: string,
+  message: string
+) {
+  const { count, error } = await supabase
+    .from("appointments")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .eq(foreignKey, entityId)
+    .neq("status", "cancelled")
+    .gte("starts_at", new Date().toISOString());
+
+  if (error) {
+    throw new Error("Unable to inspect future appointments.");
+  }
+
+  if ((count ?? 0) > 0) {
+    throw new Error(`ARCHIVE_RULE:${message}`);
+  }
+}
+
+async function enforceNoAppointments(
+  supabase: SupabaseClient,
+  businessId: string,
+  foreignKey: "employee_id" | "service_id",
+  entityId: string,
+  message: string
+) {
+  const { count, error } = await supabase
+    .from("appointments")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .eq(foreignKey, entityId);
+
+  if (error) {
+    throw new Error("Unable to inspect appointments.");
+  }
+
+  if ((count ?? 0) > 0) {
+    throw new Error(`ARCHIVE_RULE:${message}`);
   }
 }
 
@@ -635,7 +808,7 @@ async function rescheduleAppointment(
   ] = await Promise.all([
     supabase
       .from("services")
-      .select("id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public")
+      .select("id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
       .eq("id", appointment.service_id)
       .eq("business_id", businessId)
       .limit(1)
@@ -650,7 +823,7 @@ async function rescheduleAppointment(
       .eq("service_id", appointment.service_id),
     supabase
       .from("employees")
-      .select("id, name, role, description, image_url, color_token")
+      .select("id, name, role, description, image_url, color_token, is_active")
       .eq("id", employeeId)
       .eq("business_id", businessId)
       .eq("is_active", true)

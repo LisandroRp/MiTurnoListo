@@ -13,7 +13,7 @@ import { formatCurrency } from "@/features/scheduling/utils/format";
 
 export default function NewBookingPreviewPage() {
   const { messages, services } = useScheduling();
-  const visibleServices = services.filter((service) => service.isVisible);
+  const visibleServices = services.filter((service) => !service.isArchived && service.isVisible);
   const [requestedServiceId, setRequestedServiceId] = useState("");
   const selectedServiceId = visibleServices.some((service) => service.id === requestedServiceId)
     ? requestedServiceId

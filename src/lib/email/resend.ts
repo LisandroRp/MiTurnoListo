@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isNonCriticalEmailDeliveryDisabled } from "@/lib/email/email-delivery";
 import { getResponseErrorPayload } from "@/lib/networking/api-errors";
 
 type SendEmailInput = {
@@ -21,6 +22,13 @@ export async function sendEmail({
   text,
   to
 }: SendEmailInput): Promise<SendEmailResult> {
+  if (isNonCriticalEmailDeliveryDisabled()) {
+    return {
+      reason: "Non-critical email delivery is disabled by DONT_SEND_EMAILS.",
+      status: "skipped"
+    };
+  }
+
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from = process.env.EMAIL_FROM?.trim();
 

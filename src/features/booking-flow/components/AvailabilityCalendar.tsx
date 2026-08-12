@@ -130,8 +130,8 @@ export function AvailabilityCalendar({
                   isActive
                     ? "border-brand/45 bg-surface text-primary hover:-translate-y-0.5 hover:bg-brand-soft hover:text-brand-strong hover:shadow-sm"
                     : "cursor-not-allowed border-subtle bg-input text-placeholder opacity-45",
-                  isToday && "border-brand !bg-brand-soft text-brand-strong ring-2 ring-brand/20",
-                  isSelected && "border-brand bg-brand text-on-brand ring-0"
+                  isToday && "border-brand !text-brand border-2 ring-0",
+                  isSelected && "border-brand !bg-brand-soft !text-brand-strong ring-2 ring-brand/20"
                 )}
               >
                 <span>{date.getDate()}</span>
@@ -224,7 +224,7 @@ export function AvailabilityHourList({
                   "cursor-pointer rounded-2xl border p-4 text-left transition-all",
                   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
                   isSelected
-                    ? "border-brand bg-brand text-on-brand shadow-sm"
+                    ? "border-brand/45 border-2 bg-brand-soft text-on-brand shadow-sm"
                     : "border-subtle bg-input text-primary hover:-translate-y-0.5 hover:shadow-sm"
                 )}
               >

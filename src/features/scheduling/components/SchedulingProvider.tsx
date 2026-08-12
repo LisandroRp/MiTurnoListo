@@ -18,6 +18,8 @@ import {
   ThemeId
 } from "@/features/scheduling/types";
 import {
+  archiveEmployee as archiveEmployeeRequest,
+  archiveService as archiveServiceRequest,
   createDashboardAppointment,
   deleteProSubscription as deleteProSubscriptionRequest,
   deleteAppointment as deleteAppointmentRequest,
@@ -33,6 +35,8 @@ import {
   savePaymentSettings as savePaymentSettingsRequest,
   saveService as saveServiceRequest,
   startProSubscription as startProSubscriptionRequest,
+  unarchiveEmployee as unarchiveEmployeeRequest,
+  unarchiveService as unarchiveServiceRequest,
   updateSchedulingPreferences,
 } from "@/lib/networking/endpoints/scheduling";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
@@ -84,8 +88,12 @@ type SchedulingContextValue = {
   deleteAppointment: (appointmentId: string) => Promise<boolean>;
   markAppointmentPaid: (appointmentId: string) => Promise<boolean>;
   rescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean>;
+  archiveEmployee: (employeeId: string) => Promise<boolean>;
+  archiveService: (serviceId: string) => Promise<boolean>;
   deleteEmployee: (employeeId: string) => Promise<boolean>;
   deleteService: (serviceId: string) => Promise<boolean>;
+  unarchiveEmployee: (employeeId: string) => Promise<boolean>;
+  unarchiveService: (serviceId: string) => Promise<boolean>;
 };
 
 const SchedulingContext = createContext<SchedulingContextValue | null>(null);
@@ -170,7 +178,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       setThemeOptions(snapshot.themeOptions);
       setFocusedDate(snapshot.focusedDate);
       setEmployeeList(snapshot.employees);
-      setSelectedEmployeeIds(snapshot.employees.map((employee) => employee.id));
+      setSelectedEmployeeIds(snapshot.employees.filter((employee) => !employee.isArchived).map((employee) => employee.id));
       setProfileState(snapshot.profile);
       setAppointmentList(snapshot.appointments);
       setServiceList(snapshot.services);
@@ -251,10 +259,38 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   }
 
   async function deleteService(serviceId: string) {
+    if (!businessId) {
+      return false;
+    }
+
     return runMutation(
-      () => deleteServiceRequest(serviceId),
+      () => deleteServiceRequest(businessId, serviceId),
       copy.toast.serviceDeleted,
       "Unable to delete the service."
+    );
+  }
+
+  async function archiveService(serviceId: string) {
+    if (!businessId) {
+      return false;
+    }
+
+    return runMutation(
+      () => archiveServiceRequest(businessId, serviceId),
+      copy.toast.serviceArchived,
+      "Unable to archive the service."
+    );
+  }
+
+  async function unarchiveService(serviceId: string) {
+    if (!businessId) {
+      return false;
+    }
+
+    return runMutation(
+      () => unarchiveServiceRequest(businessId, serviceId),
+      copy.toast.serviceUnarchived,
+      "Unable to unarchive the service."
     );
   }
 
@@ -282,10 +318,38 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   }
 
   async function deleteEmployee(employeeId: string) {
+    if (!businessId) {
+      return false;
+    }
+
     return runMutation(
-      () => deleteEmployeeRequest(employeeId),
+      () => deleteEmployeeRequest(businessId, employeeId),
       copy.toast.employeeDeleted,
       "Unable to delete the employee."
+    );
+  }
+
+  async function archiveEmployee(employeeId: string) {
+    if (!businessId) {
+      return false;
+    }
+
+    return runMutation(
+      () => archiveEmployeeRequest(businessId, employeeId),
+      copy.toast.employeeArchived,
+      "Unable to archive the employee."
+    );
+  }
+
+  async function unarchiveEmployee(employeeId: string) {
+    if (!businessId) {
+      return false;
+    }
+
+    return runMutation(
+      () => unarchiveEmployeeRequest(businessId, employeeId),
+      copy.toast.employeeUnarchived,
+      "Unable to unarchive the employee."
     );
   }
 
@@ -605,11 +669,15 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         toggleEmployee,
         toasts,
         createAppointment,
+        archiveEmployee,
+        archiveService,
         deleteAppointment,
         markAppointmentPaid,
         rescheduleAppointment,
         deleteEmployee,
-        deleteService
+        deleteService,
+        unarchiveEmployee,
+        unarchiveService
       }}
     >
       {children}

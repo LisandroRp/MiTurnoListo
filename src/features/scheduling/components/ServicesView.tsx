@@ -1,11 +1,14 @@
-import { ChangeEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { ChangeEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 import { FiArrowLeft, FiArrowRight, FiCheck, FiCopy, FiEdit2, FiInfo, FiLink, FiMoreHorizontal, FiPlus, FiSearch, FiShare2, FiTrash2, FiX } from "react-icons/fi";
 
 import { PlanLimitModal } from "@/components/composed/PlanLimitModal";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { StepProgress } from "@/components/composed/StepProgress";
+import { DualActionSlot } from "@/components/composed/DualActionSlot";
+import { useDualActionVisibility } from "@/components/composed/useDualActionVisibility";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -19,6 +22,12 @@ import { AvailabilityEditor, dayKeys } from "@/features/scheduling/components/Av
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, isFreePlan } from "@/features/scheduling/plan-limits";
+import {
+  cancellationLeadDaysToMinutes,
+  cancellationLeadMinutesToDays,
+  hasValidCancellationLeadMinutes,
+  normalizeCancellationLeadMinutes
+} from "@/features/scheduling/service-cancellation-policy";
 import { Appointment, Employee, PaymentMethod, Service, ServiceAddon, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 import { createNewServiceDraft } from "@/lib/networking/endpoints/scheduling";
@@ -34,7 +43,9 @@ type ServicesViewProps = {
   isMercadoPagoConfigured: boolean;
   isTransferConfigured: boolean;
   onSaveService: (service: Service) => Promise<boolean>;
+  onArchiveService: (serviceId: string) => Promise<boolean>;
   onDeleteService: (serviceId: string) => Promise<boolean>;
+  onUnarchiveService: (serviceId: string) => Promise<boolean>;
   onValidationWarning: () => void;
   onImageUploadError: (message: string) => void;
   onShareSuccess: () => void;
@@ -43,7 +54,8 @@ type ServicesViewProps = {
 
 type ServicesMode = "grid" | "form";
 type ServiceWizardStep = "details" | "booking" | "staff" | "schedule" | "review";
-type ServiceStatusFilter = "all" | "visible" | "hidden";
+type ServiceStatusFilter = "all" | "visible" | "hidden" | "archived";
+type ServiceMenuAction = "archive" | "delete" | "unarchive";
 
 const paymentMethods: PaymentMethod[] = ["cash", "card", "transfer", "mixed"];
 const serviceWizardStepOrder: ServiceWizardStep[] = ["details", "booking", "staff", "schedule", "review"];
@@ -59,7 +71,9 @@ export function ServicesView({
   isMercadoPagoConfigured,
   isTransferConfigured,
   onSaveService,
+  onArchiveService,
   onDeleteService,
+  onUnarchiveService,
   onValidationWarning,
   onImageUploadError,
   onShareSuccess,
@@ -77,13 +91,14 @@ export function ServicesView({
   const [sharingService, setSharingService] = useState<Service | null>(null);
   const [isSharingCatalog, setIsSharingCatalog] = useState(false);
   const [lockedService, setLockedService] = useState<Service | null>(null);
+  const [pendingMenuAction, setPendingMenuAction] = useState<{ serviceId: string; action: ServiceMenuAction } | null>(null);
   const [serviceSearchTerm, setServiceSearchTerm] = useState("");
   const [serviceStatusFilter, setServiceStatusFilter] = useState<ServiceStatusFilter>("all");
   const [serviceEmployeeFilter, setServiceEmployeeFilter] = useState("all");
   const unlockedVisibleServiceIds = new Set(
     isFreePlan(subscriptionTier)
-      ? services.filter((service) => service.isVisible).slice(0, freePlanLimits.visibleServices).map((service) => service.id)
-      : services.map((service) => service.id)
+      ? services.filter((service) => !service.isArchived && service.isVisible).slice(0, freePlanLimits.visibleServices).map((service) => service.id)
+      : services.filter((service) => !service.isArchived).map((service) => service.id)
   );
 
   const currentStep = serviceWizardStepOrder[currentStepIndex] ?? "details";
@@ -94,12 +109,18 @@ export function ServicesView({
   const filteredServices = services.filter((service) => {
     const normalizedSearch = serviceSearchTerm.trim().toLowerCase();
     const matchesSearch = !normalizedSearch || `${service.name} ${service.description}`.toLowerCase().includes(normalizedSearch);
-    const matchesStatus = serviceStatusFilter === "all" || (serviceStatusFilter === "visible" ? service.isVisible : !service.isVisible);
+    const matchesStatus =
+      serviceStatusFilter === "all"
+        ? !service.isArchived
+        : serviceStatusFilter === "archived"
+          ? service.isArchived
+          : !service.isArchived && (serviceStatusFilter === "visible" ? service.isVisible : !service.isVisible);
     const matchesEmployee = serviceEmployeeFilter === "all" || service.employeeIds.includes(serviceEmployeeFilter);
 
     return matchesSearch && matchesStatus && matchesEmployee;
-  });
+  }).sort((left, right) => Number(left.isArchived) - Number(right.isArchived) || left.name.localeCompare(right.name));
   const monthRange = getCurrentMonthRange();
+  const wizardActionVisibility = useDualActionVisibility();
 
   function startCreate() {
     setDraft(createNewServiceDraft());
@@ -111,7 +132,7 @@ export function ServicesView({
   }
 
   function startEdit(service: Service) {
-    setDraft({ ...service, addons: service.addons.map((addon) => ({ ...addon })), schedule: structuredClone(service.schedule), employeeIds: [...service.employeeIds] });
+    setDraft(normalizeServiceDraft(service));
     setEditingId(service.id);
     setCurrentStepIndex(0);
     setPendingServiceImageFile(null);
@@ -120,7 +141,7 @@ export function ServicesView({
   }
 
   function startDuplicate(service: Service) {
-    setDraft({
+    setDraft(normalizeServiceDraft({
       ...service,
       id: globalThis.crypto.randomUUID(),
       name: `${service.name} ${messages.services.copySuffix}`,
@@ -131,7 +152,7 @@ export function ServicesView({
       })),
       schedule: structuredClone(service.schedule),
       employeeIds: [...service.employeeIds]
-    });
+    }));
     setEditingId(null);
     setCurrentStepIndex(0);
     setPendingServiceImageFile(null);
@@ -161,6 +182,13 @@ export function ServicesView({
     return (event: ChangeEvent<HTMLInputElement>) => {
       setDraft((current) => ({ ...current, [field]: parseNumericInput(event.target.value) }));
     };
+  }
+
+  function handleCancellationLeadDaysChange(event: ChangeEvent<HTMLInputElement>) {
+    setDraft((current) => ({
+      ...current,
+      cancellationLeadMinutes: cancellationLeadDaysToMinutes(parseNumericInput(event.target.value))
+    }));
   }
 
   function handleVisibilityChange(event: ChangeEvent<HTMLInputElement>) {
@@ -249,6 +277,20 @@ export function ServicesView({
       onShareSuccess();
     } catch {
       onShareError();
+    }
+  }
+
+  async function runServiceMenuAction(serviceId: string, action: ServiceMenuAction, callback: () => Promise<boolean>) {
+    if (pendingMenuAction) {
+      return;
+    }
+
+    setPendingMenuAction({ serviceId, action });
+
+    try {
+      await callback();
+    } finally {
+      setPendingMenuAction(null);
     }
   }
 
@@ -353,7 +395,7 @@ export function ServicesView({
             })
           }
         : draft;
-      const didSave = await onSaveService(serviceToSave);
+      const didSave = await onSaveService(normalizeServiceDraft(serviceToSave));
 
       if (didSave) {
         setMode("grid");
@@ -382,17 +424,19 @@ export function ServicesView({
 
         <StepProgress steps={stepItems} currentStepIndex={currentStepIndex} onStepSelect={goToStep} />
 
-        <WizardActions
-          className="flex"
-          currentStep={currentStep}
-          currentStepIndex={currentStepIndex}
-          isSaving={isSavingService}
-          messages={messages}
-          onCancel={returnToGrid}
-          onPrevious={goToPreviousStep}
-          onNext={goToNextStep}
-          onSubmit={submitForm}
-        />
+        <DualActionSlot ref={wizardActionVisibility.topRef} isVisible={wizardActionVisibility.showTopActions}>
+          <WizardActions
+            className="flex"
+            currentStep={currentStep}
+            currentStepIndex={currentStepIndex}
+            isSaving={isSavingService}
+            messages={messages}
+            onCancel={returnToGrid}
+            onPrevious={goToPreviousStep}
+            onNext={goToNextStep}
+            onSubmit={submitForm}
+          />
+        </DualActionSlot>
 
         {validationMessage ? (
           <div className="rounded-lg border border-danger bg-danger-soft p-4 text-sm font-semibold text-danger">
@@ -435,7 +479,15 @@ export function ServicesView({
               <TextField label={messages.services.capacity} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.capacity)} required onChange={handleNumericTextChange("capacity")} />
               <TextField label={messages.services.deposit} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.deposit, true)} onChange={handleNumericTextChange("deposit")} />
               <TextField label={messages.services.leadTime} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.reservationLeadMinutes)} onChange={handleNumericTextChange("reservationLeadMinutes")} />
-              <TextField label={messages.services.cancellationLeadTime} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.cancellationLeadMinutes)} onChange={handleNumericTextChange("cancellationLeadMinutes")} />
+              <TextField
+                label={messages.services.cancellationLeadTimeDays}
+                inputMode="numeric"
+                min={1}
+                pattern="[0-9]*"
+                suffix={<span className="text-xs font-bold text-muted">{messages.services.daysShort}</span>}
+                value={formatNumericInputValue(cancellationLeadMinutesToDays(draft.cancellationLeadMinutes))}
+                onChange={handleCancellationLeadDaysChange}
+              />
               <SelectField
                 label={messages.services.paymentMethod}
                 value={draft.paymentMethod}
@@ -465,9 +517,9 @@ export function ServicesView({
 
           {currentStep === "staff" ? (
             <FormSection title={messages.services.staffSection} description={messages.services.staffSectionHint}>
-            {employees.length > 0 ? (
+            {employees.filter((employee) => !employee.isArchived).length > 0 ? (
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {employees.map((employee) => {
+                {employees.filter((employee) => !employee.isArchived).map((employee) => {
                   const isSelected = draft.employeeIds.includes(employee.id);
 
                   return (
@@ -518,17 +570,19 @@ export function ServicesView({
           ) : null}
         </div>
 
-        <WizardActions
-          className="flex"
-          currentStep={currentStep}
-          currentStepIndex={currentStepIndex}
-          isSaving={isSavingService}
-          messages={messages}
-          onCancel={returnToGrid}
-          onPrevious={goToPreviousStep}
-          onNext={goToNextStep}
-          onSubmit={submitForm}
-        />
+        <DualActionSlot ref={wizardActionVisibility.bottomRef} isVisible={wizardActionVisibility.showBottomActions}>
+          <WizardActions
+            className="flex"
+            currentStep={currentStep}
+            currentStepIndex={currentStepIndex}
+            isSaving={isSavingService}
+            messages={messages}
+            onCancel={returnToGrid}
+            onPrevious={goToPreviousStep}
+            onNext={goToNextStep}
+            onSubmit={submitForm}
+          />
+        </DualActionSlot>
       </div>
     );
   }
@@ -540,14 +594,14 @@ export function ServicesView({
         title={messages.services.title}
         description={messages.services.description}
         actions={
-          <div className="flex flex-col gap-2 sm:flex-row">
+<>
             <Button variant="secondary" icon={<FiShare2 />} disabled={!businessId} onClick={() => setIsSharingCatalog(true)}>
               {messages.services.shareCatalogAction}
             </Button>
             <Button icon={<FiPlus />} onClick={startCreate}>
               {messages.actions.addService}
             </Button>
-          </div>
+</>
         }
       />
 
@@ -587,12 +641,13 @@ export function ServicesView({
               </thead>
               <tbody className="divide-y divide-subtle">
                 {filteredServices.map((service) => {
-                  const isLockedByPlan = isFreePlan(subscriptionTier) && service.isVisible && !unlockedVisibleServiceIds.has(service.id);
+                  const isArchived = service.isArchived;
+                  const isLockedByPlan = !isArchived && isFreePlan(subscriptionTier) && service.isVisible && !unlockedVisibleServiceIds.has(service.id);
                   const serviceEmployees = employees.filter((employee) => service.employeeIds.includes(employee.id));
                   const monthBookings = countServiceAppointmentsForMonth(service.id, appointments, monthRange);
 
                   return (
-                    <tr key={service.id} className="relative transition-colors hover:bg-brand-soft/45">
+                    <tr key={service.id} className={cx("relative transition-colors hover:bg-brand-soft/45", isArchived && "bg-shell/70 opacity-60 grayscale")}>
                       <td className="px-4 py-4">
                         <div className={cx("flex min-w-0 items-center gap-3", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
                           <ServiceImagePreview service={service} messages={messages} />
@@ -618,15 +673,19 @@ export function ServicesView({
                         {monthBookings}
                       </td>
                       <td className={cx("px-4 py-4", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
-                        <VisibilitySwitch
-                          messages={messages}
-                          isVisible={service.isVisible}
-                          isLoading={savingVisibilityId === service.id}
-                          isDisabled={isLockedByPlan}
-                          onToggle={() => void toggleServiceVisibility(service)}
-                        />
+                        {isArchived ? (
+                          <Badge tone="neutral">{messages.services.archived}</Badge>
+                        ) : (
+                          <VisibilitySwitch
+                            messages={messages}
+                            isVisible={service.isVisible}
+                            isLoading={savingVisibilityId === service.id}
+                            isDisabled={isLockedByPlan}
+                            onToggle={() => void toggleServiceVisibility(service)}
+                          />
+                        )}
                       </td>
-                      <td className="px-4 py-4 text-right">
+                      <td className="relative px-4 py-4 text-right">
                         {isLockedByPlan ? (
                           <button
                             type="button"
@@ -639,10 +698,14 @@ export function ServicesView({
                           <ServiceActionsMenu
                             messages={messages}
                             service={service}
+                            disabled={pendingMenuAction !== null}
+                            loadingAction={pendingMenuAction?.serviceId === service.id ? pendingMenuAction.action : null}
                             onShare={() => setSharingService(service)}
                             onEdit={() => startEdit(service)}
                             onDuplicate={() => startDuplicate(service)}
-                            onDelete={() => void onDeleteService(service.id)}
+                            onArchive={() => runServiceMenuAction(service.id, "archive", () => onArchiveService(service.id))}
+                            onDelete={() => runServiceMenuAction(service.id, "delete", () => onDeleteService(service.id))}
+                            onUnarchive={() => runServiceMenuAction(service.id, "unarchive", () => onUnarchiveService(service.id))}
                           />
                         )}
                       </td>
@@ -899,7 +962,8 @@ function ServiceFilters({
         options={[
           { value: "all", label: messages.services.allStatuses },
           { value: "visible", label: messages.services.visible },
-          { value: "hidden", label: messages.services.hidden }
+          { value: "hidden", label: messages.services.hidden },
+          { value: "archived", label: messages.services.archivedStatus }
         ]}
       />
 
@@ -909,7 +973,7 @@ function ServiceFilters({
         className="rounded-xl font-semibold shadow-sm md:w-56"
         options={[
           { value: "all", label: messages.services.allProfessionals },
-          ...employees.map((employee) => ({
+          ...employees.filter((employee) => !employee.isArchived).map((employee) => ({
             value: employee.id,
             label: employee.name
           }))
@@ -967,50 +1031,60 @@ function ServiceEmployeePills({ messages, employees }: { messages: Messages; emp
 function ServiceActionsMenu({
   messages,
   service,
+  disabled,
+  loadingAction,
   onShare,
   onEdit,
   onDuplicate,
+  onArchive,
+  onUnarchive,
   onDelete
 }: {
   messages: Messages;
   service: Service;
+  disabled: boolean;
+  loadingAction: ServiceMenuAction | null;
   onShare: () => void;
   onEdit: () => void;
   onDuplicate: () => void;
-  onDelete: () => void;
+  onArchive: () => Promise<void>;
+  onUnarchive: () => Promise<void>;
+  onDelete: () => Promise<void>;
 }) {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ left: 0, top: 0 });
+  const hasLoadingAction = loadingAction !== null;
+
+  const updateMenuPosition = useCallback(() => {
+    const rect = buttonRef.current?.getBoundingClientRect();
+
+    if (!rect) {
+      return;
+    }
+
+    const menuWidth = menuRef.current?.offsetWidth ?? 160;
+    const menuHeight = menuRef.current?.offsetHeight ?? (service.isArchived ? 88 : 176);
+    const gap = 8;
+    const viewportPadding = 16;
+    const nextLeft = Math.min(
+      Math.max(viewportPadding, rect.right - menuWidth),
+      window.innerWidth - menuWidth - viewportPadding
+    );
+    const opensUpward = rect.bottom + gap + menuHeight > window.innerHeight - viewportPadding;
+
+    setMenuPosition({
+      left: nextLeft,
+      top: opensUpward
+        ? Math.max(viewportPadding, rect.top - menuHeight - gap)
+        : rect.bottom + gap
+    });
+  }, [service.isArchived]);
 
   useEffect(() => {
     if (!isOpen) {
       return;
-    }
-
-    function positionMenu() {
-      const rect = buttonRef.current?.getBoundingClientRect();
-
-      if (!rect) {
-        return;
-      }
-
-      const menuWidth = menuRef.current?.offsetWidth ?? 160;
-      const menuHeight = menuRef.current?.offsetHeight ?? 180;
-      const gap = 8;
-      const viewportPadding = 16;
-      const opensUpward = rect.bottom + gap + menuHeight > window.innerHeight - viewportPadding;
-
-      setMenuPosition({
-        left: Math.min(
-          Math.max(viewportPadding, rect.right - menuWidth),
-          window.innerWidth - menuWidth - viewportPadding
-        ),
-        top: opensUpward
-          ? Math.max(viewportPadding, rect.top - menuHeight - gap)
-          : rect.bottom + gap
-      });
     }
 
     function handlePointerDown(event: MouseEvent) {
@@ -1023,21 +1097,35 @@ function ServiceActionsMenu({
       setIsOpen(false);
     }
 
-    positionMenu();
-    window.addEventListener("resize", positionMenu);
-    window.addEventListener("scroll", positionMenu, true);
+    const frameId = window.requestAnimationFrame(updateMenuPosition);
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
     document.addEventListener("mousedown", handlePointerDown);
 
     return () => {
-      window.removeEventListener("resize", positionMenu);
-      window.removeEventListener("scroll", positionMenu, true);
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
       document.removeEventListener("mousedown", handlePointerDown);
     };
-  }, [isOpen]);
+  }, [isOpen, service.isArchived, updateMenuPosition]);
 
   function closeAndRun(action: () => void) {
+    if (hasLoadingAction) {
+      return;
+    }
+
     setIsOpen(false);
     action();
+  }
+
+  async function runAsyncAction(action: () => Promise<void>) {
+    if (hasLoadingAction) {
+      return;
+    }
+
+    await action();
+    setIsOpen(false);
   }
 
   return (
@@ -1046,55 +1134,95 @@ function ServiceActionsMenu({
         ref={buttonRef}
         type="button"
         className="grid h-8 w-8 cursor-pointer list-none place-items-center rounded-full text-muted transition hover:bg-shell hover:text-primary [&::-webkit-details-marker]:hidden"
+        disabled={disabled && !hasLoadingAction}
         aria-label={messages.actions.openMenu}
         aria-expanded={isOpen}
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={() => {
+          updateMenuPosition();
+          setIsOpen((current) => !current);
+        }}
       >
         <FiMoreHorizontal aria-hidden="true" />
       </button>
-      {isOpen ? (
+      {isOpen && typeof document !== "undefined" ? createPortal(
         <div
           ref={menuRef}
           className="fixed z-50 grid min-w-40 overflow-hidden rounded-xl border border-subtle bg-surface p-1 text-sm shadow-lg"
           style={{ left: menuPosition.left, top: menuPosition.top }}
         >
-        <button
-          type="button"
-          className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-primary hover:bg-shell disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={!service.isVisible}
-          title={!service.isVisible ? messages.services.shareHiddenHint : messages.actions.share}
-          onClick={() => closeAndRun(onShare)}
-        >
-          <FiShare2 aria-hidden="true" />
-          {messages.actions.share}
-        </button>
-        <button
-          type="button"
-          className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-primary hover:bg-shell"
-          onClick={() => closeAndRun(onEdit)}
-        >
-          <FiEdit2 aria-hidden="true" />
-          {messages.actions.edit}
-        </button>
-        <button
-          type="button"
-          className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-primary hover:bg-shell"
-          onClick={() => closeAndRun(onDuplicate)}
-        >
-          <FiCopy aria-hidden="true" />
-          {messages.actions.duplicate}
-        </button>
-        <button
-          type="button"
-          className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-danger hover:bg-danger-soft"
-          onClick={() => closeAndRun(onDelete)}
-        >
-          <FiTrash2 aria-hidden="true" />
-          {messages.actions.delete}
-        </button>
+        {!service.isArchived ? (
+          <>
+            <button
+              type="button"
+              className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-primary hover:bg-shell disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!service.isVisible || hasLoadingAction}
+              title={!service.isVisible ? messages.services.shareHiddenHint : messages.actions.share}
+              onClick={() => closeAndRun(onShare)}
+            >
+              <FiShare2 aria-hidden="true" />
+              {messages.actions.share}
+            </button>
+            <button
+              type="button"
+              className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-primary hover:bg-shell"
+              disabled={hasLoadingAction}
+              onClick={() => closeAndRun(onEdit)}
+            >
+              <FiEdit2 aria-hidden="true" />
+              {messages.actions.edit}
+            </button>
+            <button
+              type="button"
+              className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-primary hover:bg-shell"
+              disabled={hasLoadingAction}
+              onClick={() => closeAndRun(onDuplicate)}
+            >
+              <FiCopy aria-hidden="true" />
+              {messages.actions.duplicate}
+            </button>
+            <button
+              type="button"
+              className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-danger hover:bg-danger-soft disabled:cursor-wait disabled:opacity-70"
+              disabled={hasLoadingAction}
+              onClick={() => void runAsyncAction(onArchive)}
+            >
+              <MenuActionIcon isLoading={loadingAction === "archive"} icon={<FiTrash2 aria-hidden="true" />} />
+              {messages.actions.archive}
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-primary hover:bg-shell disabled:cursor-wait disabled:opacity-70"
+            disabled={hasLoadingAction}
+            onClick={() => void runAsyncAction(onUnarchive)}
+          >
+            <MenuActionIcon isLoading={loadingAction === "unarchive"} icon={<FiEdit2 aria-hidden="true" />} />
+            {messages.actions.unarchive}
+          </button>
+        )}
+        {service.isArchived ? (
+          <button
+            type="button"
+            className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-danger hover:bg-danger-soft disabled:cursor-wait disabled:opacity-70"
+            disabled={hasLoadingAction}
+            onClick={() => void runAsyncAction(onDelete)}
+          >
+            <MenuActionIcon isLoading={loadingAction === "delete"} icon={<FiTrash2 aria-hidden="true" />} />
+            {messages.actions.delete}
+          </button>
+        ) : null}
       </div>
-      ) : null}
+      , document.body) : null}
     </div>
+  );
+}
+
+function MenuActionIcon({ isLoading, icon }: { isLoading: boolean; icon: ReactNode }) {
+  return isLoading ? (
+    <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
+  ) : (
+    <span className="grid place-items-center" aria-hidden="true">{icon}</span>
   );
 }
 
@@ -1208,7 +1336,7 @@ function VisibilitySwitch({
 }
 
 function ServiceReview({ messages, service, employees }: { messages: Messages; service: Service; employees: Employee[] }) {
-  const assignedEmployees = employees.filter((employee) => service.employeeIds.includes(employee.id));
+  const assignedEmployees = employees.filter((employee) => !employee.isArchived && service.employeeIds.includes(employee.id));
   const scheduleRangeCount = getScheduleRangeCount(service.schedule);
   const activeAddons = service.addons.filter((addon) => addon.name.trim() && addon.isActive);
 
@@ -1439,10 +1567,21 @@ function hasValidBookingNumbers(service: Service) {
 
   return (
     numericValues.every((value) => Number.isInteger(value) && value >= 0) &&
+    hasValidCancellationLeadMinutes(service.cancellationLeadMinutes) &&
     service.price > 0 &&
     service.durationMinutes > 0 &&
     service.capacity >= 1
   );
+}
+
+function normalizeServiceDraft(service: Service): Service {
+  return {
+    ...service,
+    addons: service.addons.map((addon) => ({ ...addon })),
+    cancellationLeadMinutes: normalizeCancellationLeadMinutes(service.cancellationLeadMinutes),
+    employeeIds: [...service.employeeIds],
+    schedule: structuredClone(service.schedule)
+  };
 }
 
 function getScheduleRangeCount(schedule: ServiceSchedule) {

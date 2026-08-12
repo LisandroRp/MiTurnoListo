@@ -5,7 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { FiClock, FiMapPin } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
+import { DualActionSlot } from "@/components/composed/DualActionSlot";
 import { StepProgress } from "@/components/composed/StepProgress";
+import { useDualActionVisibility } from "@/components/composed/useDualActionVisibility";
 import { AvailabilityHourList } from "@/features/booking-flow/components/AvailabilityCalendar";
 import { BookingShell } from "@/features/booking-flow/components/BookingFlow/layout/BookingShell";
 import { BookingSidebar } from "@/features/booking-flow/components/BookingFlow/layout/BookingSidebar";
@@ -160,6 +162,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   ))
     ? draft.selectedSlot
     : null;
+  const wizardActionVisibility = useDualActionVisibility();
 
   if (!isPreview && isPublicLoading) {
     return (
@@ -299,17 +302,19 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
             ) : null}
             <div className="flex flex-col h-fit self-end gap-4">
             <StepProgress steps={stepItems} currentStepIndex={currentStepIndex} onStepSelect={setCurrentStepIndex} />
-            <BookingWizardActions
-              backLabel={messages.actions.back}
-              cancelLabel={messages.actions.cancel}
-              currentStepIndex={currentStepIndex}
-              isSubmitDisabled={isPreview && currentStep === "summary"}
-              isSubmitting={isSubmitting && currentStep === "summary"}
-              submitLabel={isPreview && currentStep === "summary" ? copy.previewBlocked : actionButtonLabel}
-              onCancel={restartBookingFlow}
-              onNext={currentStep !== "summary" ? goToNextStep : () => void confirmReservation()}
-              onPrevious={goToPreviousStep}
-            />
+            <DualActionSlot ref={wizardActionVisibility.topRef} isVisible={wizardActionVisibility.showTopActions}>
+              <BookingWizardActions
+                backLabel={messages.actions.back}
+                cancelLabel={messages.actions.cancel}
+                currentStepIndex={currentStepIndex}
+                isSubmitDisabled={isPreview && currentStep === "summary"}
+                isSubmitting={isSubmitting && currentStep === "summary"}
+                submitLabel={isPreview && currentStep === "summary" ? copy.previewBlocked : actionButtonLabel}
+                onCancel={restartBookingFlow}
+                onNext={currentStep !== "summary" ? goToNextStep : () => void confirmReservation()}
+                onPrevious={goToPreviousStep}
+              />
+            </DualActionSlot>
             {validationMessage ? (
               <div className="rounded-2xl border border-danger bg-danger-soft p-4 text-sm font-semibold text-danger h-fit">
                 {validationMessage}
@@ -447,17 +452,19 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
             )}
           </div>
 
-          <BookingWizardActions
-            backLabel={messages.actions.back}
-            cancelLabel={messages.actions.cancel}
-            currentStepIndex={currentStepIndex}
-            isSubmitDisabled={isPreview && currentStep === "summary"}
-            isSubmitting={isSubmitting && currentStep === "summary"}
-            submitLabel={isPreview && currentStep === "summary" ? copy.previewBlocked : actionButtonLabel}
-            onCancel={restartBookingFlow}
-            onNext={currentStep !== "summary" ? goToNextStep : () => void confirmReservation()}
-            onPrevious={goToPreviousStep}
-          />
+          <DualActionSlot ref={wizardActionVisibility.bottomRef} isVisible={wizardActionVisibility.showBottomActions}>
+            <BookingWizardActions
+              backLabel={messages.actions.back}
+              cancelLabel={messages.actions.cancel}
+              currentStepIndex={currentStepIndex}
+              isSubmitDisabled={isPreview && currentStep === "summary"}
+              isSubmitting={isSubmitting && currentStep === "summary"}
+              submitLabel={isPreview && currentStep === "summary" ? copy.previewBlocked : actionButtonLabel}
+              onCancel={restartBookingFlow}
+              onNext={currentStep !== "summary" ? goToNextStep : () => void confirmReservation()}
+              onPrevious={goToPreviousStep}
+            />
+          </DualActionSlot>
         </>
       ) : (
         <SuccessState
@@ -505,8 +512,9 @@ function BookingPublicHeader({
             style={{ backgroundImage: `url(${logoUrl})` }}
             aria-label={businessName}
           />
-        ) : null}
-        <h1 className="mt-3 text-4xl font-bold text-primary">{businessName}</h1>
+        ) : (
+          <h1 className="mt-3 text-4xl font-bold text-primary">{businessName}</h1>
+        )}
         {address ? (
           <div className="mt-3 flex items-center justify-center gap-2 text-base font-semibold text-muted">
             <FiMapPin className="shrink-0 text-brand-strong" aria-hidden="true" />

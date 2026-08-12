@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/Card";
 
 export function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-subtle pb-3 last:border-b-0 last:pb-0">
+    <div className="flex items-center justify-between gap-3 border-b border-subtle pb-3 pt-3 last:border-b-0">
       <span className="text-muted">{label}</span>
       <span className="text-right font-semibold text-primary">{value}</span>
     </div>

@@ -12,6 +12,10 @@ import {
 import { getSupabaseBrowserClient } from "@/lib/networking/clients/supabase-browser";
 import { bootstrapWorkspace } from "@/lib/networking/endpoints/auth";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
+import {
+  shouldBootstrapWorkspaceForSession,
+  shouldShowBootstrapLoading
+} from "@/features/auth/auth-bootstrap";
 
 const passwordRecoverySessionKey = "miturnolisto_password_recovery";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -54,6 +58,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const isAuthActionInProgress = useRef(false);
   const isBootstrappingWorkspace = useRef(false);
+  const bootstrappedUserId = useRef<string | null>(null);
   const [authState, setAuthState] = useState<{ status: AuthStatus; userEmail: string | null; userId: string | null }>({
     status: "loading",
     userEmail: null,
@@ -74,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function clearAllAuthState() {
+    bootstrappedUserId.current = null;
     clearLocalAuthStorage();
     clearSupabaseSessionPersistence();
   }
@@ -146,17 +152,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const hasPasswordRecoverySession = hasRecoveryReturn || hasStoredPasswordRecoverySession;
+    const sessionUserId = session.user.id;
 
-    if (!hasPasswordRecoverySession) {
+    if (shouldBootstrapWorkspaceForSession({
+      bootstrappedUserId: bootstrappedUserId.current,
+      hasPasswordRecoverySession,
+      sessionUserId
+    })) {
       isBootstrappingWorkspace.current = true;
-      setAuthState({
-        status: "bootstrapping",
-        userEmail: session.user.email ?? null,
-        userId: session.user.id
-      });
+
+      if (shouldShowBootstrapLoading({
+        currentStatus: authState.status,
+        currentUserId: authState.userId,
+        sessionUserId
+      })) {
+        setAuthState({
+          status: "bootstrapping",
+          userEmail: session.user.email ?? null,
+          userId: sessionUserId
+        });
+      }
 
       try {
         await bootstrapWorkspace(session.access_token);
+        bootstrappedUserId.current = sessionUserId;
       } catch {
         isBootstrappingWorkspace.current = false;
         await supabase.auth.signOut({ scope: "local" });
@@ -269,6 +288,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     clearRecoverySession();
+    bootstrappedUserId.current = data.user.id;
     isBootstrappingWorkspace.current = false;
     setAuthState({
       status: "authenticated",
@@ -330,6 +350,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       clearRecoverySession();
+      bootstrappedUserId.current = data.session.user.id;
       isBootstrappingWorkspace.current = false;
       setAuthState({
         status: "authenticated",

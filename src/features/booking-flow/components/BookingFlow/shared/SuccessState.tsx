@@ -43,7 +43,7 @@ export function SuccessState({
       </div>
       <h1 className="mt-5 text-3xl font-bold text-primary">{messages.bookingFlow.successTitle}</h1>
       <p className="mt-3 text-sm leading-6 text-muted">{messages.bookingFlow.successDescription}</p>
-      <div className="mt-6 rounded-2xl border border-subtle bg-input p-5 text-left">
+      <div className="mt-6 rounded-2xl border border-subtle bg-input px-5 py-0 text-left">
         <SummaryRow label={messages.bookingFlow.summary.service} value={service.name} />
         <SummaryRow label={messages.bookingFlow.summary.employee} value={employeeName} />
         <SummaryRow

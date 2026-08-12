@@ -15,7 +15,7 @@ export function SectionHeader({ eyebrow, title, description, actions }: SectionH
         <h1 className="mt-1 text-2xl font-bold text-primary sm:text-3xl">{title}</h1>
         {description ? <p className="mt-2 text-sm leading-6 text-muted">{description}</p> : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex flex-wrap items-center gap-2 justify-end">{actions}</div> : null}
     </header>
   );
 }

@@ -30,7 +30,7 @@ export async function GET(_: NextRequest, context: RouteContext) {
   const supabase = getSupabaseAdminClient();
   const { data: service, error: serviceError } = await supabase
     .from("services")
-    .select("id, business_id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public")
+    .select("id, business_id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
     .eq("id", serviceId)
     .eq("is_active", true)
     .eq("is_public", true)
@@ -76,7 +76,7 @@ export async function GET(_: NextRequest, context: RouteContext) {
       .eq("service_id", service.id),
     supabase
       .from("employees")
-      .select("id, name, role, description, image_url, color_token")
+      .select("id, name, role, description, image_url, color_token, is_active")
       .eq("business_id", businessId)
       .eq("is_active", true)
       .order("name", { ascending: true }),
@@ -211,7 +211,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const endsAt = buildIsoInTimeZone(payload.slot.date, payload.slot.endTime, payload.timeZone);
     const { data: service, error: serviceError } = await supabase
       .from("services")
-      .select("id, business_id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public")
+      .select("id, business_id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
       .eq("id", serviceId)
       .eq("is_active", true)
       .eq("is_public", true)
@@ -248,7 +248,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .eq("service_id", service.id),
       supabase
         .from("employees")
-        .select("id, name, role, description, image_url, color_token")
+        .select("id, name, role, description, image_url, color_token, is_active")
         .eq("business_id", service.business_id)
         .eq("id", payload.employeeId)
         .eq("is_active", true)
@@ -677,7 +677,7 @@ async function enforceOneCustomerBookingSubmissionPerDay(
   if ((count ?? 0) > 0) {
     return {
       response: NextResponse.json(
-        { error: "Ya hiciste una reserva hoy. Podes volver a reservar manana." },
+        { error: "Ya hiciste una reserva hoy. Podes volver a reservar mañana." },
         { status: 409 }
       )
     };

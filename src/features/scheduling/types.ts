@@ -25,6 +25,7 @@ export type Employee = {
   imageUrl: string;
   color: string;
   initials: string;
+  isArchived: boolean;
   schedule: ServiceSchedule;
 };
 
@@ -65,6 +66,7 @@ export type Service = {
   durationMinutes: number;
   paymentMethod: PaymentMethod;
   isVisible: boolean;
+  isArchived: boolean;
   reservationLeadMinutes: number;
   cancellationLeadMinutes: number;
   schedule: ServiceSchedule;

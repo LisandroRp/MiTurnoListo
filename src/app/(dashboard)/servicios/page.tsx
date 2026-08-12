@@ -4,7 +4,7 @@ import { ServicesView } from "@/features/scheduling/components/ServicesView";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
 
 export default function ServicesSectionPage() {
-  const { messages, appointments, businessId, services, employees, paymentSettings, profile, saveService, deleteService, showToast } = useScheduling();
+  const { messages, appointments, archiveService, businessId, services, employees, paymentSettings, profile, saveService, deleteService, showToast, unarchiveService } = useScheduling();
   const isTransferConfigured = Boolean(
     paymentSettings.transfers.accountHolder.trim() &&
     paymentSettings.transfers.cbu.trim() &&
@@ -23,7 +23,9 @@ export default function ServicesSectionPage() {
       isMercadoPagoConfigured={paymentSettings.mercadoPago.isConfigured}
       isTransferConfigured={isTransferConfigured}
       onSaveService={saveService}
+      onArchiveService={archiveService}
       onDeleteService={deleteService}
+      onUnarchiveService={unarchiveService}
       onValidationWarning={() => showToast({ tone: "warning", title: messages.toast.formWarning })}
       onImageUploadError={(message) => showToast({ tone: "error", title: messages.toast.invalidImage, description: message })}
       onShareSuccess={() => showToast({ tone: "success", title: messages.toast.serviceLinkCopied })}

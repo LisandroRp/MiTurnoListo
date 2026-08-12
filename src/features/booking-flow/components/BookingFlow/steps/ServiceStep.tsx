@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { SelectField } from "@/components/ui/SelectField";
 import { MetricPill } from "@/features/booking-flow/components/BookingFlow/shared/bookingFlowPrimitives";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { Service } from "@/features/scheduling/types";
@@ -34,23 +35,20 @@ export function ServiceStep({
       <div className="rounded-2xl border border-subtle bg-input p-4 text-sm font-semibold text-muted">
         {messages.bookingFlow.cancellationPolicy.replace("{time}", formatLeadTime(service.cancellationLeadMinutes))}
       </div>
-      <div className="grid gap-2">
-        <label className="text-sm font-semibold text-primary" htmlFor="party-size">
-          {messages.bookingFlow.partySize}
-        </label>
-        <select
-          id="party-size"
-          value={selectedPartySize}
-          onChange={(event) => onPartySizeChange(Number(event.target.value))}
-          className="h-11 cursor-pointer rounded-xl border border-subtle bg-input px-3 text-sm text-primary outline-none focus:border-brand focus:ring-2 focus:ring-focus"
-        >
-          {Array.from({ length: maxPeople }, (_, index) => index + 1).map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-      </div>
+      <SelectField
+        id="party-size"
+        label={messages.bookingFlow.partySize}
+        value={String(selectedPartySize)}
+        onChange={(event) => onPartySizeChange(Number(event.target.value))}
+        options={Array.from({ length: maxPeople }, (_, index) => {
+          const value = String(index + 1);
+
+          return {
+            value,
+            label: value
+          };
+        })}
+      />
     </Card>
   );
 }

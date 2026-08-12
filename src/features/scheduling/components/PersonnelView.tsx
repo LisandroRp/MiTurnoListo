@@ -4,6 +4,8 @@ import { FiArrowLeft, FiArrowRight, FiCheck, FiEdit2, FiMoreHorizontal, FiPlus, 
 import { PlanLimitModal } from "@/components/composed/PlanLimitModal";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { StepProgress } from "@/components/composed/StepProgress";
+import { DualActionSlot } from "@/components/composed/DualActionSlot";
+import { useDualActionVisibility } from "@/components/composed/useDualActionVisibility";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ImageUploadField } from "@/components/ui/ImageUploadField";
@@ -27,14 +29,17 @@ type PersonnelViewProps = {
   referenceDate: string;
   subscriptionTier: SubscriptionTier;
   onSaveEmployee: (employee: Employee) => Promise<boolean>;
+  onArchiveEmployee: (employeeId: string) => Promise<boolean>;
   onDeleteEmployee: (employeeId: string) => Promise<boolean>;
+  onUnarchiveEmployee: (employeeId: string) => Promise<boolean>;
   onValidationWarning: () => void;
   onImageUploadError: (message: string) => void;
 };
 
 type PersonnelMode = "grid" | "form";
 type PersonnelWizardStep = "details" | "schedule" | "review";
-type PersonnelFilter = "all" | "active";
+type PersonnelFilter = "all" | "active" | "archived";
+type EmployeeMenuAction = "archive" | "delete" | "unarchive";
 
 const personnelWizardStepOrder: PersonnelWizardStep[] = ["details", "schedule", "review"];
 const visibleServiceBadgeLimit = 3;
@@ -57,7 +62,9 @@ export function PersonnelView({
   referenceDate,
   subscriptionTier,
   onSaveEmployee,
+  onArchiveEmployee,
   onDeleteEmployee,
+  onUnarchiveEmployee,
   onValidationWarning,
   onImageUploadError
 }: PersonnelViewProps) {
@@ -72,6 +79,7 @@ export function PersonnelView({
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [personnelFilter, setPersonnelFilter] = useState<PersonnelFilter>("all");
   const [lockedEmployee, setLockedEmployee] = useState<Employee | null>(null);
+  const [pendingMenuAction, setPendingMenuAction] = useState<{ employeeId: string; action: EmployeeMenuAction } | null>(null);
 
   const currentStep = personnelWizardStepOrder[currentStepIndex] ?? "details";
   const stepItems = personnelWizardStepOrder.map((step) => ({
@@ -80,16 +88,22 @@ export function PersonnelView({
   }));
   const unlockedEmployeeIds = new Set(
     isFreePlan(subscriptionTier)
-      ? employees.slice(0, freePlanLimits.activeEmployees).map((employee) => employee.id)
-      : employees.map((employee) => employee.id)
+      ? employees.filter((employee) => !employee.isArchived).slice(0, freePlanLimits.activeEmployees).map((employee) => employee.id)
+      : employees.filter((employee) => !employee.isArchived).map((employee) => employee.id)
   );
   const todayKey = getDayKeyForDate(referenceDate);
+  const wizardActionVisibility = useDualActionVisibility();
   const filteredEmployees = employees.filter((employee) => {
     const matchesSearch = employee.name.toLowerCase().includes(debouncedSearchTerm.trim().toLowerCase());
-    const matchesFilter = personnelFilter === "all" || hasAnySchedule(employee);
+    const matchesFilter =
+      personnelFilter === "all"
+        ? !employee.isArchived
+        : personnelFilter === "archived"
+          ? employee.isArchived
+          : !employee.isArchived && hasAnySchedule(employee);
 
     return matchesSearch && matchesFilter;
-  });
+  }).sort((left, right) => Number(left.isArchived) - Number(right.isArchived) || left.name.localeCompare(right.name));
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -231,6 +245,20 @@ export function PersonnelView({
     }
   }
 
+  async function runEmployeeMenuAction(employeeId: string, action: EmployeeMenuAction, callback: () => Promise<boolean>) {
+    if (pendingMenuAction) {
+      return;
+    }
+
+    setPendingMenuAction({ employeeId, action });
+
+    try {
+      await callback();
+    } finally {
+      setPendingMenuAction(null);
+    }
+  }
+
   if (mode === "form") {
     return (
       <div className="grid gap-6">
@@ -245,16 +273,18 @@ export function PersonnelView({
 
         <StepProgress steps={stepItems} currentStepIndex={currentStepIndex} onStepSelect={goToStep} />
 
-        <WizardActions
-          className="flex"
-          currentStep={currentStep}
-          currentStepIndex={currentStepIndex}
-          messages={messages}
-          onCancel={returnToGrid}
-          onPrevious={goToPreviousStep}
-          onNext={goToNextStep}
-          onSubmit={submitForm}
-        />
+        <DualActionSlot ref={wizardActionVisibility.topRef} isVisible={wizardActionVisibility.showTopActions}>
+          <WizardActions
+            className="flex"
+            currentStep={currentStep}
+            currentStepIndex={currentStepIndex}
+            messages={messages}
+            onCancel={returnToGrid}
+            onPrevious={goToPreviousStep}
+            onNext={goToNextStep}
+            onSubmit={submitForm}
+          />
+        </DualActionSlot>
 
         {validationMessage ? (
           <div className="rounded-lg border border-danger bg-danger-soft p-4 text-sm font-semibold text-danger">
@@ -306,16 +336,18 @@ export function PersonnelView({
           ) : null}
         </div>
 
-        <WizardActions
-          className="flex"
-          currentStep={currentStep}
-          currentStepIndex={currentStepIndex}
-          messages={messages}
-          onCancel={returnToGrid}
-          onPrevious={goToPreviousStep}
-          onNext={goToNextStep}
-          onSubmit={submitForm}
-        />
+        <DualActionSlot ref={wizardActionVisibility.bottomRef} isVisible={wizardActionVisibility.showBottomActions}>
+          <WizardActions
+            className="flex"
+            currentStep={currentStep}
+            currentStepIndex={currentStepIndex}
+            messages={messages}
+            onCancel={returnToGrid}
+            onPrevious={goToPreviousStep}
+            onNext={goToNextStep}
+            onSubmit={submitForm}
+          />
+        </DualActionSlot>
       </div>
     );
   }
@@ -365,12 +397,23 @@ export function PersonnelView({
           >
             {messages.personnel.activeFilter}
           </button>
+          <button
+            type="button"
+            className={cx(
+              "cursor-pointer rounded-lg px-4 py-2 text-sm font-bold transition-colors",
+              personnelFilter === "archived" ? "bg-brand text-on-brand" : "text-muted hover:bg-surface-strong hover:text-primary"
+            )}
+            onClick={() => setPersonnelFilter("archived")}
+          >
+            {messages.personnel.archivedFilter}
+          </button>
         </div>
       </div>
 
       <section className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
         {filteredEmployees.length > 0 ? filteredEmployees.map((employee) => {
-          const isLockedByPlan = isFreePlan(subscriptionTier) && !unlockedEmployeeIds.has(employee.id);
+          const isArchived = employee.isArchived;
+          const isLockedByPlan = !isArchived && isFreePlan(subscriptionTier) && !unlockedEmployeeIds.has(employee.id);
           const employeeServices = services.filter((service) => service.employeeIds.includes(employee.id));
           const todayRanges = employee.schedule[todayKey] ?? [];
           const todayAppointments = appointments.filter((appointment) => (
@@ -385,6 +428,7 @@ export function PersonnelView({
             key={employee.id}
             className={cx(
               "relative flex h-full min-h-[22rem] w-full flex-col transition duration-200 hover:-translate-y-1 hover:scale-[1.01] hover:border-brand hover:shadow-lg",
+              isArchived && "bg-shell/70 opacity-60 grayscale",
               isLockedByPlan && "hover:translate-y-0 hover:scale-100"
             )}
           >
@@ -398,13 +442,17 @@ export function PersonnelView({
                   </div>
                 </div>
                 <div className="flex shrink-0 items-start gap-2">
-                  <span className="rounded-full bg-brand px-3 py-1 text-xs font-bold text-on-brand">
-                    {messages.personnel.active}
+                  <span className={cx("rounded-full px-3 py-1 text-xs font-bold", isArchived ? "bg-muted text-on-brand" : "bg-brand text-on-brand")}>
+                    {isArchived ? messages.personnel.archived : messages.personnel.active}
                   </span>
                   <EmployeeActionsMenu
-                    disabled={isLockedByPlan}
+                    disabled={isLockedByPlan || pendingMenuAction !== null}
+                    employee={employee}
+                    loadingAction={pendingMenuAction?.employeeId === employee.id ? pendingMenuAction.action : null}
                     messages={messages}
-                    onDelete={() => void onDeleteEmployee(employee.id)}
+                    onArchive={() => runEmployeeMenuAction(employee.id, "archive", () => onArchiveEmployee(employee.id))}
+                    onDelete={() => runEmployeeMenuAction(employee.id, "delete", () => onDeleteEmployee(employee.id))}
+                    onUnarchive={() => runEmployeeMenuAction(employee.id, "unarchive", () => onUnarchiveEmployee(employee.id))}
                   />
                 </div>
               </div>
@@ -419,7 +467,7 @@ export function PersonnelView({
 
               <div className="mt-auto grid justify-items-center gap-3 pt-2">
                 <WeekdayPills employee={employee} messages={messages} />
-                <Button className="w-full" variant="secondary" size="sm" icon={<FiEdit2 />} disabled={isLockedByPlan} onClick={() => startEdit(employee)}>
+                <Button className="w-full" variant="secondary" size="sm" icon={<FiEdit2 />} disabled={isLockedByPlan || isArchived} onClick={() => startEdit(employee)}>
                   {messages.personnel.editProfile}
                 </Button>
               </div>
@@ -471,15 +519,38 @@ function EmployeeAvatar({ employee }: { employee: Employee }) {
 
 function EmployeeActionsMenu({
   disabled,
+  employee,
+  loadingAction,
   messages,
+  onArchive,
+  onUnarchive,
   onDelete
 }: {
   disabled: boolean;
+  employee: Employee;
+  loadingAction: EmployeeMenuAction | null;
   messages: Messages;
-  onDelete: () => void;
+  onArchive: () => Promise<void>;
+  onUnarchive: () => Promise<void>;
+  onDelete: () => Promise<void>;
 }) {
+  const detailsRef = useRef<HTMLDetailsElement | null>(null);
+  const hasLoadingAction = loadingAction !== null;
+
+  async function runAction(action: () => Promise<void>) {
+    if (hasLoadingAction) {
+      return;
+    }
+
+    await action();
+
+    if (detailsRef.current) {
+      detailsRef.current.open = false;
+    }
+  }
+
   return (
-    <details className="group relative">
+    <details ref={detailsRef} className="group relative">
       <summary
         className={cx(
           "grid h-8 w-8 cursor-pointer list-none place-items-center rounded-full text-muted transition hover:bg-surface-strong hover:text-primary [&::-webkit-details-marker]:hidden",
@@ -490,16 +561,48 @@ function EmployeeActionsMenu({
         <FiMoreHorizontal aria-hidden="true" />
       </summary>
       <div className="absolute right-0 top-9 z-20 grid min-w-36 overflow-hidden rounded-xl border border-subtle bg-surface p-1 text-sm shadow-lg">
-        <button
-          type="button"
-          className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-danger hover:bg-danger-soft"
-          onClick={onDelete}
-        >
-          <FiTrash2 aria-hidden="true" />
-          {messages.actions.delete}
-        </button>
+        {!employee.isArchived ? (
+          <button
+            type="button"
+            className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-danger hover:bg-danger-soft disabled:cursor-wait disabled:opacity-70"
+            disabled={hasLoadingAction}
+            onClick={() => void runAction(onArchive)}
+          >
+            <EmployeeMenuActionIcon isLoading={loadingAction === "archive"} icon={<FiTrash2 aria-hidden="true" />} />
+            {messages.actions.archive}
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-primary hover:bg-shell disabled:cursor-wait disabled:opacity-70"
+              disabled={hasLoadingAction}
+              onClick={() => void runAction(onUnarchive)}
+            >
+              <EmployeeMenuActionIcon isLoading={loadingAction === "unarchive"} icon={<FiEdit2 aria-hidden="true" />} />
+              {messages.actions.unarchive}
+            </button>
+            <button
+              type="button"
+              className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-danger hover:bg-danger-soft disabled:cursor-wait disabled:opacity-70"
+              disabled={hasLoadingAction}
+              onClick={() => void runAction(onDelete)}
+            >
+              <EmployeeMenuActionIcon isLoading={loadingAction === "delete"} icon={<FiTrash2 aria-hidden="true" />} />
+              {messages.actions.delete}
+            </button>
+          </>
+        )}
       </div>
     </details>
+  );
+}
+
+function EmployeeMenuActionIcon({ isLoading, icon }: { isLoading: boolean; icon: ReactNode }) {
+  return isLoading ? (
+    <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
+  ) : (
+    <span className="grid place-items-center" aria-hidden="true">{icon}</span>
   );
 }
 

@@ -88,7 +88,7 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
         <CustomerMetricCard label={messages.customers.estimatedRevenue} value={formatCurrency(estimatedRevenue)} isLoading={isLoading} />
       </div>
 
-      <label className="relative block max-w-xl">
+      <label className="relative block xl:max-w-xl">
         <FiSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
         <span className="sr-only">{messages.actions.search}</span>
         <input

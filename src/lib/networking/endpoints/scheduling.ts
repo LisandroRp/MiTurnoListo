@@ -1,6 +1,7 @@
 "use client";
 
 import { BusinessPaymentSettings, BusinessProfile, Locale, ThemeId } from "@/features/scheduling/types";
+import { minimumCancellationLeadMinutes } from "@/features/scheduling/service-cancellation-policy";
 import { getSupabaseBrowserClient } from "@/lib/networking/clients/supabase-browser";
 import {
   buildDashboardMetrics,
@@ -89,18 +90,18 @@ export async function loadSchedulingSnapshot() {
       .single(),
     supabase
       .from("employees")
-      .select("id, name, role, description, image_url, color_token")
+      .select("id, name, role, description, image_url, color_token, is_active")
       .eq("business_id", businessId)
-      .eq("is_active", true)
+      .order("is_active", { ascending: false })
       .order("name", { ascending: true }),
     supabase
       .from("employee_weekly_availability")
       .select("id, employee_id, weekday, start_time, end_time"),
     supabase
       .from("services")
-      .select("id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public")
+      .select("id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
       .eq("business_id", businessId)
-      .eq("is_active", true)
+      .order("is_active", { ascending: false })
       .order("name", { ascending: true }),
     supabase
       .from("service_employees")
@@ -216,16 +217,28 @@ export async function saveEmployee(businessId: string, employee: EmployeeInput) 
   });
 }
 
-export async function deleteEmployee(employeeId: string) {
-  const supabase = getSupabaseBrowserClient();
-  const { error } = await supabase
-    .from("employees")
-    .delete()
-    .eq("id", employeeId);
+export async function archiveEmployee(businessId: string, employeeId: string) {
+  await runSchedulingMutation({
+    action: "archiveEmployee",
+    businessId,
+    employeeId
+  });
+}
 
-  if (error) {
-    throw new Error("Unable to delete the employee.");
-  }
+export async function unarchiveEmployee(businessId: string, employeeId: string) {
+  await runSchedulingMutation({
+    action: "unarchiveEmployee",
+    businessId,
+    employeeId
+  });
+}
+
+export async function deleteEmployee(businessId: string, employeeId: string) {
+  await runSchedulingMutation({
+    action: "deleteEmployee",
+    businessId,
+    employeeId
+  });
 }
 
 export async function saveService(businessId: string, service: ServiceInput) {
@@ -236,16 +249,28 @@ export async function saveService(businessId: string, service: ServiceInput) {
   });
 }
 
-export async function deleteService(serviceId: string) {
-  const supabase = getSupabaseBrowserClient();
-  const { error } = await supabase
-    .from("services")
-    .delete()
-    .eq("id", serviceId);
+export async function archiveService(businessId: string, serviceId: string) {
+  await runSchedulingMutation({
+    action: "archiveService",
+    businessId,
+    serviceId
+  });
+}
 
-  if (error) {
-    throw new Error("Unable to delete the service.");
-  }
+export async function unarchiveService(businessId: string, serviceId: string) {
+  await runSchedulingMutation({
+    action: "unarchiveService",
+    businessId,
+    serviceId
+  });
+}
+
+export async function deleteService(businessId: string, serviceId: string) {
+  await runSchedulingMutation({
+    action: "deleteService",
+    businessId,
+    serviceId
+  });
 }
 
 export async function deleteAppointment(businessId: string, appointmentId: string) {
@@ -397,6 +422,7 @@ export function createNewEmployeeDraft() {
     imageUrl: "",
     color: "employee-coral",
     initials: "NA",
+    isArchived: false,
     schedule: createEmptySchedule()
   };
 }
@@ -413,8 +439,9 @@ export function createNewServiceDraft() {
     durationMinutes: 0,
     paymentMethod: "cash" as const,
     isVisible: true,
+    isArchived: false,
     reservationLeadMinutes: 0,
-    cancellationLeadMinutes: 0,
+    cancellationLeadMinutes: minimumCancellationLeadMinutes,
     schedule: createEmptySchedule(),
     employeeIds: [],
     addons: []

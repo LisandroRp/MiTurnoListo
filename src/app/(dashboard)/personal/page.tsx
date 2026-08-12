@@ -4,7 +4,7 @@ import { PersonnelView } from "@/features/scheduling/components/PersonnelView";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
 
 export default function PersonnelSectionPage() {
-  const { appointments, businessId, employees, focusedDate, messages, profile, saveEmployee, deleteEmployee, services, showToast } = useScheduling();
+  const { appointments, archiveEmployee, businessId, employees, focusedDate, messages, profile, saveEmployee, deleteEmployee, services, showToast, unarchiveEmployee } = useScheduling();
 
   return (
     <PersonnelView
@@ -16,7 +16,9 @@ export default function PersonnelSectionPage() {
       referenceDate={focusedDate}
       subscriptionTier={profile.subscriptionTier}
       onSaveEmployee={saveEmployee}
+      onArchiveEmployee={archiveEmployee}
       onDeleteEmployee={deleteEmployee}
+      onUnarchiveEmployee={unarchiveEmployee}
       onValidationWarning={() => showToast({ tone: "warning", title: messages.toast.formWarning })}
       onImageUploadError={(message) => showToast({ tone: "error", title: messages.toast.invalidImage, description: message })}
     />

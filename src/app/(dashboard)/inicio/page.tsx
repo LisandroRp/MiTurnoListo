@@ -4,7 +4,17 @@ import { DashboardView } from "@/features/scheduling/components/DashboardView";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
 
 export default function HomeSectionPage() {
-  const { messages, dashboardMetrics, employees, services, appointments, focusedDate } = useScheduling();
+  const {
+    appointments,
+    dashboardMetrics,
+    deleteAppointment,
+    employees,
+    focusedDate,
+    markAppointmentPaid,
+    messages,
+    rescheduleAppointment,
+    services
+  } = useScheduling();
 
   return (
     <DashboardView
@@ -14,6 +24,9 @@ export default function HomeSectionPage() {
       services={services}
       appointments={appointments}
       referenceDate={focusedDate}
+      onDeleteAppointment={deleteAppointment}
+      onMarkAppointmentPaid={markAppointmentPaid}
+      onRescheduleAppointment={rescheduleAppointment}
     />
   );
 }

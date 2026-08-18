@@ -18,7 +18,7 @@ import { SelectField } from "@/components/ui/SelectField";
 import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
-import { AvailabilityEditor, dayKeys } from "@/features/scheduling/components/AvailabilityEditor";
+import { AvailabilityEditor, dayKeys, getScheduleValidationMessage, maxRangesPerDay } from "@/features/scheduling/components/AvailabilityEditor";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, isFreePlan } from "@/features/scheduling/plan-limits";
@@ -100,6 +100,9 @@ export function ServicesView({
       ? services.filter((service) => !service.isArchived && service.isVisible).slice(0, freePlanLimits.visibleServices).map((service) => service.id)
       : services.filter((service) => !service.isArchived).map((service) => service.id)
   );
+  const assignableEmployeeIds = new Set(
+    employees.filter((employee) => !employee.isArchived && employee.isVisible).map((employee) => employee.id)
+  );
 
   const currentStep = serviceWizardStepOrder[currentStepIndex] ?? "details";
   const stepItems = serviceWizardStepOrder.map((step) => ({
@@ -132,7 +135,10 @@ export function ServicesView({
   }
 
   function startEdit(service: Service) {
-    setDraft(normalizeServiceDraft(service));
+    setDraft(normalizeServiceDraft({
+      ...service,
+      employeeIds: service.employeeIds.filter((employeeId) => assignableEmployeeIds.has(employeeId))
+    }));
     setEditingId(service.id);
     setCurrentStepIndex(0);
     setPendingServiceImageFile(null);
@@ -152,6 +158,7 @@ export function ServicesView({
       })),
       schedule: structuredClone(service.schedule),
       employeeIds: [...service.employeeIds]
+        .filter((employeeId) => assignableEmployeeIds.has(employeeId))
     }));
     setEditingId(null);
     setCurrentStepIndex(0);
@@ -301,7 +308,9 @@ export function ServicesView({
       ...current,
       schedule: {
         ...current.schedule,
-        [day]: [...current.schedule[day], range]
+        [day]: current.schedule[day].length >= maxRangesPerDay
+          ? current.schedule[day]
+          : [...current.schedule[day], range]
       }
     }));
   }
@@ -395,7 +404,10 @@ export function ServicesView({
             })
           }
         : draft;
-      const didSave = await onSaveService(normalizeServiceDraft(serviceToSave));
+      const didSave = await onSaveService(normalizeServiceDraft({
+        ...serviceToSave,
+        employeeIds: serviceToSave.employeeIds.filter((employeeId) => assignableEmployeeIds.has(employeeId))
+      }));
 
       if (didSave) {
         setMode("grid");
@@ -517,9 +529,9 @@ export function ServicesView({
 
           {currentStep === "staff" ? (
             <FormSection title={messages.services.staffSection} description={messages.services.staffSectionHint}>
-            {employees.filter((employee) => !employee.isArchived).length > 0 ? (
+            {employees.filter((employee) => !employee.isArchived && employee.isVisible).length > 0 ? (
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {employees.filter((employee) => !employee.isArchived).map((employee) => {
+                {employees.filter((employee) => !employee.isArchived && employee.isVisible).map((employee) => {
                   const isSelected = draft.employeeIds.includes(employee.id);
 
                   return (
@@ -643,7 +655,7 @@ export function ServicesView({
                 {filteredServices.map((service) => {
                   const isArchived = service.isArchived;
                   const isLockedByPlan = !isArchived && isFreePlan(subscriptionTier) && service.isVisible && !unlockedVisibleServiceIds.has(service.id);
-                  const serviceEmployees = employees.filter((employee) => service.employeeIds.includes(employee.id));
+                  const serviceEmployees = employees.filter((employee) => !employee.isArchived && service.employeeIds.includes(employee.id));
                   const monthBookings = countServiceAppointmentsForMonth(service.id, appointments, monthRange);
 
                   return (
@@ -1308,7 +1320,7 @@ function VisibilitySwitch({
       aria-busy={isLoading}
       onClick={onToggle}
       className={cx(
-        "inline-flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-full border px-2.5 text-xs font-bold transition-all",
+        "inline-flex h-6 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-2 text-[0.68rem] font-bold transition-all",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
         "disabled:cursor-not-allowed disabled:opacity-55",
         isVisible ? "border-success bg-success-soft text-success" : "border-subtle bg-input text-muted",
@@ -1317,18 +1329,18 @@ function VisibilitySwitch({
     >
       <span
         className={cx(
-          "relative h-4 w-8 rounded-full transition-colors",
+          "relative h-3.5 w-7 rounded-full transition-colors",
           isVisible ? "bg-success" : "bg-muted"
         )}
       >
         <span
           className={cx(
-            "absolute top-0.5 h-3 w-3 rounded-full bg-surface transition-transform",
-            isVisible ? "-translate-x-3.5" : "translate-x-0.5"
+            "absolute top-0.5 h-2.5 w-2.5 rounded-full bg-surface transition-transform",
+            isVisible ? "-translate-x-3" : "translate-x-0.5"
           )}
         />
       </span>
-      <span className="min-w-12 text-left">
+      <span className="min-w-10 text-left">
         {isLoading ? messages.services.savingVisibility : isVisible ? messages.services.visible : messages.services.hidden}
       </span>
     </button>
@@ -1336,7 +1348,7 @@ function VisibilitySwitch({
 }
 
 function ServiceReview({ messages, service, employees }: { messages: Messages; service: Service; employees: Employee[] }) {
-  const assignedEmployees = employees.filter((employee) => !employee.isArchived && service.employeeIds.includes(employee.id));
+  const assignedEmployees = employees.filter((employee) => !employee.isArchived && employee.isVisible && service.employeeIds.includes(employee.id));
   const scheduleRangeCount = getScheduleRangeCount(service.schedule);
   const activeAddons = service.addons.filter((addon) => addon.name.trim() && addon.isActive);
 
@@ -1530,6 +1542,10 @@ function getServiceStepValidationMessage(
 
   if (step === "schedule" && getScheduleRangeCount(service.schedule) === 0) {
     return messages.services.validation.schedule;
+  }
+
+  if (step === "schedule") {
+    return getScheduleValidationMessage(service.schedule, messages);
   }
 
   return null;

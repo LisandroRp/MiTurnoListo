@@ -40,10 +40,71 @@ const ctaPrimary = "inline-flex h-10 cursor-pointer items-center justify-center 
 const ctaSecondary = "inline-flex h-10 cursor-pointer items-center justify-center rounded-lg border border-subtle bg-surface px-4 text-sm font-semibold text-primary transition-colors hover:bg-surface-strong";
 const ctaLarge = "h-12 px-5 text-base";
 const landingCardHover = "transition-all duration-200 hover:-translate-y-1 hover:shadow-lg";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.miturnolisto.com";
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${siteUrl}/#organization`,
+      name: "MiTurnoListo",
+      url: siteUrl,
+      logo: `${siteUrl}/branding/logo.png`,
+      contactPoint: [
+        {
+          "@type": "ContactPoint",
+          contactType: "customer support",
+          email: process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "contacto@miturnolisto.com",
+          availableLanguage: ["es"]
+        }
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
+      name: "MiTurnoListo",
+      url: siteUrl,
+      inLanguage: "es-AR",
+      publisher: {
+        "@id": `${siteUrl}/#organization`
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${siteUrl}/#software`,
+      name: "MiTurnoListo",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      url: siteUrl,
+      description: "App para gestionar turnos online, agenda, empleados, servicios, pagos y reservas en negocios de servicios.",
+      offers: [
+        {
+          "@type": "Offer",
+          name: "Gratis",
+          price: "0",
+          priceCurrency: "ARS"
+        },
+        {
+          "@type": "Offer",
+          name: "Premium",
+          price: "25000",
+          priceCurrency: "ARS"
+        }
+      ],
+      publisher: {
+        "@id": `${siteUrl}/#organization`
+      }
+    }
+  ]
+};
 
 export function PublicLanding() {
   return (
     <main className="min-h-screen bg-page text-primary">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <header className="sticky top-0 z-30 border-b border-subtle bg-sidebar/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="block">

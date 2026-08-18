@@ -76,9 +76,10 @@ export async function GET(_: NextRequest, context: RouteContext) {
       .eq("service_id", service.id),
     supabase
       .from("employees")
-      .select("id, name, role, description, image_url, color_token, is_active")
+      .select("id, name, role, description, image_url, color_token, is_public, is_active")
       .eq("business_id", businessId)
       .eq("is_active", true)
+      .eq("is_public", true)
       .order("name", { ascending: true }),
     supabase
       .from("employee_weekly_availability")
@@ -131,6 +132,11 @@ export async function GET(_: NextRequest, context: RouteContext) {
     (employeesResult.data ?? []).filter((employee) => assignedEmployeeIds.includes(employee.id)),
     (employeeAvailabilityResult.data ?? []).filter((row) => assignedEmployeeIds.includes(row.employee_id))
   );
+
+  if (employees.length === 0) {
+    return NextResponse.json({ error: "SERVICE_UNAVAILABLE" }, { status: 404 });
+  }
+
   const serviceModel = mapServices(
     [service],
     serviceEmployeesResult.data ?? [],
@@ -248,10 +254,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .eq("service_id", service.id),
       supabase
         .from("employees")
-        .select("id, name, role, description, image_url, color_token, is_active")
+        .select("id, name, role, description, image_url, color_token, is_public, is_active")
         .eq("business_id", service.business_id)
         .eq("id", payload.employeeId)
         .eq("is_active", true)
+        .eq("is_public", true)
         .limit(1)
         .maybeSingle(),
       supabase
@@ -379,7 +386,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const selectedAddonIds = new Set((payload.addonIds ?? []).filter((addonId) => typeof addonId === "string"));
     const selectedAddons = serviceModel.addons.filter((addon) => selectedAddonIds.has(addon.id));
     const addonsAmount = selectedAddons.reduce((total, addon) => total + addon.price, 0);
-    const totalAmount = service.price_amount + addonsAmount;
+    const depositAmount = service.deposit_amount * payload.partySize;
+    const totalAmount = (service.price_amount * payload.partySize) + addonsAmount;
 
     if (payload.paymentMethod === "card") {
       const accessToken = paymentSettingsResult.data?.mercadopago_access_token?.trim();
@@ -388,7 +396,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ error: "Mercado Pago is not configured for this business." }, { status: 409 });
       }
 
-      const checkoutAmount = service.deposit_amount > 0 ? service.deposit_amount : totalAmount;
+      const checkoutAmount = depositAmount > 0 ? depositAmount : totalAmount;
       const preference = await createMercadoPagoPreference({
         accessToken,
         amount: checkoutAmount,
@@ -418,7 +426,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           party_size: payload.partySize,
           unit_price_amount: service.price_amount,
           total_amount: totalAmount,
-          deposit_amount: service.deposit_amount,
+          deposit_amount: depositAmount,
           selected_payment_method: payload.paymentMethod,
           customer_name_snapshot: customer.fullName,
           customer_email_snapshot: customer.email,
@@ -459,7 +467,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         party_size: payload.partySize,
         unit_price_amount: service.price_amount,
         total_amount: totalAmount,
-        deposit_amount: service.deposit_amount,
+        deposit_amount: depositAmount,
         selected_payment_method: payload.paymentMethod,
         customer_name_snapshot: customer.fullName,
         customer_email_snapshot: customer.email,

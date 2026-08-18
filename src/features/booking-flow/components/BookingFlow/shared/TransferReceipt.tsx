@@ -16,10 +16,10 @@ export function TransferPaymentRow({
   onCopy?: () => void;
 }) {
   return (
-    <div className="grid gap-2 rounded-xl border border-subtle bg-surface p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+    <div className="grid gap-2 rounded-lg border border-subtle bg-surface px-3 py-2 sm:grid-cols-[1fr_auto] sm:items-center">
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase text-muted">{label}</p>
-        <p className="mt-1 break-all text-base font-bold text-primary">{value}</p>
+        <p className="text-[0.68rem] font-semibold uppercase text-muted">{label}</p>
+        <p className="mt-0.5 break-all text-sm font-bold text-primary">{value}</p>
       </div>
       {onCopy ? (
         <Button variant="secondary" size="sm" icon={<FiCopy />} onClick={onCopy} disabled={!value}>
@@ -40,17 +40,17 @@ export function ReceiptWhatsappNotice({
   onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   return (
-    <div className="rounded-xl border border-subtle bg-surface p-3 leading-6 text-muted">
+    <div className="rounded-lg border border-subtle bg-surface px-3 py-2 leading-5 text-muted">
       <a
         href={href}
         target="_blank"
         rel="noreferrer"
         onClick={onClick}
-        className="font-bold !text-brand-hover underline underline-offset-4"
+        className="font-bold !text-brand-hover underline-offset-3 hover:!underline"
       >
         {messages.bookingFlow.transferReceiptWhatsappAction}
       </a>
-      <p className="mt-1 text-sm">{messages.bookingFlow.transferReceiptWhatsappHint}</p>
+      <p className="mt-1 text-xs">{messages.bookingFlow.transferReceiptWhatsappHint}</p>
     </div>
   );
 }

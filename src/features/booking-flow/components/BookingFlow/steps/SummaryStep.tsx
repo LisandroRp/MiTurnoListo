@@ -54,7 +54,7 @@ export function SummaryStep({
         />
         <SummaryRow label={messages.bookingFlow.summary.customer} value={draft.customer.fullName || "-"} />
         <SummaryRow label={messages.bookingFlow.summary.attendees} value={String(draft.partySize)} />
-        <SummaryRow label={messages.bookingFlow.summary.deposit} value={formatCurrency(service.deposit)} />
+        <SummaryRow label={messages.bookingFlow.summary.deposit} value={formatCurrency(service.deposit * draft.partySize)} />
         <SummaryRow label={messages.bookingFlow.summary.total} value={formatCurrency(total)} />
       </Card>
       <Card className="border-brand bg-brand-soft">

@@ -13,6 +13,7 @@ import {
   FiX
 } from "react-icons/fi";
 
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
@@ -72,14 +73,17 @@ export function CalendarView({
   onMarkAppointmentPaid,
   onRescheduleAppointment
 }: CalendarViewProps) {
-  const visibleEmployees = employees.filter((employee) => selectedEmployeeIds.includes(employee.id));
-  const filteredEmployeeOptions = employees.filter((employee) =>
+  const selectableEmployees = employees.filter((employee) => !employee.isArchived);
+  const selectableEmployeeIds = new Set(selectableEmployees.map((employee) => employee.id));
+  const visibleEmployees = selectableEmployees.filter((employee) => selectedEmployeeIds.includes(employee.id));
+  const filteredEmployeeOptions = selectableEmployees.filter((employee) =>
     employee.name.toLowerCase().includes(employeeQuery.toLowerCase())
   );
   const safeFocusedDate = getSafeFocusedDate(focusedDate);
   const activeAppointments = appointments.filter((appointment) => appointment.status !== "cancelled");
   const visibleAppointments = appointments.filter((appointment) => (
     appointment.status !== "cancelled" &&
+    selectableEmployeeIds.has(appointment.employeeId) &&
     selectedEmployeeIds.includes(appointment.employeeId)
   ));
   const monthlyAppointmentUsage = getMonthlyAppointmentUsage(appointments);
@@ -294,7 +298,7 @@ function EmployeeDropdown({
             prefix={<FiSearch />}
           />
 
-          <div className="grid max-h-72 gap-2 overflow-y-auto">
+          <div className="grid max-h-72 gap-2 overflow-y-auto py-2">
             {employees.map((employee) => {
               const isSelected = selectedEmployeeIds.includes(employee.id);
 
@@ -306,7 +310,7 @@ function EmployeeDropdown({
                   className={cx(
                     "flex cursor-pointer items-center justify-between rounded-lg border p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-sm",
                     appointmentToneClasses[employee.color],
-                    isSelected ? "ring-2 ring-brand/25" : "opacity-80"
+                    isSelected ? "ring-2 ring-brand/25" : "border-subtle bg-shell opacity-60 grayscale hover:bg-shell"
                   )}
                 >
                   <span className="min-w-0">
@@ -314,7 +318,7 @@ function EmployeeDropdown({
                     <span className="block truncate text-xs text-muted">{employee.role}</span>
                   </span>
                   <span className="text-xs font-semibold text-muted">
-                    {isSelected ? messages.calendar.enabled : messages.calendar.disabled}
+                    <span>{employee.isVisible ? messages.services.visible : messages.services.hidden}</span>
                   </span>
                 </button>
               );
@@ -514,6 +518,7 @@ type AppointmentCardProps = {
   service?: Service;
   serviceName?: string;
   employeeName?: string;
+  variant?: "calendar" | "dashboardRow";
   employees: Employee[];
   appointments: Appointment[];
   onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
@@ -521,13 +526,14 @@ type AppointmentCardProps = {
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
 };
 
-function AppointmentCard({
+export function AppointmentCard({
   messages,
   appointment,
   employee,
   service,
   serviceName,
   employeeName,
+  variant = "calendar",
   employees,
   appointments,
   onDeleteAppointment,
@@ -624,30 +630,50 @@ function AppointmentCard({
     setRescheduleEmployeeId(currentEmployeeIsAvailable ? rescheduleEmployeeId : nextEmployees[0]?.id ?? "");
   }
 
+  const trigger = variant === "dashboardRow" ? (
+    <button
+      type="button"
+      onClick={() => setIsOpen(true)}
+      className="grid w-full cursor-pointer grid-cols-[1.2fr_1fr_1fr_0.9fr_0.8fr] items-center gap-3 rounded-lg border border-subtle bg-surface px-3 py-1.5 text-left text-sm shadow-sm transition-colors hover:bg-brand-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+    >
+      <span className="truncate font-semibold text-primary">{appointment.customerName}</span>
+      <span className="truncate text-muted">{serviceName}</span>
+      <span className="truncate text-muted">{employeeName}</span>
+      <span className="whitespace-nowrap text-muted">{appointment.startTime} - {appointment.endTime}</span>
+      <span>
+        <Badge tone={appointment.status === "confirmed" ? "success" : appointment.status === "pending" ? "warning" : "danger"}>
+          {messages.statuses[appointment.status]}
+        </Badge>
+      </span>
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setIsOpen(true)}
+      className={cx(
+        "w-full cursor-pointer rounded-lg border p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:bg-brand-soft hover:shadow-md",
+        appointmentToneClass
+      )}
+    >
+      <p className="truncate text-sm font-bold text-primary">{appointment.customerName}</p>
+      <p className="mt-1 text-xs text-muted">
+        {[serviceName, employeeName].filter(Boolean).join(" - ")}
+      </p>
+      <p className="mt-3 text-xs font-semibold text-brand-strong">
+        {appointment.startTime} - {appointment.endTime}
+      </p>
+      <span className={cx(
+        "mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-bold",
+        paymentState === "paid" ? "bg-success-soft text-success" : "bg-warning-soft text-warning"
+      )}>
+        {paymentState === "paid" ? messages.calendar.paymentPaid : messages.calendar.paymentPending}
+      </span>
+    </button>
+  );
+
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className={cx(
-          "w-full cursor-pointer rounded-lg border p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-md",
-          appointmentToneClass
-        )}
-      >
-        <p className="truncate text-sm font-bold text-primary">{appointment.customerName}</p>
-        <p className="mt-1 text-xs text-muted">
-          {[serviceName, employeeName].filter(Boolean).join(" - ")}
-        </p>
-        <p className="mt-3 text-xs font-semibold text-brand-strong">
-          {appointment.startTime} - {appointment.endTime}
-        </p>
-        <span className={cx(
-          "mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-bold",
-          paymentState === "paid" ? "bg-success-soft text-success" : "bg-warning-soft text-warning"
-        )}>
-          {paymentState === "paid" ? messages.calendar.paymentPaid : messages.calendar.paymentPending}
-        </span>
-      </button>
+      {trigger}
 
       <Modal isOpen={isOpen} className="max-h-[calc(100vh-2rem)] overflow-y-auto">
         <div className="flex items-start justify-between gap-4">
@@ -799,7 +825,7 @@ function getRescheduleEmployees(
   const activeAppointments = appointments.filter((item) => item.id !== appointment.id);
 
   return employees.filter((employee) => {
-    if (!service.employeeIds.includes(employee.id)) {
+    if (employee.isArchived || !employee.isVisible || !service.employeeIds.includes(employee.id)) {
       return false;
     }
 

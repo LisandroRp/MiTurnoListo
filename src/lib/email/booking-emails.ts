@@ -451,7 +451,7 @@ function buildCancellationUrl(token: string) {
 }
 
 function getPublicSiteUrl() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || process.env.APP_PUBLIC_URL?.trim();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
 
   if (siteUrl) {
     return siteUrl.replace(/\/+$/, "");

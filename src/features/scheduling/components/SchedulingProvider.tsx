@@ -37,6 +37,7 @@ import {
   startProSubscription as startProSubscriptionRequest,
   unarchiveEmployee as unarchiveEmployeeRequest,
   unarchiveService as unarchiveServiceRequest,
+  updateEmployeeVisibility as updateEmployeeVisibilityRequest,
   updateSchedulingPreferences,
 } from "@/lib/networking/endpoints/scheduling";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
@@ -84,7 +85,7 @@ type SchedulingContextValue = {
   theme: ThemeId;
   toggleEmployee: (employeeId: string) => void;
   toasts: ToastMessage[];
-  createAppointment: (appointment: Appointment) => Promise<boolean>;
+  createAppointment: (appointment: Appointment, addonIds?: string[]) => Promise<boolean>;
   deleteAppointment: (appointmentId: string) => Promise<boolean>;
   markAppointmentPaid: (appointmentId: string) => Promise<boolean>;
   rescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean>;
@@ -94,6 +95,7 @@ type SchedulingContextValue = {
   deleteService: (serviceId: string) => Promise<boolean>;
   unarchiveEmployee: (employeeId: string) => Promise<boolean>;
   unarchiveService: (serviceId: string) => Promise<boolean>;
+  updateEmployeeVisibility: (employeeId: string, isVisible: boolean) => Promise<boolean>;
 };
 
 const SchedulingContext = createContext<SchedulingContextValue | null>(null);
@@ -353,6 +355,18 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  async function updateEmployeeVisibility(employeeId: string, isVisible: boolean) {
+    if (!businessId) {
+      return false;
+    }
+
+    return runMutation(
+      () => updateEmployeeVisibilityRequest(businessId, employeeId, isVisible),
+      copy.toast.employeeVisibilityUpdated,
+      "Unable to update the employee visibility."
+    );
+  }
+
   async function savePaymentSettings(settings: BusinessPaymentSettings) {
     if (!businessId) {
       return false;
@@ -510,7 +524,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function createAppointment(appointment: Appointment) {
+  async function createAppointment(appointment: Appointment, addonIds: string[] = []) {
     if (!businessId) {
       return false;
     }
@@ -527,7 +541,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     }
 
     return runMutation(
-      () => createDashboardAppointment({ appointment, businessId, service }),
+      () => createDashboardAppointment({ addonIds, appointment, businessId, service }),
       copy.bookingFlow.reservationCreated,
       "Unable to create the appointment."
     );
@@ -677,7 +691,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         deleteEmployee,
         deleteService,
         unarchiveEmployee,
-        unarchiveService
+        unarchiveService,
+        updateEmployeeVisibility
       }}
     >
       {children}

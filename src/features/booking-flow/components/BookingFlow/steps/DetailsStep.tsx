@@ -54,26 +54,35 @@ export function DetailsStep({
   return (
     <div className="grid gap-4">
       <Card className="grid gap-5">
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="divide-y divide-subtle overflow-hidden rounded-2xl border border-subtle bg-input">
           {availablePaymentOptions.map((option) => (
             <button
               key={option}
               type="button"
               onClick={() => onPaymentOptionChange(option)}
               className={cx(
-                "cursor-pointer rounded-2xl border p-4 text-left transition-all",
-                selectedPaymentOption === option ? "border-brand bg-brand-soft text-brand-strong" : "border-subtle bg-input hover:-translate-y-0.5 hover:shadow-sm"
+                "group flex min-h-11 w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-brand-soft",
+                selectedPaymentOption === option && "bg-brand-soft"
               )}
             >
-              <p className="text-sm font-bold text-primary">{messages.bookingFlow.paymentOptions[option]}</p>
+              <span
+                className={cx(
+                  "grid h-4 w-4 shrink-0 place-items-center rounded-full border transition-colors group-hover:border-on-brand",
+                  selectedPaymentOption === option ? "border-brand-strong" : "border-muted"
+                )}
+                aria-hidden="true"
+              >
+                {selectedPaymentOption === option ? <span className="h-2 w-2 rounded-full bg-brand-strong transition-colors group-hover:bg-on-brand" /> : null}
+              </span>
+              <span className="text-sm font-bold leading-snug text-primary transition-colors group-hover:text-on-brand">{messages.bookingFlow.paymentOptions[option]}</span>
             </button>
           ))}
         </div>
 
         {selectedPaymentOption === "transfer" ? (
-          <div className="rounded-2xl border border-brand bg-brand-soft p-4 shadow-sm">
-            <h3 className="text-base font-bold text-primary">{messages.bookingFlow.businessPaymentInfo}</h3>
-            <div className="mt-3 grid gap-3 text-sm">
+          <div className="rounded-xl border border-brand bg-brand-soft p-3 shadow-sm">
+            <h3 className="text-sm font-bold text-primary">{messages.bookingFlow.businessPaymentInfo}</h3>
+            <div className="mt-2 grid gap-2 text-sm">
               <TransferPaymentRow
                 label={messages.adminPaymentMethods.accountHolder}
                 value={paymentSettingsText.accountHolder}

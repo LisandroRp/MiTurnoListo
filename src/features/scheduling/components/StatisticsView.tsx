@@ -42,12 +42,17 @@ const periodIds: PeriodId[] = ["today", "yesterday", "thisWeek", "lastWeek", "th
 export function StatisticsView({ appointments, employees, isLocked = false, services, messages, referenceDate }: StatisticsViewProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodId>("thisMonth");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("all");
-  const selectedEmployee = employees.find((employee) => employee.id === selectedEmployeeId);
+  const activeServices = services.filter((service) => !service.isArchived);
+  const activeServiceIds = new Set(activeServices.map((service) => service.id));
+  const selectableEmployees = employees.filter((employee) => !employee.isArchived);
+  const selectedEmployee = selectableEmployees.find((employee) => employee.id === selectedEmployeeId);
   const filteredAppointments = appointments.filter((appointment) => (
     matchesPeriod(appointment.date, selectedPeriod, referenceDate) &&
     (selectedEmployeeId === "all" || appointment.employeeId === selectedEmployeeId)
   ));
+  const activeServiceAppointments = filteredAppointments.filter((appointment) => activeServiceIds.has(appointment.serviceId));
   const latestAppointments = filteredAppointments
+    .filter((appointment) => activeServiceIds.has(appointment.serviceId))
     .slice()
     .sort((left, right) => `${right.date}${right.startTime}`.localeCompare(`${left.date}${left.startTime}`));
   const confirmedAppointments = filteredAppointments.filter((appointment) => appointment.status === "confirmed");
@@ -113,9 +118,9 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
     }
   ];
 
-  const topServices = services
+  const topServices = activeServices
     .map((service) => {
-      const serviceAppointments = filteredAppointments.filter((appointment) => appointment.serviceId === service.id);
+      const serviceAppointments = activeServiceAppointments.filter((appointment) => appointment.serviceId === service.id);
       const bookings = serviceAppointments.length;
       const revenue = serviceAppointments
         .filter((appointment) => appointment.status !== "cancelled")
@@ -229,7 +234,7 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
               onChange={(event) => setSelectedEmployeeId(event.target.value)}
               options={[
                 { value: "all", label: messages.statistics.allEmployees },
-                ...employees.map((employee) => ({
+                ...selectableEmployees.map((employee) => ({
                   value: employee.id,
                   label: employee.name
                 }))

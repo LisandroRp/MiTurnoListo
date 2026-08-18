@@ -1,6 +1,11 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { SectionHeader } from "@/components/composed/SectionHeader";
+import { AppointmentCard } from "@/features/scheduling/components/CalendarView";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Appointment, DashboardMetric, Employee, Service } from "@/features/scheduling/types";
 import { Messages } from "@/features/scheduling/i18n/messages";
@@ -14,10 +19,36 @@ type DashboardViewProps = {
   services: Service[];
   appointments: Appointment[];
   referenceDate: string;
+  onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
+  onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
+  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
 };
 
-export function DashboardView({ messages, metrics, employees, services, appointments, referenceDate }: DashboardViewProps) {
-  const todaysAppointments = appointments.filter((appointment) => appointment.date === referenceDate);
+export function DashboardView({
+  messages,
+  metrics,
+  employees,
+  services,
+  appointments,
+  referenceDate,
+  onDeleteAppointment,
+  onMarkAppointmentPaid,
+  onRescheduleAppointment
+}: DashboardViewProps) {
+  const activeServiceIds = new Set(services.filter((service) => !service.isArchived).map((service) => service.id));
+  const todaysAppointments = appointments.filter((appointment) => appointment.date === referenceDate && activeServiceIds.has(appointment.serviceId));
+  const activeTodaysAppointments = todaysAppointments.filter((appointment) => appointment.status !== "cancelled");
+  const todaysAppointmentEmployeeIds = new Set(activeTodaysAppointments.map((appointment) => appointment.employeeId));
+  const todayKey = getDayKeyForDate(referenceDate);
+  const employeesWorkingToday = employees.filter((employee) => (
+    !employee.isArchived &&
+    ((employee.schedule[todayKey] ?? []).length > 0 || todaysAppointmentEmployeeIds.has(employee.id))
+  ));
+  const dayAppointments = [
+    ...todaysAppointments,
+    ...createDemoDayAppointments(referenceDate, services, employees)
+  ].sort((left, right) => left.startTime.localeCompare(right.startTime));
+  const currentTimePosition = getCurrentTimePosition(referenceDate);
 
   return (
     <div className="flex min-h-[calc(100vh-2.5rem)] flex-col gap-6">
@@ -48,48 +79,25 @@ export function DashboardView({ messages, metrics, employees, services, appointm
 
       <section className="grid flex-1 items-stretch gap-6 xl:grid-cols-[1.5fr_1fr]">
         <Card className="flex min-h-[28rem] flex-col overflow-hidden p-0">
-          <div className="border-b border-subtle pb-5">
-            <h2 className="text-lg font-bold text-primary">{messages.home.latestAppointments}</h2>
+          <div className="border-b border-subtle p-5">
+            <h2 className="text-lg font-bold text-primary">{messages.home.todayAgenda}</h2>
           </div>
-          <div className="flex-1 overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse text-sm">
-              <thead className="bg-surface-strong text-left text-muted">
-                <tr>
-                  <th className="px-5 py-3 font-semibold">{messages.home.customer}</th>
-                  <th className="px-5 py-3 font-semibold">{messages.home.service}</th>
-                  <th className="px-5 py-3 font-semibold">{messages.home.employee}</th>
-                  <th className="px-5 py-3 font-semibold">{messages.home.time}</th>
-                  <th className="px-5 py-3 font-semibold">{messages.home.status}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-subtle">
-                {todaysAppointments.map((appointment) => {
-                  const service = services.find((item) => item.id === appointment.serviceId);
-                  const employee = employees.find((item) => item.id === appointment.employeeId);
-
-                  return (
-                    <tr key={appointment.id}>
-                      <td className="px-5 py-4 font-semibold text-primary">{appointment.customerName}</td>
-                      <td className="px-5 py-4 text-muted">{service?.name}</td>
-                      <td className="px-5 py-4 text-muted">{employee?.name}</td>
-                      <td className="px-5 py-4 text-muted">{appointment.startTime} - {appointment.endTime}</td>
-                      <td className="px-5 py-4">
-                        <Badge tone={appointment.status === "confirmed" ? "success" : appointment.status === "pending" ? "warning" : "danger"}>
-                          {messages.statuses[appointment.status]}
-                        </Badge>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <DayAgenda
+            appointments={dayAppointments}
+            currentTimePosition={currentTimePosition}
+            employees={employees}
+            messages={messages}
+            services={services}
+            onDeleteAppointment={onDeleteAppointment}
+            onMarkAppointmentPaid={onMarkAppointmentPaid}
+            onRescheduleAppointment={onRescheduleAppointment}
+          />
         </Card>
 
         <Card className="flex min-h-[28rem] flex-col">
           <h2 className="text-lg font-bold text-primary">{messages.home.teamToday}</h2>
           <div className="mt-4 grid content-start gap-3">
-            {employees.map((employee) => (
+            {employeesWorkingToday.map((employee) => (
               <div key={employee.id} className="flex items-center gap-3 rounded-lg border border-subtle bg-input p-3">
                 <span className={cx("grid h-10 w-10 place-items-center rounded-full text-sm font-bold text-on-brand", employeeColorClasses[employee.color])}>
                   {employee.initials}
@@ -105,6 +113,204 @@ export function DashboardView({ messages, metrics, employees, services, appointm
       </section>
     </div>
   );
+}
+
+function DayAgenda({
+  appointments,
+  currentTimePosition,
+  employees,
+  messages,
+  services,
+  onDeleteAppointment,
+  onMarkAppointmentPaid,
+  onRescheduleAppointment
+}: {
+  appointments: Appointment[];
+  currentTimePosition: number | null;
+  employees: Employee[];
+  messages: Messages;
+  services: Service[];
+  onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
+  onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
+  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
+}) {
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (currentTimePosition === null || !scrollContainerRef.current) {
+      return;
+    }
+
+    const container = scrollContainerRef.current;
+    const lineOffset = container.scrollHeight * (currentTimePosition / 100);
+    container.scrollTop = Math.max(lineOffset - container.clientHeight / 2, 0);
+  }, [currentTimePosition]);
+
+  function safelyDeleteAppointment(appointmentId: string) {
+    if (appointmentId.startsWith("dashboard-demo-")) {
+      return;
+    }
+
+    return onDeleteAppointment(appointmentId);
+  }
+
+  function safelyMarkAppointmentPaid(appointmentId: string) {
+    if (appointmentId.startsWith("dashboard-demo-")) {
+      return;
+    }
+
+    return onMarkAppointmentPaid(appointmentId);
+  }
+
+  function safelyRescheduleAppointment(appointmentId: string, date: string, employeeId: string) {
+    if (appointmentId.startsWith("dashboard-demo-")) {
+      return;
+    }
+
+    return onRescheduleAppointment(appointmentId, date, employeeId);
+  }
+
+  return (
+    <div ref={scrollContainerRef} className="h-[34rem] overflow-auto">
+      <div className="min-w-[760px]">
+        <div className="sticky top-0 z-10 grid grid-cols-[4.5rem_1.2fr_1fr_1fr_0.9fr_0.8fr] border-b border-subtle bg-surface-strong px-4 py-3 text-xs font-bold uppercase tracking-[0.04em] text-muted">
+          <span>{messages.home.time}</span>
+          <span>{messages.home.customer}</span>
+          <span>{messages.home.service}</span>
+          <span>{messages.home.employee}</span>
+          <span>{messages.home.time}</span>
+          <span>{messages.home.status}</span>
+        </div>
+        <div className="relative h-[144rem]">
+          {currentTimePosition !== null ? (
+            <div
+              className="pointer-events-none absolute left-0 right-0 flex w-full items-center"
+              style={{ top: `${currentTimePosition}%` }}
+            >
+              <span className="h-2 w-2 rounded-full bg-danger" />
+              <span className="h-px flex-1 bg-danger" />
+            </div>
+          ) : null}
+          {Array.from({ length: 24 }, (_, hour) => {
+            const hourAppointments = appointments.filter((appointment) => Number(appointment.startTime.slice(0, 2)) === hour);
+
+            return (
+              <div key={hour} className="grid h-24 grid-cols-[4.5rem_1fr] border-b border-subtle last:border-b-0">
+                <div className="bg-input px-4 py-3 text-sm font-semibold text-muted">
+                  {String(hour).padStart(2, "0")}:00
+                </div>
+                <div className="grid max-h-24 content-start gap-1.5 overflow-y-auto px-4 py-2">
+                  {hourAppointments.map((appointment) => {
+                    const service = services.find((item) => item.id === appointment.serviceId);
+                    const employee = employees.find((item) => item.id === appointment.employeeId);
+
+                    return (
+                      <AppointmentCard
+                        key={appointment.id}
+                        appointment={appointment}
+                        appointments={appointments}
+                        employee={employee}
+                        employeeName={employee?.name ?? "-"}
+                        employees={employees}
+                        messages={messages}
+                        service={service}
+                        serviceName={service?.name ?? "-"}
+                        variant="dashboardRow"
+                        onDeleteAppointment={safelyDeleteAppointment}
+                        onMarkAppointmentPaid={safelyMarkAppointmentPaid}
+                        onRescheduleAppointment={safelyRescheduleAppointment}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function createDemoDayAppointments(referenceDate: string, services: Service[], employees: Employee[]): Appointment[] {
+  const demoCustomers = [
+    "Sofia Alvarez",
+    "Mateo Ruiz",
+    "Valentina Castro",
+    "Lucia Torres",
+    "Tomas Herrera",
+    "Camila Diaz",
+    "Juan Martin",
+    "Martina Rojas",
+    "Nicolas Vega",
+    "Florencia Silva"
+  ];
+  const demoTimes = [
+    ["08:00", "08:45"],
+    ["09:00", "09:30"],
+    ["09:15", "09:55"],
+    ["09:30", "10:15"],
+    ["09:45", "10:30"],
+    ["10:00", "10:50"],
+    ["11:00", "11:40"],
+    ["11:10", "11:45"],
+    ["11:25", "12:00"],
+    ["13:00", "13:45"],
+    ["15:00", "15:30"],
+    ["15:15", "16:00"],
+    ["15:30", "16:15"],
+    ["15:45", "16:30"],
+    ["16:00", "16:45"],
+    ["17:00", "17:40"],
+    ["18:00", "18:50"],
+    ["20:00", "20:40"]
+  ];
+
+  return demoTimes.map(([startTime, endTime], index) => ({
+    customerEmail: `demo-${index}@example.com`,
+    customerName: demoCustomers[index] ?? "Cliente demo",
+    customerPhone: "+54 11 5555 0000",
+    date: referenceDate,
+    endTime,
+    employeeId: employees[index % Math.max(employees.length, 1)]?.id ?? "demo-employee",
+    id: `dashboard-demo-${referenceDate}-${index}`,
+    partySize: index % 3 === 0 ? 2 : 1,
+    paymentMethod: index % 4 === 0 ? "transfer" : "cash",
+    revenue: services[index % Math.max(services.length, 1)]?.price ?? 0,
+    serviceId: services[index % Math.max(services.length, 1)]?.id ?? "demo-service",
+    startTime,
+    status: index % 4 === 0 ? "pending" : "confirmed"
+  }));
+}
+
+function getCurrentTimePosition(referenceDate: string) {
+  if (referenceDate !== getTodayDateValue()) {
+    return null;
+  }
+
+  const now = new Date();
+  const minutes = now.getHours() * 60 + now.getMinutes();
+
+  return (minutes / (24 * 60)) * 100;
+}
+
+function getTodayDateValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getDayKeyForDate(date: string) {
+  const weekday = new Date(`${date}T00:00:00`).getDay();
+  const dayByWeekday: Record<number, keyof Employee["schedule"]> = {
+    0: "sunday",
+    1: "monday",
+    2: "tuesday",
+    3: "wednesday",
+    4: "thursday",
+    5: "friday",
+    6: "saturday"
+  };
+
+  return dayByWeekday[weekday] ?? "monday";
 }
 
 function formatMetricTrend(metric: DashboardMetric, messages: Messages) {

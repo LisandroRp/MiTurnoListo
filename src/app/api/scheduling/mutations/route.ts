@@ -35,12 +35,19 @@ type SchedulingMutationPayload =
       employeeId: string;
     }
   | {
+      action: "updateEmployeeVisibility";
+      businessId: string;
+      employeeId: string;
+      isVisible: boolean;
+    }
+  | {
       action: "archiveService" | "unarchiveService" | "deleteService";
       businessId: string;
       serviceId: string;
     }
   | {
       action: "createAppointment";
+      addonIds?: string[];
       businessId: string;
       appointment: Appointment;
       service: Service;
@@ -119,6 +126,10 @@ export async function POST(request: NextRequest) {
       await archiveEmployee(supabase, payload.businessId, payload.employeeId);
     }
 
+    if (payload.action === "updateEmployeeVisibility") {
+      await updateEmployeeVisibility(supabase, payload.businessId, payload.employeeId, payload.isVisible);
+    }
+
     if (payload.action === "unarchiveEmployee") {
       await setEmployeeArchived(supabase, payload.businessId, payload.employeeId, false);
     }
@@ -129,7 +140,7 @@ export async function POST(request: NextRequest) {
 
     if (payload.action === "createAppointment") {
       await enforceMonthlyAppointmentLimit(supabase, payload.businessId, contextResult.context);
-      await createAppointment(supabase, payload.businessId, payload.appointment, payload.service, payload.timeZone);
+      await createAppointment(supabase, payload.businessId, payload.appointment, payload.service, payload.timeZone, payload.addonIds ?? []);
     }
 
     if (payload.action === "cancelAppointment") {
@@ -419,12 +430,28 @@ async function archiveEmployee(supabase: SupabaseClient, businessId: string, emp
 async function setEmployeeArchived(supabase: SupabaseClient, businessId: string, employeeId: string, isArchived: boolean) {
   const { error } = await supabase
     .from("employees")
-    .update({ is_active: !isArchived })
+    .update({
+      is_active: !isArchived,
+      ...(isArchived ? { is_public: false } : {})
+    })
     .eq("business_id", businessId)
     .eq("id", employeeId);
 
   if (error) {
     throw new Error("Unable to update the employee archive state.");
+  }
+}
+
+async function updateEmployeeVisibility(supabase: SupabaseClient, businessId: string, employeeId: string, isVisible: boolean) {
+  const { error } = await supabase
+    .from("employees")
+    .update({ is_public: isVisible })
+    .eq("business_id", businessId)
+    .eq("id", employeeId)
+    .eq("is_active", true);
+
+  if (error) {
+    throw new Error("Unable to update the employee visibility.");
   }
 }
 
@@ -524,6 +551,7 @@ async function saveEmployee(supabase: SupabaseClient, businessId: string, employ
       description: employee.description,
       image_url: employee.imageUrl || null,
       color_token: employee.color,
+      is_public: employee.isVisible,
       is_active: true
     });
 
@@ -660,8 +688,10 @@ async function createAppointment(
   businessId: string,
   appointment: Appointment,
   service: Service,
-  timeZone: string
+  timeZone: string,
+  addonIds: string[]
 ) {
+  const appointmentId = appointment.id || crypto.randomUUID();
   const startsAt = buildIsoInTimeZone(appointment.date, appointment.startTime, timeZone);
   const endsAt = buildIsoInTimeZone(appointment.date, appointment.endTime, timeZone);
   const customerId = await upsertCustomer(supabase, businessId, {
@@ -669,10 +699,16 @@ async function createAppointment(
     fullName: appointment.customerName,
     phone: appointment.customerPhone
   }, startsAt);
+  const selectedAddonIds = new Set(addonIds);
+  const selectedAddons = service.addons.filter((addon) => selectedAddonIds.has(addon.id) && addon.isActive && addon.name.trim());
+  const addonsAmount = selectedAddons.reduce((total, addon) => total + addon.price, 0);
+  const totalAmount = (service.price * appointment.partySize) + addonsAmount;
+  const depositAmount = service.deposit * appointment.partySize;
 
   const { error } = await supabase
     .from("appointments")
     .insert({
+      id: appointmentId,
       business_id: businessId,
       customer_id: customerId,
       service_id: appointment.serviceId,
@@ -683,8 +719,8 @@ async function createAppointment(
       ends_at: endsAt,
       party_size: appointment.partySize,
       unit_price_amount: service.price,
-      total_amount: appointment.revenue,
-      deposit_amount: service.deposit,
+      total_amount: totalAmount,
+      deposit_amount: depositAmount,
       selected_payment_method: appointment.paymentMethod === "mixed" ? "cash" : appointment.paymentMethod,
       customer_name_snapshot: appointment.customerName,
       customer_email_snapshot: appointment.customerEmail || null,
@@ -693,6 +729,21 @@ async function createAppointment(
 
   if (error) {
     throw new Error("Unable to create the appointment.");
+  }
+
+  if (selectedAddons.length > 0) {
+    const { error: addonsError } = await supabase
+      .from("appointment_addons")
+      .insert(selectedAddons.map((addon) => ({
+        appointment_id: appointmentId,
+        service_addon_id: addon.id,
+        name_snapshot: addon.name,
+        price_amount_snapshot: addon.price
+      })));
+
+    if (addonsError) {
+      throw new Error("Unable to save appointment add-ons.");
+    }
   }
 }
 
@@ -823,7 +874,7 @@ async function rescheduleAppointment(
       .eq("service_id", appointment.service_id),
     supabase
       .from("employees")
-      .select("id, name, role, description, image_url, color_token, is_active")
+      .select("id, name, role, description, image_url, color_token, is_public, is_active")
       .eq("id", employeeId)
       .eq("business_id", businessId)
       .eq("is_active", true)

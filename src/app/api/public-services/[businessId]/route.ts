@@ -49,6 +49,51 @@ export async function GET(_: Request, context: RouteContext) {
     });
   }
 
+  const publicServices = servicesResult.data ?? [];
+  const publicServiceIds = publicServices.map((service) => service.id);
+  let reservableServiceIds = new Set<string>();
+
+  if (publicServiceIds.length > 0) {
+    const serviceEmployeesResult = await supabase
+      .from("service_employees")
+      .select("service_id, employee_id")
+      .in("service_id", publicServiceIds);
+
+    if (serviceEmployeesResult.error) {
+      return createApiErrorResponse(serviceEmployeesResult.error, {
+        code: "PUBLIC_SERVICES_LOAD_FAILED",
+        fallbackMessage: "Unable to load public services.",
+        status: 500
+      });
+    }
+
+    const assignedEmployeeIds = Array.from(new Set((serviceEmployeesResult.data ?? []).map((row) => row.employee_id)));
+    const employeesResult = assignedEmployeeIds.length > 0
+      ? await supabase
+          .from("employees")
+          .select("id")
+          .eq("business_id", businessId)
+          .eq("is_active", true)
+          .eq("is_public", true)
+          .in("id", assignedEmployeeIds)
+      : null;
+
+    if (employeesResult?.error) {
+      return createApiErrorResponse(employeesResult.error, {
+        code: "PUBLIC_SERVICES_LOAD_FAILED",
+        fallbackMessage: "Unable to load public services.",
+        status: 500
+      });
+    }
+
+    const reservableEmployeeIds = new Set((employeesResult?.data ?? []).map((employee) => employee.id));
+    reservableServiceIds = new Set(
+      (serviceEmployeesResult.data ?? [])
+        .filter((row) => reservableEmployeeIds.has(row.employee_id))
+        .map((row) => row.service_id)
+    );
+  }
+
   return NextResponse.json({
     address: businessResult.data.address ?? "",
     businessName: businessResult.data.name,
@@ -56,7 +101,7 @@ export async function GET(_: Request, context: RouteContext) {
     publicDescription: businessResult.data.public_description ?? "",
     publicLogoUrl: normalizeStoredImageUrl(businessResult.data.public_logo_url),
     publicOpeningHours: businessResult.data.public_opening_hours ?? "",
-    services: (servicesResult.data ?? []).map((service) => ({
+    services: publicServices.filter((service) => reservableServiceIds.has(service.id)).map((service) => ({
       capacity: service.capacity,
       deposit: service.deposit_amount,
       description: service.description ?? "",

@@ -262,6 +262,10 @@ export const messages = {
         booking: "Carga precio, duracion en minutos y capacidad. La anticipacion para cancelar debe ser de al menos 1 dia.",
         paymentMethod: "Configura el metodo de pago seleccionado antes de usarlo en el servicio.",
         schedule: "Agrega al menos una franja horaria para continuar.",
+        maxScheduleRanges: "Podes cargar hasta 3 franjas por dia.",
+        invalidScheduleRange: "La hora de fin debe ser posterior a la hora de inicio.",
+        duplicateScheduleRange: "No puede haber dos franjas iguales en el mismo dia.",
+        overlappingScheduleRange: "No puede haber franjas superpuestas en el mismo dia.",
         staff: "Selecciona al menos una persona para tomar este servicio."
       }
     },
@@ -310,7 +314,12 @@ export const messages = {
         review: "Revision"
       },
       validation: {
-        details: "Carga nombre y rol para continuar."
+        details: "Carga nombre y rol para continuar.",
+        schedule: "Agrega al menos una franja horaria para continuar.",
+        maxScheduleRanges: "Podes cargar hasta 3 franjas por dia.",
+        invalidScheduleRange: "La hora de fin debe ser posterior a la hora de inicio.",
+        duplicateScheduleRange: "No puede haber dos franjas iguales en el mismo dia.",
+        overlappingScheduleRange: "No puede haber franjas superpuestas en el mismo dia."
       }
     },
     customers: {
@@ -502,17 +511,18 @@ export const messages = {
       paymentDataDisclaimer: "Estos datos se guardan en la base y se usan en el flujo publico de reservas."
     },
     bookingPreview: {
-      eyebrow: "Vista previa",
+      eyebrow: "Reserva asistida",
       title: "Nueva reserva",
-      description: "Simula el flujo publico de reserva para revisar como lo ve un cliente.",
-      serviceLabel: "Servicio a previsualizar",
-      selectTitle: "Elegi un servicio para previsualizar",
+      description: "Usa el flujo publico desde el admin para registrar turnos con el cliente presente.",
+      serviceLabel: "Servicio a reservar",
+      selectTitle: "Elegi un servicio para reservar",
       changeService: "Cambiar servicio",
-      disclaimer: "Esta vista es una previsualizacion dentro del admin. No confirma reservas reales."
+      disclaimer: "Esta reserva se guarda en el calendario del negocio."
     },
     bookingFlow: {
       serviceNotFound: "Este servicio no existe o no esta disponible.",
-      hiddenService: "Este servicio no esta visible para reservas online.",
+      hiddenService: "Este servicio no esta disponible.",
+      serviceUnavailable: "Este servicio no esta disponible.",
       loadingTitle: "Preparando tu reserva",
       loadingDescription: "Estamos cargando disponibilidad, profesionales y medios de pago.",
       loadErrorTitle: "No pudimos cargar esta reserva",
@@ -569,9 +579,9 @@ export const messages = {
       reservationCreated: "Reserva confirmada",
       successTitle: "Turno reservado",
       successDescription: "Tu reserva quedo registrada. Te recomendamos guardar este detalle y enviar el comprobante si corresponde.",
-      previewTitle: "Vista previa del flujo",
-      previewDescription: "Estas viendo el flujo publico embebido dentro del admin. Puedes recorrerlo, pero no confirmar la reserva.",
-      previewBlocked: "La confirmacion esta desactivada en esta vista previa del admin.",
+      previewTitle: "Reserva asistida",
+      previewDescription: "Estas usando el flujo publico embebido dentro del admin para registrar una reserva real.",
+      previewBlocked: "La confirmacion esta disponible desde esta vista del admin.",
       summary: {
         service: "Servicio",
         addons: "Extras",
@@ -615,6 +625,7 @@ export const messages = {
       employeeArchived: "Personal archivado",
       employeeDeleted: "Personal eliminado",
       employeeUnarchived: "Personal desarchivado",
+      employeeVisibilityUpdated: "Visibilidad del personal actualizada",
       serviceLinkCopied: "Link del servicio copiado",
       serviceLinkCopyFailed: "No pudimos copiar el link",
       freeMonthlyLimitTitle: "Limite Free alcanzado",
@@ -912,6 +923,10 @@ export const messages = {
         booking: "Add price, duration in minutes and capacity. Cancellation lead time must be at least 1 day.",
         paymentMethod: "Configure the selected payment method before using it in the service.",
         schedule: "Add at least one available time range to continue.",
+        maxScheduleRanges: "You can add up to 3 ranges per day.",
+        invalidScheduleRange: "End time must be after start time.",
+        duplicateScheduleRange: "A day cannot have two identical ranges.",
+        overlappingScheduleRange: "A day cannot have overlapping ranges.",
         staff: "Select at least one person who can take this service."
       }
     },
@@ -960,7 +975,12 @@ export const messages = {
         review: "Review"
       },
       validation: {
-        details: "Add a name and role to continue."
+        details: "Add a name and role to continue.",
+        schedule: "Add at least one available time range to continue.",
+        maxScheduleRanges: "You can add up to 3 ranges per day.",
+        invalidScheduleRange: "End time must be after start time.",
+        duplicateScheduleRange: "A day cannot have two identical ranges.",
+        overlappingScheduleRange: "A day cannot have overlapping ranges."
       }
     },
     customers: {
@@ -1152,17 +1172,18 @@ export const messages = {
       paymentDataDisclaimer: "This data is stored in the database and used in the public booking flow."
     },
     bookingPreview: {
-      eyebrow: "Preview",
+      eyebrow: "Assisted booking",
       title: "New booking",
-      description: "Simulate the public booking flow to review how customers will see it.",
-      serviceLabel: "Service to preview",
-      selectTitle: "Choose a service to preview",
+      description: "Use the public flow from the admin to register appointments with the customer present.",
+      serviceLabel: "Service to book",
+      selectTitle: "Choose a service to book",
       changeService: "Change service",
-      disclaimer: "This admin view is only a preview. It does not confirm real bookings."
+      disclaimer: "This booking is saved to the business calendar."
     },
     bookingFlow: {
       serviceNotFound: "This service does not exist or is unavailable.",
-      hiddenService: "This service is not visible for online bookings.",
+      hiddenService: "This service is unavailable.",
+      serviceUnavailable: "This service is unavailable.",
       loadingTitle: "Preparing your booking",
       loadingDescription: "We are loading availability, professionals and payment methods.",
       loadErrorTitle: "We could not load this booking",
@@ -1219,9 +1240,9 @@ export const messages = {
       reservationCreated: "Booking confirmed",
       successTitle: "Appointment booked",
       successDescription: "Your booking was registered. We recommend saving this detail and sending proof of payment if needed.",
-      previewTitle: "Flow preview",
-      previewDescription: "You are viewing the public booking flow embedded inside the admin. You can explore it, but not confirm the booking.",
-      previewBlocked: "Confirmation is disabled in this admin preview.",
+      previewTitle: "Assisted booking",
+      previewDescription: "You are using the public flow embedded in the admin to register a real booking.",
+      previewBlocked: "Confirmation is available from this admin view.",
       summary: {
         service: "Service",
         addons: "Add-ons",
@@ -1265,6 +1286,7 @@ export const messages = {
       employeeArchived: "Personnel archived",
       employeeDeleted: "Personnel deleted",
       employeeUnarchived: "Personnel unarchived",
+      employeeVisibilityUpdated: "Personnel visibility updated",
       serviceLinkCopied: "Service link copied",
       serviceLinkCopyFailed: "We could not copy the link",
       freeMonthlyLimitTitle: "Free limit reached",

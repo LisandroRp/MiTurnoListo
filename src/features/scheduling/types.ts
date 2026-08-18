@@ -25,6 +25,7 @@ export type Employee = {
   imageUrl: string;
   color: string;
   initials: string;
+  isVisible: boolean;
   isArchived: boolean;
   schedule: ServiceSchedule;
 };

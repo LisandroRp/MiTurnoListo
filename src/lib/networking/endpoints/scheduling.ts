@@ -90,7 +90,7 @@ export async function loadSchedulingSnapshot() {
       .single(),
     supabase
       .from("employees")
-      .select("id, name, role, description, image_url, color_token, is_active")
+      .select("id, name, role, description, image_url, color_token, is_public, is_active")
       .eq("business_id", businessId)
       .order("is_active", { ascending: false })
       .order("name", { ascending: true }),
@@ -217,6 +217,15 @@ export async function saveEmployee(businessId: string, employee: EmployeeInput) 
   });
 }
 
+export async function updateEmployeeVisibility(businessId: string, employeeId: string, isVisible: boolean) {
+  await runSchedulingMutation({
+    action: "updateEmployeeVisibility",
+    businessId,
+    employeeId,
+    isVisible
+  });
+}
+
 export async function archiveEmployee(businessId: string, employeeId: string) {
   await runSchedulingMutation({
     action: "archiveEmployee",
@@ -310,10 +319,12 @@ export async function rescheduleAppointment({
 }
 
 export async function createDashboardAppointment({
+  addonIds = [],
   appointment,
   businessId,
   service
 }: {
+  addonIds?: string[];
   appointment: AppointmentInput;
   businessId: string;
   service: ServiceInput;
@@ -323,6 +334,7 @@ export async function createDashboardAppointment({
     action: "createAppointment",
     businessId,
     appointment,
+    addonIds,
     service,
     timeZone
   });
@@ -422,6 +434,7 @@ export function createNewEmployeeDraft() {
     imageUrl: "",
     color: "employee-coral",
     initials: "NA",
+    isVisible: true,
     isArchived: false,
     schedule: createEmptySchedule()
   };

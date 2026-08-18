@@ -34,7 +34,7 @@ import {
 } from "@/features/booking-flow/utils/booking";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
 import { messages as schedulingMessages } from "@/features/scheduling/i18n/messages";
-import { Locale, ThemeId } from "@/features/scheduling/types";
+import { Appointment, Locale, ThemeId } from "@/features/scheduling/types";
 import {
   createPublicBooking,
   getPublicBookingPayload,
@@ -50,6 +50,7 @@ type BookingFlowProps = {
 export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   const {
     appointments: previewAppointments,
+    createAppointment: createPreviewAppointment,
     employees: previewEmployees,
     locale: previewLocale,
     paymentSettings: previewPaymentSettings,
@@ -61,6 +62,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   const [publicPayload, setPublicPayload] = useState<PublicBookingPayload | null>(null);
   const [isPublicLoading, setIsPublicLoading] = useState(!isPreview);
   const [publicError, setPublicError] = useState<string | null>(null);
+  const [isServiceUnavailable, setIsServiceUnavailable] = useState(false);
   const [draft, setDraft] = useState(createInitialBookingDraft);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [monthDate, setMonthDate] = useState(() => new Date());
@@ -95,12 +97,13 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   }));
   const selectedAddons = activeAddons.filter((addon) => draft.selectedAddonIds.includes(addon.id));
   const selectedAddonsTotal = selectedAddons.reduce((total, addon) => total + addon.price, 0);
-  const bookingTotal = (service?.price ?? 0) + selectedAddonsTotal;
+  const bookingTotal = ((service?.price ?? 0) * draft.partySize) + selectedAddonsTotal;
 
   useEffect(() => {
     if (isPreview) {
       setPublicPayload(null);
       setPublicError(null);
+      setIsServiceUnavailable(false);
       setIsPublicLoading(false);
       return;
     }
@@ -115,6 +118,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
     setTopToastMessage("");
     setIsSubmitting(false);
     setPublicError(null);
+    setIsServiceUnavailable(false);
     setIsPublicLoading(true);
 
     void getPublicBookingPayload(serviceId)
@@ -127,6 +131,11 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
       })
       .catch((error) => {
         if (!isActive) {
+          return;
+        }
+
+        if (error instanceof Error && error.message === "SERVICE_UNAVAILABLE") {
+          setIsServiceUnavailable(true);
           return;
         }
 
@@ -144,7 +153,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   }, [isPreview, serviceId]);
 
   const assignedEmployees = service
-    ? employees.filter((employee) => service.employeeIds.includes(employee.id))
+    ? employees.filter((employee) => !employee.isArchived && employee.isVisible && service.employeeIds.includes(employee.id))
     : [];
   const selectedEmployee = assignedEmployees.find((employee) => employee.id === draft.employeeId) ?? null;
   const availablePaymentOptions = service ? getAvailablePaymentOptions(service, paymentSettings) : [];
@@ -180,6 +189,14 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
     );
   }
 
+  if (isServiceUnavailable) {
+    return (
+      <BookingShell theme={theme} mode={mode}>
+        <StateCard title={copy.serviceUnavailable} />
+      </BookingShell>
+    );
+  }
+
   if (!service) {
     return (
       <BookingShell theme={theme} mode={mode}>
@@ -199,6 +216,14 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   const currentStep = bookingSteps[currentStepIndex] ?? "service";
   const actionButtonLabel = currentStep !== "summary" ? messages.actions.continue : messages.actions.confirmReservation;
   const isDateTimeStep = currentStep === "datetime";
+
+  if (assignedEmployees.length === 0) {
+    return (
+      <BookingShell theme={theme} mode={mode}>
+        <StateCard title={copy.serviceUnavailable} />
+      </BookingShell>
+    );
+  }
 
   function goToNextStep() {
     const nextValidationMessage = getStepValidationMessage(
@@ -245,15 +270,35 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
       return;
     }
 
-    if (isPreview) {
-      setValidationMessage(copy.previewBlocked);
-      return;
-    }
-
     setIsSubmitting(true);
     setValidationMessage("");
 
     try {
+      if (isPreview) {
+        const paymentMethod = mapPaymentOptionToMethod(selectedPaymentOption);
+        const didCreate = await createPreviewAppointment({
+          id: globalThis.crypto.randomUUID(),
+          customerName: draft.customer.fullName,
+          customerEmail: draft.customer.email,
+          customerPhone: draft.customer.phone,
+          serviceId: service.id,
+          employeeId: selectedEmployee.id,
+          date: selectedSlot.date,
+          startTime: selectedSlot.startTime,
+          endTime: selectedSlot.endTime,
+          status: paymentMethod === "cash" ? "confirmed" : "pending",
+          revenue: bookingTotal,
+          paymentMethod,
+          partySize: draft.partySize
+        } satisfies Appointment, draft.selectedAddonIds);
+
+        if (didCreate) {
+          setCurrentStepIndex(bookingSteps.length);
+        }
+
+        return;
+      }
+
       const bookingResult = await createPublicBooking(service.id, {
         customer: draft.customer,
         employeeId: selectedEmployee.id,
@@ -307,9 +352,9 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
                 backLabel={messages.actions.back}
                 cancelLabel={messages.actions.cancel}
                 currentStepIndex={currentStepIndex}
-                isSubmitDisabled={isPreview && currentStep === "summary"}
+                isSubmitDisabled={false}
                 isSubmitting={isSubmitting && currentStep === "summary"}
-                submitLabel={isPreview && currentStep === "summary" ? copy.previewBlocked : actionButtonLabel}
+                submitLabel={actionButtonLabel}
                 onCancel={restartBookingFlow}
                 onNext={currentStep !== "summary" ? goToNextStep : () => void confirmReservation()}
                 onPrevious={goToPreviousStep}
@@ -457,9 +502,9 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
               backLabel={messages.actions.back}
               cancelLabel={messages.actions.cancel}
               currentStepIndex={currentStepIndex}
-              isSubmitDisabled={isPreview && currentStep === "summary"}
+              isSubmitDisabled={false}
               isSubmitting={isSubmitting && currentStep === "summary"}
-              submitLabel={isPreview && currentStep === "summary" ? copy.previewBlocked : actionButtonLabel}
+              submitLabel={actionButtonLabel}
               onCancel={restartBookingFlow}
               onNext={currentStep !== "summary" ? goToNextStep : () => void confirmReservation()}
               onPrevious={goToPreviousStep}

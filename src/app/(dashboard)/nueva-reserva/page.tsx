@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FiArrowLeft } from "react-icons/fi";
+import { FiArrowLeft, FiSearch } from "react-icons/fi";
 
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -12,9 +12,25 @@ import { useScheduling } from "@/features/scheduling/components/SchedulingProvid
 import { formatCurrency } from "@/features/scheduling/utils/format";
 
 export default function NewBookingPreviewPage() {
-  const { messages, services } = useScheduling();
-  const visibleServices = services.filter((service) => !service.isArchived && service.isVisible);
+  const { employees, messages, services } = useScheduling();
+  const reservableEmployeeIds = new Set(
+    employees.filter((employee) => !employee.isArchived && employee.isVisible).map((employee) => employee.id)
+  );
+  const visibleServices = services.filter((service) => (
+    !service.isArchived &&
+    service.isVisible &&
+    service.employeeIds.some((employeeId) => reservableEmployeeIds.has(employeeId))
+  ));
+  const [searchTerm, setSearchTerm] = useState("");
   const [requestedServiceId, setRequestedServiceId] = useState("");
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredServices = visibleServices.filter((service) => {
+    if (!normalizedSearch) {
+      return true;
+    }
+
+    return `${service.name} ${service.description}`.toLowerCase().includes(normalizedSearch);
+  });
   const selectedServiceId = visibleServices.some((service) => service.id === requestedServiceId)
     ? requestedServiceId
     : "";
@@ -39,14 +55,21 @@ export default function NewBookingPreviewPage() {
         </div>
       ) : (
         <div className="grid gap-4">
-          <Card className="bg-brand-soft">
-            <h2 className="text-lg font-bold text-primary">{messages.bookingPreview.selectTitle}</h2>
-            <p className="mt-2 text-sm font-semibold text-muted">{messages.bookingPreview.disclaimer}</p>
-          </Card>
+          <label className="relative block xl:max-w-xl">
+            <FiSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
+            <span className="sr-only">{messages.services.searchPlaceholder}</span>
+            <input
+              type="search"
+              value={searchTerm}
+              placeholder={messages.services.searchPlaceholder}
+              className="h-11 w-full rounded-xl border border-subtle bg-input px-4 pl-10 text-sm text-primary shadow-sm outline-none transition placeholder:text-placeholder focus:border-brand focus:ring-2 focus:ring-focus"
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+          </label>
 
-          {visibleServices.length > 0 ? (
+          {filteredServices.length > 0 ? (
             <section className="grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {visibleServices.map((service) => (
+              {filteredServices.map((service) => (
                 <Card
                   key={service.id}
                   onClick={() => setRequestedServiceId(service.id)}
@@ -77,7 +100,9 @@ export default function NewBookingPreviewPage() {
             </section>
           ) : (
             <Card>
-              <p className="text-sm font-semibold text-muted">{messages.services.empty}</p>
+              <p className="text-sm font-semibold text-muted">
+                {visibleServices.length > 0 ? messages.services.noResults : messages.services.empty}
+              </p>
             </Card>
           )}
         </div>

@@ -34,6 +34,7 @@ type EmployeeRow = {
   description: string;
   image_url: string | null;
   color_token: string;
+  is_public: boolean;
   is_active: boolean;
 };
 
@@ -150,6 +151,7 @@ export function mapEmployees(employeeRows: EmployeeRow[], availabilityRows: Avai
     imageUrl: normalizeStoredImageUrl(employee.image_url),
     color: employee.color_token,
     initials: getInitials(employee.name),
+    isVisible: employee.is_public,
     isArchived: !employee.is_active,
     schedule: buildSchedule(
       availabilityRows.filter((row) => row.employee_id === employee.id)

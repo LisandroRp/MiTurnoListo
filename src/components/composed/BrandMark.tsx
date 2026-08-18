@@ -53,14 +53,14 @@ export function BrandMark({
     const compactSize = compactSizeConfig[size];
 
     return (
-        <Image
-          src="/branding/short-logo.png"
-          alt="MiTurnoListo"
-          width={compactSize.intrinsicSize}
-          height={compactSize.intrinsicSize}
-          priority={priority}
-          className={cx("object-contain", compactSize.className, className)}
-        />
+      <Image
+        src="/branding/brand-icon.png"
+        alt="MiTurnoListo"
+        width={compactSize.intrinsicSize}
+        height={compactSize.intrinsicSize}
+        priority={priority}
+        className={cx("object-contain", compactSize.className, className)}
+      />
     );
   }
 

@@ -8,14 +8,15 @@ type StepProgressItem = {
 type StepProgressProps = {
   steps: StepProgressItem[];
   currentStepIndex: number;
+  maxSelectableStepIndex?: number;
   onStepSelect?: (index: number) => void;
 };
 
-export function StepProgress({ steps, currentStepIndex, onStepSelect }: StepProgressProps) {
+export function StepProgress({ steps, currentStepIndex, maxSelectableStepIndex = currentStepIndex, onStepSelect }: StepProgressProps) {
   return (
     <div className="flex w-full gap-2 lg:gap-3">
       {steps.map((step, index) => {
-        const isAvailable = index <= currentStepIndex;
+        const isAvailable = index <= maxSelectableStepIndex;
         const isCurrent = index === currentStepIndex;
 
         return (

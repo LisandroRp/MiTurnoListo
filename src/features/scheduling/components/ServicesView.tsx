@@ -342,6 +342,16 @@ export function ServicesView({
       return;
     }
 
+    if (index !== currentStepIndex) {
+      const stepValidationMessage = getServiceStepValidationMessage(currentStep, draft, messages, isMercadoPagoConfigured, isTransferConfigured);
+
+      if (stepValidationMessage) {
+        setValidationMessage(stepValidationMessage);
+        onValidationWarning();
+        return;
+      }
+    }
+
     setCurrentStepIndex(index);
     setValidationMessage(null);
   }
@@ -434,7 +444,12 @@ export function ServicesView({
           }
         />
 
-        <StepProgress steps={stepItems} currentStepIndex={currentStepIndex} onStepSelect={goToStep} />
+        <StepProgress
+          steps={stepItems}
+          currentStepIndex={currentStepIndex}
+          maxSelectableStepIndex={editingId ? stepItems.length - 1 : currentStepIndex}
+          onStepSelect={goToStep}
+        />
 
         <DualActionSlot ref={wizardActionVisibility.topRef} isVisible={wizardActionVisibility.showTopActions}>
           <WizardActions
@@ -1043,7 +1058,7 @@ function ServiceImagePreview({ service, messages }: { service: Service; messages
         />
       ) : (
         <Image
-          src="/branding/short-logo.png"
+          src="/branding/brand-icon.png"
           alt={messages.appName}
           width={32}
           height={32}
@@ -1325,7 +1340,7 @@ function WizardActions({
 
       {currentStep === "review" ? (
         <Button className="w-1/2 sm:w-auto" icon={<FiCheck />} isLoading={isSaving} onClick={onSubmit}>
-          {messages.actions.save}
+          {isSaving ? messages.actions.saving : messages.actions.save}
         </Button>
       ) : (
         <Button className="w-1/2 sm:w-auto" icon={<FiArrowRight />} disabled={isSaving} onClick={onNext}>

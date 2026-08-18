@@ -6,7 +6,7 @@ import { SchedulingProvider } from "@/features/scheduling/components/SchedulingP
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.miturnolisto.com";
 const siteName = "MiTurnoListo";
-const siteDescription = "MiTurnoListo es una app simple para gestionar turnos online, agenda, servicios, personal, pagos y reservas para negocios de servicios.";
+const siteDescription = "MiTurnoListo es una agenda virtual y organizador de turnos online para negocios de servicios. Gestiona reservas, horarios, personal, pagos y clientes desde un solo lugar.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -23,12 +23,20 @@ export const metadata: Metadata = {
     "MiTurnoListo",
     "mi turno listo",
     "turnos online",
+    "agenda virtual",
     "agenda online",
     "reservas online",
+    "organizador de turnos",
     "sistema de turnos",
+    "sistema de reservas online",
+    "software de turnos",
     "gestion de turnos",
+    "gestion de reservas",
+    "calendario de turnos",
     "turnos para peluquerias",
     "turnos para consultorios",
+    "turnos para centros de estetica",
+    "turnos para estudios profesionales",
     "agenda para negocios"
   ],
   alternates: {
@@ -69,10 +77,12 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: "/branding/favicon-48x48.png", sizes: "48x48", type: "image/png" },
       { url: "/branding/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/branding/favicon-192x192.png", sizes: "192x192", type: "image/png" }
+      { url: "/branding/favicon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/branding/favicon-512x512.png", sizes: "512x512", type: "image/png" }
     ],
-    shortcut: "/branding/favicon-32x32.png",
+    shortcut: "/branding/favicon-48x48.png",
     apple: "/branding/apple-touch-icon.png"
   }
 };

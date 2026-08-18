@@ -4,13 +4,23 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "MiTurnoListo",
     short_name: "MiTurnoListo",
-    description: "Agenda online, turnos, servicios, personal y pagos para negocios de servicios.",
+    description: "Agenda virtual y organizador de turnos online para negocios de servicios.",
     start_url: "/",
     display: "standalone",
     icons: [
       {
+        src: "/branding/favicon-48x48.png",
+        sizes: "48x48",
+        type: "image/png"
+      },
+      {
         src: "/branding/favicon-192x192.png",
         sizes: "192x192",
+        type: "image/png"
+      },
+      {
+        src: "/branding/favicon-512x512.png",
+        sizes: "512x512",
         type: "image/png"
       },
       {

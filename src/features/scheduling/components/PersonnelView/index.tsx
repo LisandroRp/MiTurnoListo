@@ -73,6 +73,7 @@ export function PersonnelView({
   const [searchTerm, setSearchTerm] = useState("");
   const [personnelFilter, setPersonnelFilter] = useState<PersonnelFilter>("all");
   const [showArchivedPersonnel, setShowArchivedPersonnel] = useState(false);
+  const [isSavingEmployee, setIsSavingEmployee] = useState(false);
   const [lockedEmployee, setLockedEmployee] = useState<Employee | null>(null);
   const [pendingMenuAction, setPendingMenuAction] = useState<{ employeeId: string; action: EmployeeMenuAction } | null>(null);
 
@@ -119,6 +120,10 @@ export function PersonnelView({
   }
 
   function returnToGrid() {
+    if (isSavingEmployee) {
+      return;
+    }
+
     setMode("grid");
     setEditingId(null);
     setCurrentStepIndex(0);
@@ -174,16 +179,38 @@ export function PersonnelView({
   }
 
   function goToStep(index: number) {
+    if (isSavingEmployee) {
+      return;
+    }
+
+    if (index !== currentStepIndex) {
+      const stepValidationMessage = getPersonnelStepValidationMessage(currentStep, draft, messages);
+
+      if (stepValidationMessage) {
+        setValidationMessage(stepValidationMessage);
+        onValidationWarning();
+        return;
+      }
+    }
+
     setCurrentStepIndex(index);
     setValidationMessage(null);
   }
 
   function goToPreviousStep() {
+    if (isSavingEmployee) {
+      return;
+    }
+
     setCurrentStepIndex((current) => Math.max(current - 1, 0));
     setValidationMessage(null);
   }
 
   function goToNextStep() {
+    if (isSavingEmployee) {
+      return;
+    }
+
     const stepValidationMessage = getPersonnelStepValidationMessage(currentStep, draft, messages);
 
     if (stepValidationMessage) {
@@ -197,6 +224,10 @@ export function PersonnelView({
   }
 
   async function submitForm() {
+    if (isSavingEmployee) {
+      return;
+    }
+
     const invalidStepIndex = personnelWizardStepOrder.findIndex((step) => getPersonnelStepValidationMessage(step, draft, messages));
 
     if (invalidStepIndex >= 0) {
@@ -206,6 +237,8 @@ export function PersonnelView({
       onValidationWarning();
       return;
     }
+
+    setIsSavingEmployee(true);
 
     try {
       if (pendingEmployeeImageFile && !businessId) {
@@ -229,6 +262,8 @@ export function PersonnelView({
       }
     } catch (error) {
       onImageUploadError(error instanceof Error ? error.message : "No pudimos subir la foto del profesional.");
+    } finally {
+      setIsSavingEmployee(false);
     }
   }
 
@@ -262,17 +297,23 @@ export function PersonnelView({
           title={editingId ? messages.personnel.formTitleEdit : messages.personnel.formTitleCreate}
           description={messages.personnel.requiredHint}
           actions={
-            <Button variant="secondary" onClick={returnToGrid}>{messages.actions.cancel}</Button>
+            <Button variant="secondary" disabled={isSavingEmployee} onClick={returnToGrid}>{messages.actions.cancel}</Button>
           }
         />
 
-        <StepProgress steps={stepItems} currentStepIndex={currentStepIndex} onStepSelect={goToStep} />
+        <StepProgress
+          steps={stepItems}
+          currentStepIndex={currentStepIndex}
+          maxSelectableStepIndex={editingId ? stepItems.length - 1 : currentStepIndex}
+          onStepSelect={goToStep}
+        />
 
         <DualActionSlot ref={wizardActionVisibility.topRef} isVisible={wizardActionVisibility.showTopActions}>
           <WizardActions
             className="flex"
             currentStep={currentStep}
             currentStepIndex={currentStepIndex}
+            isSaving={isSavingEmployee}
             messages={messages}
             onCancel={returnToGrid}
             onPrevious={goToPreviousStep}
@@ -336,6 +377,7 @@ export function PersonnelView({
             className="flex"
             currentStep={currentStep}
             currentStepIndex={currentStepIndex}
+            isSaving={isSavingEmployee}
             messages={messages}
             onCancel={returnToGrid}
             onPrevious={goToPreviousStep}

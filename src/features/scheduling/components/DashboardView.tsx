@@ -96,22 +96,61 @@ export function DashboardView({
         <Card className="flex min-h-[28rem] flex-col">
           <h2 className="text-lg font-bold text-primary">{messages.home.teamToday}</h2>
           <div className="mt-4 grid content-start gap-3">
-            {employeesWorkingToday.map((employee) => (
-              <div key={employee.id} className="flex items-center gap-3 rounded-lg border border-subtle bg-input p-3">
-                <span className={cx("grid h-10 w-10 place-items-center rounded-full text-sm font-bold text-on-brand", employeeColorClasses[employee.color])}>
-                  {employee.initials}
-                </span>
-                <span>
-                  <span className="block font-semibold text-primary">{employee.name}</span>
-                  <span className="text-sm text-muted">{employee.role}</span>
-                </span>
-              </div>
-            ))}
+            {employeesWorkingToday.map((employee) => {
+              const employeeSchedule = employee.schedule[todayKey] ?? [];
+              const employeeAppointments = activeTodaysAppointments.filter((appointment) => appointment.employeeId === employee.id);
+
+              return (
+                <div key={employee.id} className="grid gap-3 rounded-lg border border-subtle bg-input p-3">
+                  <div className="flex items-center gap-3">
+                    <span className={cx("grid h-10 w-10 place-items-center rounded-full text-sm font-bold text-on-brand", employeeColorClasses[employee.color])}>
+                      {employee.initials}
+                    </span>
+                    <span className="min-w-0 leading-tight">
+                      <span className="block truncate font-semibold text-primary">{employee.name}</span>
+                      <span className="text-sm leading-tight text-muted">{employee.role}</span>
+                    </span>
+                  </div>
+
+                  <div className="grid text-sm leading-tight">
+                    <DashboardTeamFact
+                      label={messages.home.todayHours}
+                      value={formatTodaySchedule(employeeSchedule, messages)}
+                    />
+                    <DashboardTeamFact
+                      label={messages.home.todayAppointments}
+                      value={formatAppointmentCount(employeeAppointments.length, messages)}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Card>
       </section>
     </div>
   );
+}
+
+function DashboardTeamFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg bg-surface px-3 py-1 leading-tight">
+      <span className="text-xs font-bold uppercase leading-tight text-muted">{label}</span>
+      <span className="text-right font-semibold text-primary">{value}</span>
+    </div>
+  );
+}
+
+function formatTodaySchedule(ranges: Employee["schedule"][string], messages: Messages) {
+  if (ranges.length === 0) {
+    return messages.home.noTodayHours;
+  }
+
+  return ranges.map((range) => `${range.start} - ${range.end}`).join(", ");
+}
+
+function formatAppointmentCount(count: number, messages: Messages) {
+  return `${count} ${count === 1 ? messages.calendar.appointment : messages.calendar.appointments}`;
 }
 
 function DayAgenda({

@@ -63,8 +63,8 @@ export function NavigationSidebar({
         >
           <BrandMark
             variant={shouldCollapse ? "compact" : "full"}
-            size={shouldCollapse ? "md" : "md"}
-            className={shouldCollapse ? "my-2" : "h-11 w-40 sm:h-12 sm:w-44"}
+            size={shouldCollapse ? "lg" : "md"}
+            className={shouldCollapse ? "mb-2 mt-1" : "h-11 w-40 sm:h-12 sm:w-44"}
             priority={mode === "desktop"}
           />
           <span className="sr-only">{messages.appName}</span>

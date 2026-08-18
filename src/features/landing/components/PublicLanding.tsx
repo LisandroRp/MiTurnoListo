@@ -14,7 +14,7 @@ const dashboardPreviewItems = [
 ];
 
 const features = [
-  { icon: FiCalendar, title: "Agenda clara", description: "Mira dia, semana y mes sin perder de vista quien atiende cada turno." },
+  { icon: FiCalendar, title: "Agenda virtual", description: "Mira dia, semana y mes sin perder de vista quien atiende cada turno." },
   { icon: FiUsers, title: "Equipo ordenado", description: "Carga personal, disponibilidad y servicios para evitar cruces raros." },
   { icon: FiBarChart2, title: "Datos rapidos", description: "Tenes caja estimada, cancelaciones y actividad diaria en el inicio." },
   { icon: FiClock, title: "Configuracion simple", description: "Servicios con duracion, anticipo, capacidad y horarios disponibles." }
@@ -40,7 +40,8 @@ const ctaPrimary = "inline-flex h-10 cursor-pointer items-center justify-center 
 const ctaSecondary = "inline-flex h-10 cursor-pointer items-center justify-center rounded-lg border border-subtle bg-surface px-4 text-sm font-semibold text-primary transition-colors hover:bg-surface-strong";
 const ctaLarge = "h-12 px-5 text-base";
 const landingCardHover = "transition-all duration-200 hover:-translate-y-1 hover:shadow-lg";
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.miturnolisto.com";
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.miturnolisto.com").replace(/\/+$/, "");
+const homeUrl = `${siteUrl}/`;
 const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
@@ -48,8 +49,14 @@ const structuredData = {
       "@type": "Organization",
       "@id": `${siteUrl}/#organization`,
       name: "MiTurnoListo",
-      url: siteUrl,
-      logo: `${siteUrl}/branding/logo.png`,
+      alternateName: "Mi Turno Listo",
+      url: homeUrl,
+      logo: {
+        "@type": "ImageObject",
+        url: `${siteUrl}/branding/logo.png`,
+        width: 1254,
+        height: 1254
+      },
       contactPoint: [
         {
           "@type": "ContactPoint",
@@ -63,7 +70,8 @@ const structuredData = {
       "@type": "WebSite",
       "@id": `${siteUrl}/#website`,
       name: "MiTurnoListo",
-      url: siteUrl,
+      alternateName: "Mi Turno Listo",
+      url: homeUrl,
       inLanguage: "es-AR",
       publisher: {
         "@id": `${siteUrl}/#organization`
@@ -75,8 +83,8 @@ const structuredData = {
       name: "MiTurnoListo",
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
-      url: siteUrl,
-      description: "App para gestionar turnos online, agenda, personal, servicios, pagos y reservas en negocios de servicios.",
+      url: homeUrl,
+      description: "Agenda virtual y organizador de turnos online para gestionar reservas, horarios, personal, pagos y clientes en negocios de servicios.",
       offers: [
         {
           "@type": "Offer",
@@ -123,11 +131,11 @@ export function PublicLanding() {
         <div className="flex flex-col justify-center">
           <Badge tone="brand" className="w-fit">Agenda, equipo y servicios en un solo lugar</Badge>
           <h1 className="mt-5 max-w-3xl text-4xl font-bold leading-tight text-primary sm:text-6xl">
-            La app simple para que cualquier negocio venda mas turnos sin vivir en WhatsApp.
+            Agenda virtual para que cualquier negocio venda mas turnos sin vivir en WhatsApp.
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-muted">
-            Pensada para peluquerias, consultorios, estudios, talleres y cualquier equipo que necesite
-            ordenar reservas, horarios y personal sin complicarse.
+            Un organizador de turnos online pensado para peluquerias, consultorios, centros de estetica,
+            estudios y cualquier equipo que necesite ordenar reservas, horarios y personal sin complicarse.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/login" className={cx(ctaPrimary, ctaLarge)}>

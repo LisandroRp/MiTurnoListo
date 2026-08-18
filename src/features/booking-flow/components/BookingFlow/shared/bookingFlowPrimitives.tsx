@@ -26,7 +26,7 @@ export function SidebarItem({ icon, label, value }: { icon: ReactNode; label: st
 export function MetricPill({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-2xl border border-subtle bg-input p-4">
-      <p className="whitespace-nowrap text-xs font-bold uppercase text-muted">{label}</p>
+      <p className="whitespace-nowrap text-xs font-bold uppercase text-muted truncate">{label}</p>
       <p className="mt-2 text-base font-semibold text-primary">{value}</p>
     </div>
   );

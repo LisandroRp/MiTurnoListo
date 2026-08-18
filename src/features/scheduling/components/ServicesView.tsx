@@ -486,11 +486,49 @@ export function ServicesView({
           {currentStep === "booking" ? (
             <FormSection title={messages.services.bookingSection} description={messages.services.bookingSectionHint}>
             <div className="grid gap-4 lg:grid-cols-3">
-              <TextField label={messages.services.price} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.price, true)} required onChange={handleNumericTextChange("price")} />
-              <TextField label={messages.services.durationMinutesLabel} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.durationMinutes)} required onChange={handleNumericTextChange("durationMinutes")} />
-              <TextField label={messages.services.capacity} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.capacity)} required onChange={handleNumericTextChange("capacity")} />
-              <TextField label={messages.services.deposit} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.deposit, true)} onChange={handleNumericTextChange("deposit")} />
-              <TextField label={messages.services.leadTime} inputMode="numeric" pattern="[0-9]*" value={formatNumericInputValue(draft.reservationLeadMinutes)} onChange={handleNumericTextChange("reservationLeadMinutes")} />
+              <TextField
+                label={messages.services.price}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                prefix="$"
+                value={formatNumericInputValue(draft.price, true)}
+                required
+                onChange={handleNumericTextChange("price")}
+              />
+              <TextField
+                label={messages.services.durationMinutesLabel}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                suffix={<span className="text-xs font-bold text-muted">{messages.services.minutesShort}</span>}
+                value={formatNumericInputValue(draft.durationMinutes)}
+                required
+                onChange={handleNumericTextChange("durationMinutes")}
+              />
+              <TextField
+                label={messages.services.capacity}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                suffix={<span className="text-xs font-bold text-muted">{messages.services.peopleShort}</span>}
+                value={formatNumericInputValue(draft.capacity)}
+                required
+                onChange={handleNumericTextChange("capacity")}
+              />
+              <TextField
+                label={messages.services.deposit}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                prefix="$"
+                value={formatNumericInputValue(draft.deposit, true)}
+                onChange={handleNumericTextChange("deposit")}
+              />
+              <TextField
+                label={messages.services.leadTime}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                suffix={<span className="text-xs font-bold text-muted">{messages.services.minutesShort}</span>}
+                value={formatNumericInputValue(draft.reservationLeadMinutes)}
+                onChange={handleNumericTextChange("reservationLeadMinutes")}
+              />
               <TextField
                 label={messages.services.cancellationLeadTimeDays}
                 inputMode="numeric"

@@ -44,10 +44,9 @@ export function DashboardView({
     !employee.isArchived &&
     ((employee.schedule[todayKey] ?? []).length > 0 || todaysAppointmentEmployeeIds.has(employee.id))
   ));
-  const dayAppointments = [
-    ...todaysAppointments,
-    ...createDemoDayAppointments(referenceDate, services, employees)
-  ].sort((left, right) => left.startTime.localeCompare(right.startTime));
+  const dayAppointments = todaysAppointments
+    .slice()
+    .sort((left, right) => left.startTime.localeCompare(right.startTime));
   const currentTimePosition = getCurrentTimePosition(referenceDate);
 
   return (
@@ -146,30 +145,6 @@ function DayAgenda({
     container.scrollTop = Math.max(lineOffset - container.clientHeight / 2, 0);
   }, [currentTimePosition]);
 
-  function safelyDeleteAppointment(appointmentId: string) {
-    if (appointmentId.startsWith("dashboard-demo-")) {
-      return;
-    }
-
-    return onDeleteAppointment(appointmentId);
-  }
-
-  function safelyMarkAppointmentPaid(appointmentId: string) {
-    if (appointmentId.startsWith("dashboard-demo-")) {
-      return;
-    }
-
-    return onMarkAppointmentPaid(appointmentId);
-  }
-
-  function safelyRescheduleAppointment(appointmentId: string, date: string, employeeId: string) {
-    if (appointmentId.startsWith("dashboard-demo-")) {
-      return;
-    }
-
-    return onRescheduleAppointment(appointmentId, date, employeeId);
-  }
-
   return (
     <div ref={scrollContainerRef} className="h-[34rem] overflow-auto">
       <div className="min-w-[760px]">
@@ -216,9 +191,9 @@ function DayAgenda({
                         service={service}
                         serviceName={service?.name ?? "-"}
                         variant="dashboardRow"
-                        onDeleteAppointment={safelyDeleteAppointment}
-                        onMarkAppointmentPaid={safelyMarkAppointmentPaid}
-                        onRescheduleAppointment={safelyRescheduleAppointment}
+                        onDeleteAppointment={onDeleteAppointment}
+                        onMarkAppointmentPaid={onMarkAppointmentPaid}
+                        onRescheduleAppointment={onRescheduleAppointment}
                       />
                     );
                   })}
@@ -230,57 +205,6 @@ function DayAgenda({
       </div>
     </div>
   );
-}
-
-function createDemoDayAppointments(referenceDate: string, services: Service[], employees: Employee[]): Appointment[] {
-  const demoCustomers = [
-    "Sofia Alvarez",
-    "Mateo Ruiz",
-    "Valentina Castro",
-    "Lucia Torres",
-    "Tomas Herrera",
-    "Camila Diaz",
-    "Juan Martin",
-    "Martina Rojas",
-    "Nicolas Vega",
-    "Florencia Silva"
-  ];
-  const demoTimes = [
-    ["08:00", "08:45"],
-    ["09:00", "09:30"],
-    ["09:15", "09:55"],
-    ["09:30", "10:15"],
-    ["09:45", "10:30"],
-    ["10:00", "10:50"],
-    ["11:00", "11:40"],
-    ["11:10", "11:45"],
-    ["11:25", "12:00"],
-    ["13:00", "13:45"],
-    ["15:00", "15:30"],
-    ["15:15", "16:00"],
-    ["15:30", "16:15"],
-    ["15:45", "16:30"],
-    ["16:00", "16:45"],
-    ["17:00", "17:40"],
-    ["18:00", "18:50"],
-    ["20:00", "20:40"]
-  ];
-
-  return demoTimes.map(([startTime, endTime], index) => ({
-    customerEmail: `demo-${index}@example.com`,
-    customerName: demoCustomers[index] ?? "Cliente demo",
-    customerPhone: "+54 11 5555 0000",
-    date: referenceDate,
-    endTime,
-    employeeId: employees[index % Math.max(employees.length, 1)]?.id ?? "demo-employee",
-    id: `dashboard-demo-${referenceDate}-${index}`,
-    partySize: index % 3 === 0 ? 2 : 1,
-    paymentMethod: index % 4 === 0 ? "transfer" : "cash",
-    revenue: services[index % Math.max(services.length, 1)]?.price ?? 0,
-    serviceId: services[index % Math.max(services.length, 1)]?.id ?? "demo-service",
-    startTime,
-    status: index % 4 === 0 ? "pending" : "confirmed"
-  }));
 }
 
 function getCurrentTimePosition(referenceDate: string) {

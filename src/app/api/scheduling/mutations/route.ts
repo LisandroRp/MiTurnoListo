@@ -263,7 +263,7 @@ async function enforceEmployeeLimit(
   }
 
   if ((count ?? 0) >= freePlanLimits.activeEmployees) {
-    throw new Error(`PLAN_LIMIT:El plan Free permite hasta ${freePlanLimits.activeEmployees} empleados activos.`);
+    throw new Error(`PLAN_LIMIT:El plan Free permite hasta ${freePlanLimits.activeEmployees} personal activo.`);
   }
 }
 

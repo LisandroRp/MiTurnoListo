@@ -32,8 +32,6 @@ export async function GET(_: NextRequest, context: RouteContext) {
     .from("services")
     .select("id, business_id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
     .eq("id", serviceId)
-    .eq("is_active", true)
-    .eq("is_public", true)
     .limit(1)
     .maybeSingle();
 
@@ -42,6 +40,11 @@ export async function GET(_: NextRequest, context: RouteContext) {
   }
 
   const businessId = service.business_id;
+
+  if (!service.is_active || !service.is_public) {
+    return getUnavailableBookingResponse(supabase, businessId, "SERVICE_NOT_PUBLIC");
+  }
+
   const [
     businessResult,
     membershipResult,
@@ -134,7 +137,7 @@ export async function GET(_: NextRequest, context: RouteContext) {
   );
 
   if (employees.length === 0) {
-    return NextResponse.json({ error: "SERVICE_UNAVAILABLE" }, { status: 404 });
+    return getUnavailableBookingResponse(supabase, businessId, "NO_VISIBLE_EMPLOYEES");
   }
 
   const serviceModel = mapServices(
@@ -168,6 +171,41 @@ export async function GET(_: NextRequest, context: RouteContext) {
     service: serviceModel,
     theme: membershipResult.data?.theme ?? "coral"
   });
+}
+
+async function getUnavailableBookingResponse(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  businessId: string,
+  reason: "NO_VISIBLE_EMPLOYEES" | "SERVICE_NOT_PUBLIC"
+) {
+  const [businessResult, membershipResult] = await Promise.all([
+    supabase
+      .from("businesses")
+      .select("name, public_logo_url")
+      .eq("id", businessId)
+      .limit(1)
+      .single(),
+    supabase
+      .from("business_memberships")
+      .select("locale, theme")
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
+  ]);
+
+  if (businessResult.error || membershipResult.error) {
+    return NextResponse.json({ error: "SERVICE_UNAVAILABLE", reason }, { status: 404 });
+  }
+
+  return NextResponse.json({
+    businessName: businessResult.data.name,
+    error: "SERVICE_UNAVAILABLE",
+    locale: membershipResult.data?.locale ?? "es",
+    publicLogoUrl: businessResult.data.public_logo_url ?? "",
+    reason,
+    theme: membershipResult.data?.theme ?? "coral"
+  }, { status: 404 });
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {

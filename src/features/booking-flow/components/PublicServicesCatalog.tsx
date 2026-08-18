@@ -161,7 +161,7 @@ function PublicServiceCard({
         <div className="grid gap-3 text-sm">
           <CatalogFact icon={<FiShield />} label={messages.services.price} value={formatCurrency(service.price)} />
           <CatalogFact icon={<FiClock />} label={messages.services.duration} value={`${service.durationMinutes} ${messages.services.minutes}`} />
-          <CatalogFact icon={<FiUsers />} label={messages.services.capacity} value={`${service.capacity} ${messages.services.people}`} />
+          <CatalogFact icon={<FiUsers />} label={messages.services.capacity} value={formatPeopleCount(service.capacity, messages)} />
         </div>
 
         <div className="mt-auto">
@@ -175,6 +175,10 @@ function PublicServiceCard({
       </div>
     </Card>
   );
+}
+
+function formatPeopleCount(count: number, messages: Messages) {
+  return `${count} ${count === 1 ? messages.services.person : messages.services.people}`;
 }
 
 function CatalogFact({

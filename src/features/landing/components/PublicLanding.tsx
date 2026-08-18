@@ -25,13 +25,13 @@ const plans = [
     name: "Gratis",
     price: "$0",
     description: "Para empezar a ordenar tus primeros turnos.",
-    perks: ["Hasta 2 empleados", "5 servicios visibles", "15 turnos por mes"]
+    perks: ["Hasta 2 integrantes del personal", "5 servicios visibles", "15 turnos por mes"]
   },
   {
     name: "Premium",
     price: "$25.000",
     description: "Para negocios que viven de la agenda y necesitan orden diario.",
-    perks: ["Turnos ilimitados", "Empleados y servicios ilimitados", "Estadisticas y pagos online"],
+    perks: ["Turnos ilimitados", "Personal y servicios ilimitados", "Estadisticas y pagos online"],
     highlighted: true
   }
 ];
@@ -76,7 +76,7 @@ const structuredData = {
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       url: siteUrl,
-      description: "App para gestionar turnos online, agenda, empleados, servicios, pagos y reservas en negocios de servicios.",
+      description: "App para gestionar turnos online, agenda, personal, servicios, pagos y reservas en negocios de servicios.",
       offers: [
         {
           "@type": "Offer",

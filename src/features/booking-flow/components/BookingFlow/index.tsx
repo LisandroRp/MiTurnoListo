@@ -38,6 +38,8 @@ import { Appointment, Locale, ThemeId } from "@/features/scheduling/types";
 import {
   createPublicBooking,
   getPublicBookingPayload,
+  PublicBookingUnavailableDetails,
+  PublicBookingUnavailableError,
   PublicBookingPayload
 } from "@/lib/networking/endpoints/public-booking";
 import { getBrowserTimeZone } from "@/lib/networking/utils/date-time";
@@ -63,6 +65,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   const [isPublicLoading, setIsPublicLoading] = useState(!isPreview);
   const [publicError, setPublicError] = useState<string | null>(null);
   const [isServiceUnavailable, setIsServiceUnavailable] = useState(false);
+  const [unavailableDetails, setUnavailableDetails] = useState<PublicBookingUnavailableDetails | null>(null);
   const [draft, setDraft] = useState(createInitialBookingDraft);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [monthDate, setMonthDate] = useState(() => new Date());
@@ -71,10 +74,10 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   const [topToastMessage, setTopToastMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const topToastTimeoutRef = useRef<number | null>(null);
-  const locale: Locale = isPreview ? previewLocale : publicPayload?.locale ?? "es";
+  const locale: Locale = isPreview ? previewLocale : publicPayload?.locale ?? unavailableDetails?.locale ?? "es";
   const messages = schedulingMessages[locale];
   const copy = messages.bookingFlow;
-  const theme: ThemeId = isPreview ? previewTheme : publicPayload?.theme ?? "coral";
+  const theme: ThemeId = isPreview ? previewTheme : publicPayload?.theme ?? unavailableDetails?.theme ?? "coral";
   const service = isPreview ? previewServices.find((item) => item.id === serviceId) : publicPayload?.service;
   const employees = isPreview ? previewEmployees : publicPayload?.employees ?? [];
   const appointments = isPreview ? previewAppointments : publicPayload?.appointments ?? [];
@@ -119,6 +122,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
     setIsSubmitting(false);
     setPublicError(null);
     setIsServiceUnavailable(false);
+    setUnavailableDetails(null);
     setIsPublicLoading(true);
 
     void getPublicBookingPayload(serviceId)
@@ -131,6 +135,12 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
       })
       .catch((error) => {
         if (!isActive) {
+          return;
+        }
+
+        if (error instanceof PublicBookingUnavailableError) {
+          setUnavailableDetails(error.details);
+          setIsServiceUnavailable(true);
           return;
         }
 
@@ -192,7 +202,12 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   if (isServiceUnavailable) {
     return (
       <BookingShell theme={theme} mode={mode}>
-        <StateCard title={copy.serviceUnavailable} />
+        <UnavailableBookingState
+          businessName={unavailableDetails?.businessName ?? messages.appName}
+          description={getUnavailableBookingDescription(unavailableDetails?.reason, copy)}
+          logoUrl={unavailableDetails?.publicLogoUrl ?? ""}
+          title={copy.serviceUnavailable}
+        />
       </BookingShell>
     );
   }
@@ -200,7 +215,12 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   if (!service) {
     return (
       <BookingShell theme={theme} mode={mode}>
-        <StateCard title={copy.serviceNotFound} />
+        <UnavailableBookingState
+          businessName={messages.appName}
+          description={copy.unavailableDescriptions.unknown}
+          logoUrl=""
+          title={copy.serviceNotFound}
+        />
       </BookingShell>
     );
   }
@@ -208,7 +228,12 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   if (!service.isVisible) {
     return (
       <BookingShell theme={theme} mode={mode}>
-        <StateCard title={copy.hiddenService} />
+        <UnavailableBookingState
+          businessName={publicHeader.businessName}
+          description={copy.unavailableDescriptions.serviceNotPublic}
+          logoUrl={publicHeader.publicLogoUrl}
+          title={copy.hiddenService}
+        />
       </BookingShell>
     );
   }
@@ -220,7 +245,12 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   if (assignedEmployees.length === 0) {
     return (
       <BookingShell theme={theme} mode={mode}>
-        <StateCard title={copy.serviceUnavailable} />
+        <UnavailableBookingState
+          businessName={publicHeader.businessName}
+          description={copy.unavailableDescriptions.noVisibleEmployees}
+          logoUrl={publicHeader.publicLogoUrl}
+          title={copy.serviceUnavailable}
+        />
       </BookingShell>
     );
   }
@@ -525,6 +555,57 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
       )}
     </BookingShell>
   );
+}
+
+function UnavailableBookingState({
+  businessName,
+  description,
+  logoUrl,
+  title
+}: {
+  businessName: string;
+  description: string;
+  logoUrl: string;
+  title: string;
+}) {
+  return (
+    <div className="relative grid min-h-[calc(100vh-4rem)] place-items-center text-center">
+      <div className="absolute left-1/2 top-0 -translate-x-1/2">
+        {logoUrl ? (
+          <div
+            className="h-32 w-32 rounded-3xl bg-contain bg-center bg-no-repeat sm:h-40 sm:w-40"
+            style={{ backgroundImage: `url(${logoUrl})` }}
+            aria-label={businessName}
+          />
+        ) : (
+          <BrandMark variant="full" size="xl" align="center" priority />
+        )}
+      </div>
+
+      <StateCard title={title} description={description} />
+    </div>
+  );
+}
+
+function getUnavailableBookingDescription(
+  reason: PublicBookingUnavailableDetails["reason"] | undefined,
+  copy: {
+    unavailableDescriptions: {
+      noVisibleEmployees: string;
+      serviceNotPublic: string;
+      unknown: string;
+    };
+  }
+) {
+  if (reason === "NO_VISIBLE_EMPLOYEES") {
+    return copy.unavailableDescriptions.noVisibleEmployees;
+  }
+
+  if (reason === "SERVICE_NOT_PUBLIC") {
+    return copy.unavailableDescriptions.serviceNotPublic;
+  }
+
+  return copy.unavailableDescriptions.unknown;
 }
 
 function BookingPublicHeader({

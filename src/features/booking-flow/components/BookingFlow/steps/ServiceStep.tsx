@@ -30,7 +30,7 @@ export function ServiceStep({
         <MetricPill label={messages.services.duration} value={`${service.durationMinutes} ${messages.services.minutes}`} />
         <MetricPill label={messages.services.price} value={formatCurrency(service.price)} />
         <MetricPill label={messages.bookingFlow.summary.deposit} value={formatCurrency(service.deposit)} />
-        <MetricPill label={messages.services.capacity} value={`${service.capacity} ${messages.services.people}`} />
+        <MetricPill label={messages.services.capacity} value={formatPeopleCount(service.capacity, messages)} />
       </div>
       <div className="rounded-2xl border border-subtle bg-input p-4 text-sm font-semibold text-muted">
         {messages.bookingFlow.cancellationPolicy.replace("{time}", formatLeadTime(service.cancellationLeadMinutes))}
@@ -51,6 +51,10 @@ export function ServiceStep({
       />
     </Card>
   );
+}
+
+function formatPeopleCount(count: number, messages: Messages) {
+  return `${count} ${count === 1 ? messages.services.person : messages.services.people}`;
 }
 
 function formatLeadTime(minutes: number) {

@@ -6,7 +6,7 @@ import { SchedulingProvider } from "@/features/scheduling/components/SchedulingP
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.miturnolisto.com";
 const siteName = "MiTurnoListo";
-const siteDescription = "MiTurnoListo es una app simple para gestionar turnos online, agenda, servicios, empleados, pagos y reservas para negocios de servicios.";
+const siteDescription = "MiTurnoListo es una app simple para gestionar turnos online, agenda, servicios, personal, pagos y reservas para negocios de servicios.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

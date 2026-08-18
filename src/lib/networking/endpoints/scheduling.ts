@@ -282,11 +282,12 @@ export async function deleteService(businessId: string, serviceId: string) {
   });
 }
 
-export async function deleteAppointment(businessId: string, appointmentId: string) {
+export async function deleteAppointment(businessId: string, appointmentId: string, cancellationReason: string) {
   await runSchedulingMutation({
     action: "cancelAppointment",
     appointmentId,
-    businessId
+    businessId,
+    cancellationReason
   });
 }
 

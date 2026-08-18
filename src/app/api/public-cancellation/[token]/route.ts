@@ -37,9 +37,11 @@ export async function GET(_: NextRequest, context: RouteContext) {
   return NextResponse.json(details.payload);
 }
 
-export async function POST(_: NextRequest, context: RouteContext) {
+export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const { token } = await context.params;
+    const body = await request.json().catch(() => null) as { cancellationReason?: unknown } | null;
+    const normalizedCancellationReason = typeof body?.cancellationReason === "string" ? body.cancellationReason.trim() : "";
     const details = await getCancellationDetails(token);
 
     if ("response" in details) {
@@ -52,6 +54,10 @@ export async function POST(_: NextRequest, context: RouteContext) {
 
     if (!details.payload.canCancel) {
       return NextResponse.json({ error: details.payload.cannotCancelReason }, { status: 409 });
+    }
+
+    if (!normalizedCancellationReason) {
+      return NextResponse.json({ error: "El motivo de cancelacion es obligatorio." }, { status: 400 });
     }
 
     const supabase = getSupabaseAdminClient();
@@ -72,6 +78,7 @@ export async function POST(_: NextRequest, context: RouteContext) {
     const { error: updateError } = await supabase
       .from("appointments")
       .update({
+        cancellation_reason: normalizedCancellationReason,
         status: "cancelled",
         ...(refundedAt ? { refunded_at: refundedAt } : {})
       })
@@ -83,6 +90,7 @@ export async function POST(_: NextRequest, context: RouteContext) {
 
     await sendBookingCancelledEmails({
       appointmentId: details.appointment.id,
+      cancellationReason: normalizedCancellationReason,
       wasRefunded: shouldRefundMercadoPago
     });
 

@@ -19,7 +19,7 @@ type DashboardViewProps = {
   services: Service[];
   appointments: Appointment[];
   referenceDate: string;
-  onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
+  onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
 };
@@ -77,7 +77,7 @@ export function DashboardView({
       </div>
 
       <section className="grid flex-1 items-stretch gap-6 xl:grid-cols-[1.5fr_1fr]">
-        <Card className="flex min-h-[28rem] flex-col overflow-hidden p-0">
+        <Card className="flex min-h-[28rem] h-[34rem] flex-col overflow-hidden p-0">
           <div className="border-b border-subtle p-5">
             <h2 className="text-lg font-bold text-primary">{messages.home.todayAgenda}</h2>
           </div>
@@ -93,9 +93,9 @@ export function DashboardView({
           />
         </Card>
 
-        <Card className="flex min-h-[28rem] flex-col">
+        <Card className="flex min-h-[28rem] h-[34rem] flex-col">
           <h2 className="text-lg font-bold text-primary">{messages.home.teamToday}</h2>
-          <div className="mt-4 grid content-start gap-3">
+          <div className="mt-4 grid content-start gap-3 overflow-auto">
             {employeesWorkingToday.map((employee) => {
               const employeeSchedule = employee.schedule[todayKey] ?? [];
               const employeeAppointments = activeTodaysAppointments.filter((appointment) => appointment.employeeId === employee.id);
@@ -168,7 +168,7 @@ function DayAgenda({
   employees: Employee[];
   messages: Messages;
   services: Service[];
-  onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
+  onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
 }) {
@@ -185,7 +185,7 @@ function DayAgenda({
   }, [currentTimePosition]);
 
   return (
-    <div ref={scrollContainerRef} className="h-[34rem] overflow-auto">
+    <div ref={scrollContainerRef} className="overflow-auto">
       <div className="min-w-[760px]">
         <div className="sticky top-0 z-10 grid grid-cols-[4.5rem_1.2fr_1fr_1fr_0.9fr_0.8fr] border-b border-subtle bg-surface-strong px-4 py-3 text-xs font-bold uppercase tracking-[0.04em] text-muted">
           <span>{messages.home.time}</span>

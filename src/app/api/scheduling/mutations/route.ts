@@ -57,6 +57,7 @@ type SchedulingMutationPayload =
       action: "cancelAppointment";
       appointmentId: string;
       businessId: string;
+      cancellationReason: string;
     }
   | {
       action: "markAppointmentPaid";
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (payload.action === "cancelAppointment") {
-      await cancelAppointment(supabase, payload.businessId, payload.appointmentId);
+      await cancelAppointment(supabase, payload.businessId, payload.appointmentId, payload.cancellationReason);
     }
 
     if (payload.action === "markAppointmentPaid") {
@@ -747,7 +748,18 @@ async function createAppointment(
   }
 }
 
-async function cancelAppointment(supabase: SupabaseClient, businessId: string, appointmentId: string) {
+async function cancelAppointment(
+  supabase: SupabaseClient,
+  businessId: string,
+  appointmentId: string,
+  cancellationReason: string | null | undefined
+) {
+  const normalizedCancellationReason = typeof cancellationReason === "string" ? cancellationReason.trim() : "";
+
+  if (!normalizedCancellationReason) {
+    throw new Error("El motivo de cancelacion es obligatorio.");
+  }
+
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
     .select("id, business_id, mercadopago_payment_id, refunded_at, selected_payment_method, status")
@@ -780,6 +792,7 @@ async function cancelAppointment(supabase: SupabaseClient, businessId: string, a
   const { error: updateError } = await supabase
     .from("appointments")
     .update({
+      cancellation_reason: normalizedCancellationReason,
       status: "cancelled",
       ...(refundedAt ? { refunded_at: refundedAt } : {})
     })
@@ -791,6 +804,7 @@ async function cancelAppointment(supabase: SupabaseClient, businessId: string, a
 
   await sendBookingCancelledEmails({
     appointmentId,
+    cancellationReason: normalizedCancellationReason,
     wasRefunded: shouldRefundMercadoPago
   });
 }

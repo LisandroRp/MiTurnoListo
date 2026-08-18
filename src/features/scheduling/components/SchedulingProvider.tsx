@@ -86,7 +86,7 @@ type SchedulingContextValue = {
   toggleEmployee: (employeeId: string) => void;
   toasts: ToastMessage[];
   createAppointment: (appointment: Appointment, addonIds?: string[]) => Promise<boolean>;
-  deleteAppointment: (appointmentId: string) => Promise<boolean>;
+  deleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean>;
   markAppointmentPaid: (appointmentId: string) => Promise<boolean>;
   rescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean>;
   archiveEmployee: (employeeId: string) => Promise<boolean>;
@@ -296,13 +296,13 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  async function deleteAppointment(appointmentId: string) {
+  async function deleteAppointment(appointmentId: string, cancellationReason: string) {
     if (!businessId) {
       return false;
     }
 
     return runMutation(
-      () => deleteAppointmentRequest(businessId, appointmentId),
+      () => deleteAppointmentRequest(businessId, appointmentId, cancellationReason),
       copy.toast.appointmentDeleted,
       "Unable to delete the appointment."
     );

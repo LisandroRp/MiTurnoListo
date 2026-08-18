@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/SelectField";
+import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
 import { SectionHeader } from "@/components/composed/SectionHeader";
@@ -48,7 +49,7 @@ type CalendarViewProps = {
   onFocusedDateChange: (date: string) => void;
   onEmployeeQueryChange: (value: string) => void;
   onToggleEmployee: (employeeId: string) => void;
-  onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
+  onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
 };
@@ -342,7 +343,7 @@ type CalendarContentProps = {
   services: Service[];
   allAppointments: Appointment[];
   appointments: Appointment[];
-  onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
+  onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
 };
@@ -424,7 +425,7 @@ type DateGroupedCalendarProps = {
   allAppointments: Appointment[];
   appointments: Appointment[];
   onDateClick: (date: string) => void;
-  onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
+  onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
 };
@@ -521,7 +522,7 @@ type AppointmentCardProps = {
   variant?: "calendar" | "dashboardRow";
   employees: Employee[];
   appointments: Appointment[];
-  onDeleteAppointment: (appointmentId: string) => Promise<boolean> | void;
+  onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
 };
@@ -542,6 +543,9 @@ export function AppointmentCard({
 }: AppointmentCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isRescheduling, setIsRescheduling] = useState(false);
+  const [isCancellationOpen, setIsCancellationOpen] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [cancellationError, setCancellationError] = useState("");
   const [rescheduleDate, setRescheduleDate] = useState(appointment.date);
   const [rescheduleEmployeeId, setRescheduleEmployeeId] = useState(appointment.employeeId);
   const [loadingAction, setLoadingAction] = useState<"paid" | "cancel" | "reschedule" | null>(null);
@@ -579,16 +583,42 @@ export function AppointmentCard({
   }, [appointment.date, appointment.employeeId, isOpen]);
 
   async function deleteAppointment() {
+    const trimmedReason = cancellationReason.trim();
+
+    if (!trimmedReason) {
+      setCancellationError(messages.calendar.cancellationReasonRequired);
+      return;
+    }
+
     setLoadingAction("cancel");
     try {
-      const didDelete = await onDeleteAppointment(appointment.id);
+      const didDelete = await onDeleteAppointment(appointment.id, trimmedReason);
 
       if (didDelete !== false) {
         setIsOpen(false);
+        setIsCancellationOpen(false);
+        setCancellationReason("");
+        setCancellationError("");
       }
     } finally {
       setLoadingAction(null);
     }
+  }
+
+  function openCancellationModal() {
+    setCancellationError("");
+    setIsOpen(false);
+    setIsCancellationOpen(true);
+  }
+
+  function returnToAppointmentDetails() {
+    if (loadingAction !== null) {
+      return;
+    }
+
+    setIsCancellationOpen(false);
+    setCancellationError("");
+    setIsOpen(true);
   }
 
   async function markAppointmentPaid() {
@@ -788,15 +818,66 @@ export function AppointmentCard({
               <Button
                 variant="danger"
                 icon={<FiTrash2 />}
-                isLoading={loadingAction === "cancel"}
                 disabled={loadingAction !== null}
                 className="w-full sm:col-span-2"
-                onClick={() => void deleteAppointment()}
+                onClick={openCancellationModal}
               >
                 {messages.calendar.cancelAppointment}
               </Button>
             </>
           )}
+        </div>
+      </Modal>
+
+      <Modal isOpen={isCancellationOpen}>
+        <div className="grid gap-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">{messages.calendar.cancelAppointment}</p>
+              <h2 className="mt-2 text-2xl font-bold text-primary">{messages.calendar.cancelAppointmentTitle}</h2>
+            </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label={messages.actions.cancel}
+              disabled={loadingAction !== null}
+              onClick={returnToAppointmentDetails}
+            >
+              <FiX />
+            </Button>
+          </div>
+
+          <TextAreaField
+            label={messages.calendar.cancellationReason}
+            name={`cancellation-reason-${appointment.id}`}
+            placeholder={messages.calendar.cancellationReasonPlaceholder}
+            value={cancellationReason}
+            required
+            onChange={(event) => {
+              setCancellationReason(event.target.value);
+              setCancellationError("");
+            }}
+          />
+
+          {cancellationError ? (
+            <p className="rounded-lg border border-danger bg-danger-soft p-3 text-sm font-semibold text-danger">
+              {cancellationError}
+            </p>
+          ) : null}
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button variant="secondary" disabled={loadingAction !== null} onClick={returnToAppointmentDetails}>
+              {messages.actions.cancel}
+            </Button>
+            <Button
+              variant="danger"
+              icon={<FiTrash2 />}
+              isLoading={loadingAction === "cancel"}
+              onClick={() => void deleteAppointment()}
+            >
+              {messages.calendar.confirmCancellation}
+            </Button>
+          </div>
         </div>
       </Modal>
     </>

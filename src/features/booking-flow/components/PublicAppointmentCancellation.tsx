@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { BrandMark } from "@/components/composed/BrandMark";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { TextAreaField } from "@/components/ui/TextAreaField";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 
 type CancellationDetails = {
@@ -30,6 +31,7 @@ export function PublicAppointmentCancellation({ token }: { token: string }) {
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
@@ -70,12 +72,23 @@ export function PublicAppointmentCancellation({ token }: { token: string }) {
   }, [token]);
 
   async function cancelAppointment() {
+    const trimmedReason = cancellationReason.trim();
+
+    if (!trimmedReason) {
+      setErrorMessage("Agrega el motivo de cancelacion para continuar.");
+      return;
+    }
+
     setIsCancelling(true);
     setErrorMessage("");
     setSuccessMessage("");
 
     try {
       const response = await fetch(`/api/public-cancellation/${encodeURIComponent(token)}`, {
+        body: JSON.stringify({ cancellationReason: trimmedReason }),
+        headers: {
+          "Content-Type": "application/json"
+        },
         method: "POST"
       });
       const payload = await response.json().catch(() => null) as { error?: string; wasRefunded?: boolean } | null;
@@ -85,6 +98,7 @@ export function PublicAppointmentCancellation({ token }: { token: string }) {
       }
 
       setDetails((current) => current ? { ...current, canCancel: false, status: "cancelled", refundedAt: payload?.wasRefunded ? new Date().toISOString() : current.refundedAt } : current);
+      setCancellationReason("");
       setSuccessMessage(payload?.wasRefunded ? "Turno cancelado. Solicitamos el reembolso en Mercado Pago." : "Turno cancelado correctamente.");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "No pudimos cancelar el turno.");
@@ -141,6 +155,20 @@ export function PublicAppointmentCancellation({ token }: { token: string }) {
                 <div className="rounded-2xl border border-success bg-success-soft p-4 text-sm font-semibold text-success">
                   {successMessage}
                 </div>
+              ) : null}
+
+              {details.canCancel ? (
+                <TextAreaField
+                  label="Motivo de cancelacion"
+                  name="cancellation-reason"
+                  placeholder="Conta brevemente por que se cancela el turno."
+                  value={cancellationReason}
+                  required
+                  onChange={(event) => {
+                    setCancellationReason(event.target.value);
+                    setErrorMessage("");
+                  }}
+                />
               ) : null}
 
               {errorMessage ? (

@@ -12,6 +12,7 @@ import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 import {
   mapAppointments,
+  mapBusinessDayBlocks,
   mapEmployees,
   mapPaymentSettings,
   mapServices
@@ -53,6 +54,7 @@ export async function GET(_: NextRequest, context: RouteContext) {
     employeesResult,
     employeeAvailabilityResult,
     appointmentsResult,
+    businessDayBlockResult,
     paymentSettingsResult,
     serviceAddonsResult
   ] = await Promise.all([
@@ -93,6 +95,11 @@ export async function GET(_: NextRequest, context: RouteContext) {
       .eq("business_id", businessId)
       .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[]),
     supabase
+      .from("business_day_blocks")
+      .select("id, starts_on, ends_on, reason")
+      .eq("business_id", businessId)
+      .order("starts_on", { ascending: true }),
+    supabase
       .from("business_payment_settings")
       .select("allow_mercadopago, mercadopago_public_key, transfer_account_holder, transfer_cbu, transfer_alias, transfer_receipt_whatsapp")
       .eq("business_id", businessId)
@@ -114,6 +121,7 @@ export async function GET(_: NextRequest, context: RouteContext) {
     employeesResult.error ||
     employeeAvailabilityResult.error ||
     appointmentsResult.error ||
+    businessDayBlockResult.error ||
     paymentSettingsResult.error ||
     serviceAddonsResult.error
   ) {
@@ -157,11 +165,13 @@ export async function GET(_: NextRequest, context: RouteContext) {
     revenue: 0,
     paymentMethod: (appointment.paymentMethod === "mixed" ? "cash" : appointment.paymentMethod) as PaymentMethod
   }));
+  const businessDayBlocks = mapBusinessDayBlocks(businessDayBlockResult.data ?? []);
 
   return NextResponse.json({
     appointments,
     address: businessResult.data.address ?? "",
     businessName: businessResult.data.name,
+    businessDayBlocks,
     employees,
     locale: membershipResult.data?.locale ?? "es",
     paymentSettings: mapPaymentSettings(paymentSettingsResult.data),
@@ -273,6 +283,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       employeeResult,
       employeeAvailabilityResult,
       appointmentsResult,
+      businessDayBlockResult,
       paymentSettingsResult,
       serviceAddonsResult
     ] = await Promise.all([
@@ -310,6 +321,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .eq("employee_id", payload.employeeId)
         .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[]),
       supabase
+        .from("business_day_blocks")
+        .select("id, starts_on, ends_on, reason")
+        .eq("business_id", service.business_id),
+      supabase
         .from("business_payment_settings")
         .select("allow_mercadopago, mercadopago_public_key, mercadopago_access_token, transfer_account_holder, transfer_cbu, transfer_alias, transfer_receipt_whatsapp")
         .eq("business_id", service.business_id)
@@ -330,6 +345,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       employeeResult.error ||
       employeeAvailabilityResult.error ||
       appointmentsResult.error ||
+      businessDayBlockResult.error ||
       paymentSettingsResult.error ||
       serviceAddonsResult.error ||
       !employeeResult.data
@@ -372,6 +388,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       appointmentsResult.data ?? [],
       businessResult.data.timezone
     );
+    const businessDayBlocks = mapBusinessDayBlocks(businessDayBlockResult.data ?? []);
     const paymentSettings = mapPaymentSettings(paymentSettingsResult.data);
     const availablePaymentOptions = getAvailablePaymentOptions(serviceModel, paymentSettings);
     const requestedPaymentOption = mapPaymentMethodToOption(payload.paymentMethod);
@@ -385,7 +402,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       employee,
       appointments,
       new Date(`${payload.slot.date}T12:00:00`),
-      payload.partySize
+      payload.partySize,
+      new Date(),
+      businessDayBlocks
     );
     const selectedSlot = availableSlots.find((slot) => (
       slot.date === payload.slot?.date &&

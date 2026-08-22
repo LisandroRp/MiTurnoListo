@@ -1,12 +1,13 @@
 "use client";
 
-import { BusinessPaymentSettings, BusinessProfile, Locale, ThemeId } from "@/features/scheduling/types";
+import { BusinessDayBlock, BusinessPaymentSettings, BusinessProfile, Locale, ThemeId } from "@/features/scheduling/types";
 import { minimumCancellationLeadMinutes } from "@/features/scheduling/service-cancellation-policy";
 import { getSupabaseBrowserClient } from "@/lib/networking/clients/supabase-browser";
 import {
   buildDashboardMetrics,
   createEmptySchedule,
   getDefaultFocusedDate,
+  mapBusinessDayBlocks,
   mapAppointments,
   mapEmployees,
   mapProfile,
@@ -24,6 +25,7 @@ import { getBrowserTimeZone } from "@/lib/networking/utils/date-time";
 
 type SchedulingSnapshot = {
   appointments: ReturnType<typeof mapAppointments>;
+  businessDayBlocks: ReturnType<typeof mapBusinessDayBlocks>;
   businessId: string;
   dashboardMetrics: ReturnType<typeof buildDashboardMetrics>;
   employees: ReturnType<typeof mapEmployees>;
@@ -40,6 +42,7 @@ type SchedulingSnapshot = {
 type ServiceInput = SchedulingSnapshot["services"][number];
 type EmployeeInput = SchedulingSnapshot["employees"][number];
 type AppointmentInput = SchedulingSnapshot["appointments"][number];
+type BusinessDayBlockInput = SchedulingSnapshot["businessDayBlocks"][number];
 
 export async function loadSchedulingSnapshot() {
   const supabase = getSupabaseBrowserClient();
@@ -74,6 +77,7 @@ export async function loadSchedulingSnapshot() {
     serviceAvailabilityResult,
     serviceAddonResult,
     appointmentResult,
+    businessDayBlockResult,
     paymentSettings
   ] = await Promise.all([
     supabase
@@ -117,6 +121,11 @@ export async function loadSchedulingSnapshot() {
       .select("id, service_id, employee_id, starts_at, ends_at, status, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
       .eq("business_id", businessId)
       .order("starts_at", { ascending: true }),
+    supabase
+      .from("business_day_blocks")
+      .select("id, starts_on, ends_on, reason")
+      .eq("business_id", businessId)
+      .order("starts_on", { ascending: true }),
     getPaymentSettings(businessId)
   ]);
 
@@ -124,7 +133,7 @@ export async function loadSchedulingSnapshot() {
     throw new Error("Unable to load the user workspace.");
   }
 
-  if (serviceResult.error || serviceEmployeeResult.error || serviceAvailabilityResult.error || serviceAddonResult.error || appointmentResult.error) {
+  if (serviceResult.error || serviceEmployeeResult.error || serviceAvailabilityResult.error || serviceAddonResult.error || appointmentResult.error || businessDayBlockResult.error) {
     throw new Error("Unable to load scheduling data.");
   }
 
@@ -148,11 +157,13 @@ export async function loadSchedulingSnapshot() {
     )
   );
   const appointments = mapAppointments(appointmentResult.data ?? [], timeZone);
+  const businessDayBlocks = mapBusinessDayBlocks(businessDayBlockResult.data ?? []);
   const focusedDate = getDefaultFocusedDate(appointments, timeZone);
   const profile = mapProfile(userProfileResult.data, businessResult.data, user.email ?? "");
 
   return {
     appointments,
+    businessDayBlocks,
     businessId,
     dashboardMetrics: buildDashboardMetrics(appointments, employees, focusedDate),
     employees,
@@ -279,6 +290,22 @@ export async function deleteService(businessId: string, serviceId: string) {
     action: "deleteService",
     businessId,
     serviceId
+  });
+}
+
+export async function saveBusinessDayBlock(businessId: string, dayBlock: BusinessDayBlockInput) {
+  await runSchedulingMutation({
+    action: "saveBusinessDayBlock",
+    businessId,
+    dayBlock
+  });
+}
+
+export async function deleteBusinessDayBlock(businessId: string, dayBlockId: string) {
+  await runSchedulingMutation({
+    action: "deleteBusinessDayBlock",
+    businessId,
+    dayBlockId
   });
 }
 

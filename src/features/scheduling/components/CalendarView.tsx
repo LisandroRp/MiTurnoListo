@@ -22,10 +22,11 @@ import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
 import { SectionHeader } from "@/components/composed/SectionHeader";
-import { getAvailableSlotsForEmployee } from "@/features/booking-flow/utils/booking";
+import { getAvailableSlotsForEmployee, isDateBlocked } from "@/features/booking-flow/utils/booking";
+import { BusinessDayBlocksModal } from "@/features/scheduling/components/CalendarView/BusinessDayBlocksModal";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, getMonthlyAppointmentUsage, isFreePlan } from "@/features/scheduling/plan-limits";
-import { Appointment, CalendarMode, Employee, Service } from "@/features/scheduling/types";
+import { Appointment, BusinessDayBlock, CalendarMode, Employee, Service } from "@/features/scheduling/types";
 import { getDateLabel } from "@/features/scheduling/utils/format";
 
 const appointmentToneClasses: Record<string, string> = {
@@ -40,6 +41,7 @@ type CalendarViewProps = {
   employees: Employee[];
   services: Service[];
   appointments: Appointment[];
+  businessDayBlocks: BusinessDayBlock[];
   subscriptionTier: string;
   mode: CalendarMode;
   focusedDate: string;
@@ -50,8 +52,10 @@ type CalendarViewProps = {
   onEmployeeQueryChange: (value: string) => void;
   onToggleEmployee: (employeeId: string) => void;
   onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
+  onDeleteBusinessDayBlock: (dayBlockId: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
+  onSaveBusinessDayBlock: (dayBlock: BusinessDayBlock) => Promise<boolean> | void;
 };
 
 const modes: CalendarMode[] = ["day", "week", "month"];
@@ -61,6 +65,7 @@ export function CalendarView({
   employees,
   services,
   appointments,
+  businessDayBlocks,
   subscriptionTier,
   mode,
   focusedDate,
@@ -71,9 +76,12 @@ export function CalendarView({
   onEmployeeQueryChange,
   onToggleEmployee,
   onDeleteAppointment,
+  onDeleteBusinessDayBlock,
   onMarkAppointmentPaid,
-  onRescheduleAppointment
+  onRescheduleAppointment,
+  onSaveBusinessDayBlock
 }: CalendarViewProps) {
+  const [isDayBlocksModalOpen, setIsDayBlocksModalOpen] = useState(false);
   const selectableEmployees = employees.filter((employee) => !employee.isArchived);
   const selectableEmployeeIds = new Set(selectableEmployees.map((employee) => employee.id));
   const visibleEmployees = selectableEmployees.filter((employee) => selectedEmployeeIds.includes(employee.id));
@@ -121,19 +129,37 @@ export function CalendarView({
         title={messages.calendar.title}
         description={messages.calendar.description}
         actions={
-          <div className="flex rounded-lg border border-subtle bg-surface p-1">
-            {modes.map((item) => (
-              <Button
-                key={item}
-                size="sm"
-                variant={mode === item ? "primary" : "ghost"}
-                onClick={() => onModeChange(item)}
-              >
-                {messages.calendar[item]}
-              </Button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              icon={<FiCalendar />}
+              onClick={() => setIsDayBlocksModalOpen(true)}
+            >
+              {messages.calendar.blockedDays}
+            </Button>
+            <div className="flex rounded-lg border border-subtle bg-surface p-1">
+              {modes.map((item) => (
+                <Button
+                  key={item}
+                  size="sm"
+                  variant={mode === item ? "primary" : "ghost"}
+                  onClick={() => onModeChange(item)}
+                >
+                  {messages.calendar[item]}
+                </Button>
+              ))}
+            </div>
           </div>
         }
+      />
+
+      <BusinessDayBlocksModal
+        dayBlocks={businessDayBlocks}
+        isOpen={isDayBlocksModalOpen}
+        messages={messages}
+        onClose={() => setIsDayBlocksModalOpen(false)}
+        onDelete={onDeleteBusinessDayBlock}
+        onSave={onSaveBusinessDayBlock}
       />
 
       {shouldShowFreeLimit ? (
@@ -209,6 +235,7 @@ export function CalendarView({
             <DayCalendar
               messages={messages}
               focusedDate={safeFocusedDate}
+              businessDayBlocks={businessDayBlocks}
               employees={visibleEmployees}
               allEmployees={employees}
               services={services}
@@ -225,6 +252,7 @@ export function CalendarView({
               messages={messages}
               dates={weekDates}
               focusedDate={safeFocusedDate}
+              businessDayBlocks={businessDayBlocks}
               services={services}
               employees={employees}
               allAppointments={activeAppointments}
@@ -244,6 +272,7 @@ export function CalendarView({
               messages={messages}
               dates={monthDates}
               appointments={visibleAppointments}
+              businessDayBlocks={businessDayBlocks}
               focusedDate={safeFocusedDate}
               onDateClick={(date) => {
                 onFocusedDateChange(date);
@@ -338,6 +367,7 @@ function formatLimitMessage(message: string, count: number, limit: number) {
 type CalendarContentProps = {
   messages: Messages;
   focusedDate?: string;
+  businessDayBlocks: BusinessDayBlock[];
   employees: Employee[];
   allEmployees: Employee[];
   services: Service[];
@@ -351,6 +381,7 @@ type CalendarContentProps = {
 function DayCalendar({
   messages,
   focusedDate,
+  businessDayBlocks,
   employees,
   allEmployees,
   services,
@@ -360,8 +391,10 @@ function DayCalendar({
   onMarkAppointmentPaid,
   onRescheduleAppointment
 }: CalendarContentProps) {
+  const dayBlock = focusedDate ? getDateBlock(focusedDate, businessDayBlocks) : null;
+
   if (appointments.length === 0) {
-    return <EmptyCalendar messages={messages} />;
+    return dayBlock ? <BlockedDayEmpty messages={messages} dayBlock={dayBlock} /> : <EmptyCalendar messages={messages} />;
   }
 
   return (
@@ -369,6 +402,11 @@ function DayCalendar({
       <div className="border-b border-subtle bg-input px-4 py-3 text-sm font-semibold capitalize text-primary">
         {focusedDate ? getDateLabel(focusedDate) : ""}
       </div>
+      {dayBlock ? (
+        <div className="border-b border-subtle bg-warning-soft px-4 py-3 text-sm font-semibold text-warning">
+          {messages.calendar.closedDay}: {dayBlock.reason}
+        </div>
+      ) : null}
       <div
         className="grid min-w-[760px]"
         style={{ gridTemplateColumns: `6rem repeat(${Math.max(employees.length, 1)}, minmax(10rem, 1fr))` }}
@@ -401,6 +439,7 @@ function DayCalendar({
                       serviceName={service?.name}
                       employees={allEmployees}
                       appointments={allAppointments}
+                      businessDayBlocks={businessDayBlocks}
                       onDeleteAppointment={onDeleteAppointment}
                       onMarkAppointmentPaid={onMarkAppointmentPaid}
                       onRescheduleAppointment={onRescheduleAppointment}
@@ -420,6 +459,7 @@ type DateGroupedCalendarProps = {
   messages: Messages;
   dates: string[];
   focusedDate: string;
+  businessDayBlocks: BusinessDayBlock[];
   services: Service[];
   employees: Employee[];
   allAppointments: Appointment[];
@@ -434,6 +474,7 @@ function DateGroupedCalendar({
   messages,
   dates,
   focusedDate,
+  businessDayBlocks,
   services,
   employees,
   allAppointments,
@@ -461,6 +502,7 @@ function DateGroupedCalendar({
           const dayAppointments = appointments.filter((appointment) => appointment.date === date);
           const isFocused = focusedDate === date;
           const isToday = todayDate === date;
+          const dayBlock = getDateBlock(date, businessDayBlocks);
 
           return (
             <div
@@ -479,8 +521,16 @@ function DateGroupedCalendar({
                 >
                   {getDateLabel(date)}
                 </button>
-                <span className="text-xs font-semibold text-muted">{dayAppointments.length} {messages.calendar.appointments}</span>
+                <span className="flex shrink-0 items-center gap-2 text-xs font-semibold text-muted">
+                  {dayBlock ? <Badge tone="warning">{messages.calendar.closedDayShort}</Badge> : null}
+                  <span>{dayAppointments.length} {messages.calendar.appointments}</span>
+                </span>
               </div>
+              {dayBlock ? (
+                <p className="mt-2 rounded-lg bg-warning-soft px-3 py-2 text-xs font-semibold text-warning">
+                  {dayBlock.reason}
+                </p>
+              ) : null}
               <div className="mt-3 grid flex-1 content-start gap-2">
                 {dayAppointments.length > 0 ? dayAppointments.map((appointment) => {
                   const employee = employees.find((item) => item.id === appointment.employeeId);
@@ -497,6 +547,7 @@ function DateGroupedCalendar({
                       employeeName={employee?.name}
                       employees={employees}
                       appointments={allAppointments}
+                      businessDayBlocks={businessDayBlocks}
                       onDeleteAppointment={onDeleteAppointment}
                       onMarkAppointmentPaid={onMarkAppointmentPaid}
                       onRescheduleAppointment={onRescheduleAppointment}
@@ -522,6 +573,7 @@ type AppointmentCardProps = {
   variant?: "calendar" | "dashboardRow";
   employees: Employee[];
   appointments: Appointment[];
+  businessDayBlocks?: BusinessDayBlock[];
   onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
@@ -537,6 +589,7 @@ export function AppointmentCard({
   variant = "calendar",
   employees,
   appointments,
+  businessDayBlocks = [],
   onDeleteAppointment,
   onMarkAppointmentPaid,
   onRescheduleAppointment
@@ -552,7 +605,7 @@ export function AppointmentCard({
   const appointmentToneClass = employee ? appointmentToneClasses[employee.color] : "border-brand bg-brand-soft";
   const paymentState = getPaymentState(appointment.status);
   const availableRescheduleEmployees = service
-    ? getRescheduleEmployees(service, employees, appointments, appointment, rescheduleDate)
+    ? getRescheduleEmployees(service, employees, appointments, appointment, rescheduleDate, businessDayBlocks)
     : [];
   const canReschedule = Boolean(service && rescheduleDate && rescheduleEmployeeId && availableRescheduleEmployees.some((item) => item.id === rescheduleEmployeeId));
 
@@ -655,7 +708,7 @@ export function AppointmentCard({
       return;
     }
 
-    const nextEmployees = getRescheduleEmployees(service, employees, appointments, appointment, date);
+    const nextEmployees = getRescheduleEmployees(service, employees, appointments, appointment, date, businessDayBlocks);
     const currentEmployeeIsAvailable = nextEmployees.some((item) => item.id === rescheduleEmployeeId);
     setRescheduleEmployeeId(currentEmployeeIsAvailable ? rescheduleEmployeeId : nextEmployees[0]?.id ?? "");
   }
@@ -901,8 +954,13 @@ function getRescheduleEmployees(
   employees: Employee[],
   appointments: Appointment[],
   appointment: Appointment,
-  date: string
+  date: string,
+  businessDayBlocks: BusinessDayBlock[]
 ) {
+  if (isDateBlocked(date, businessDayBlocks)) {
+    return [];
+  }
+
   const activeAppointments = appointments.filter((item) => item.id !== appointment.id);
 
   return employees.filter((employee) => {
@@ -915,7 +973,9 @@ function getRescheduleEmployees(
       employee,
       activeAppointments,
       new Date(`${date}T12:00:00`),
-      appointment.partySize
+      appointment.partySize,
+      new Date(),
+      businessDayBlocks
     );
 
     return slots.some((slot) => (
@@ -934,12 +994,14 @@ function MonthCalendar({
   messages,
   dates,
   appointments,
+  businessDayBlocks,
   focusedDate,
   onDateClick
 }: {
   messages: Messages;
   dates: string[];
   appointments: Appointment[];
+  businessDayBlocks: BusinessDayBlock[];
   focusedDate: string;
   onDateClick: (date: string) => void;
 }) {
@@ -952,6 +1014,7 @@ function MonthCalendar({
           const dayAppointments = appointments.filter((appointment) => appointment.date === date);
           const isFocused = focusedDate === date;
           const isToday = todayDate === date;
+          const isBlocked = isDateBlocked(date, businessDayBlocks);
 
           return (
             <button
@@ -960,11 +1023,14 @@ function MonthCalendar({
               onClick={() => onDateClick(date)}
               className={cx(
                 "min-h-28 cursor-pointer p-3 text-left transition-all hover:bg-surface-strong",
-                isToday ? "bg-surface-strong shadow-inner" : "bg-surface",
+                isBlocked ? "bg-warning-soft" : isToday ? "bg-surface-strong shadow-inner" : "bg-surface",
                 isFocused ? "ring-2 ring-brand ring-inset" : ""
               )}
             >
-              <p className="text-sm font-bold text-primary">{Number(date.slice(-2))}</p>
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-bold text-primary">{Number(date.slice(-2))}</p>
+                {isBlocked ? <Badge tone="warning">{messages.calendar.closedDayShort}</Badge> : null}
+              </div>
               <p className="mt-6 text-xs font-semibold text-muted">
                 {dayAppointments.length} {messages.calendar.appointments}
               </p>
@@ -982,6 +1048,21 @@ function EmptyCalendar({ messages }: { messages: Messages }) {
       <p className="max-w-sm text-sm text-muted">{messages.calendar.noAppointments}</p>
     </div>
   );
+}
+
+function BlockedDayEmpty({ dayBlock, messages }: { dayBlock: BusinessDayBlock; messages: Messages }) {
+  return (
+    <div className="grid min-h-[420px] place-items-center p-8 text-center">
+      <div className="max-w-sm rounded-xl border border-subtle bg-warning-soft p-5">
+        <p className="text-sm font-bold text-warning">{messages.calendar.closedDay}</p>
+        <p className="mt-2 text-sm text-muted">{dayBlock.reason}</p>
+      </div>
+    </div>
+  );
+}
+
+function getDateBlock(date: string, dayBlocks: BusinessDayBlock[]) {
+  return dayBlocks.find((block) => date >= block.startsOn && date <= block.endsOn) ?? null;
 }
 
 function getSafeFocusedDate(focusedDate: string) {

@@ -9,6 +9,7 @@ export default function CalendarSectionPage() {
     employees,
     services,
     appointments,
+    businessDayBlocks,
     profile,
     calendarMode,
     focusedDate,
@@ -18,6 +19,8 @@ export default function CalendarSectionPage() {
     setFocusedDate,
     setEmployeeQuery,
     toggleEmployee,
+    saveBusinessDayBlock,
+    deleteBusinessDayBlock,
     deleteAppointment,
     markAppointmentPaid,
     rescheduleAppointment
@@ -29,6 +32,7 @@ export default function CalendarSectionPage() {
       employees={employees}
       services={services}
       appointments={appointments}
+      businessDayBlocks={businessDayBlocks}
       subscriptionTier={profile.subscriptionTier}
       mode={calendarMode}
       focusedDate={focusedDate}
@@ -38,6 +42,8 @@ export default function CalendarSectionPage() {
       onFocusedDateChange={setFocusedDate}
       onEmployeeQueryChange={setEmployeeQuery}
       onToggleEmployee={toggleEmployee}
+      onSaveBusinessDayBlock={saveBusinessDayBlock}
+      onDeleteBusinessDayBlock={deleteBusinessDayBlock}
       onDeleteAppointment={deleteAppointment}
       onMarkAppointmentPaid={markAppointmentPaid}
       onRescheduleAppointment={rescheduleAppointment}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { Appointment, Employee, Service } from "@/features/scheduling/types";
+import { Appointment, BusinessDayBlock, Employee, Service } from "@/features/scheduling/types";
 import { freePlanLimits, getCurrentMonthRange, isFreePlan } from "@/features/scheduling/plan-limits";
 import { hasValidCancellationLeadMinutes } from "@/features/scheduling/service-cancellation-policy";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
@@ -44,6 +44,16 @@ type SchedulingMutationPayload =
       action: "archiveService" | "unarchiveService" | "deleteService";
       businessId: string;
       serviceId: string;
+    }
+  | {
+      action: "saveBusinessDayBlock";
+      businessId: string;
+      dayBlock: BusinessDayBlock;
+    }
+  | {
+      action: "deleteBusinessDayBlock";
+      businessId: string;
+      dayBlockId: string;
     }
   | {
       action: "createAppointment";
@@ -123,6 +133,14 @@ export async function POST(request: NextRequest) {
       await deleteArchivedService(supabase, payload.businessId, payload.serviceId);
     }
 
+    if (payload.action === "saveBusinessDayBlock") {
+      await saveBusinessDayBlock(supabase, payload.businessId, payload.dayBlock);
+    }
+
+    if (payload.action === "deleteBusinessDayBlock") {
+      await deleteBusinessDayBlock(supabase, payload.businessId, payload.dayBlockId);
+    }
+
     if (payload.action === "archiveEmployee") {
       await archiveEmployee(supabase, payload.businessId, payload.employeeId);
     }
@@ -166,9 +184,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = getSafeErrorMessage(error, "Unable to save changes.");
-    const status = message.startsWith("PLAN_LIMIT:") ? 402 : message.startsWith("PAYMENT_CONFIG:") || message.startsWith("ARCHIVE_RULE:") ? 409 : 500;
+    const status = message.startsWith("PLAN_LIMIT:") ? 402 : message.startsWith("PAYMENT_CONFIG:") || message.startsWith("ARCHIVE_RULE:") || message.startsWith("DAY_BLOCK_CONFIG:") ? 409 : 500;
 
-    return createApiErrorResponse(message.replace(/^(PLAN_LIMIT|PAYMENT_CONFIG|ARCHIVE_RULE):/, ""), {
+    return createApiErrorResponse(message.replace(/^(PLAN_LIMIT|PAYMENT_CONFIG|ARCHIVE_RULE|DAY_BLOCK_CONFIG):/, ""), {
       code: "SCHEDULING_MUTATION_FAILED",
       fallbackMessage: "Unable to save changes.",
       status
@@ -420,6 +438,42 @@ async function deleteArchivedService(supabase: SupabaseClient, businessId: strin
 
   if (error) {
     throw new Error("Unable to delete the service.");
+  }
+}
+
+async function saveBusinessDayBlock(supabase: SupabaseClient, businessId: string, dayBlock: BusinessDayBlock) {
+  const startsOn = dayBlock.startsOn?.trim() ?? "";
+  const endsOn = dayBlock.endsOn?.trim() || startsOn;
+  const reason = dayBlock.reason?.trim() || "Cerrado";
+
+  if (!isValidDateValue(startsOn) || !isValidDateValue(endsOn) || startsOn > endsOn) {
+    throw new Error("DAY_BLOCK_CONFIG:Revisa las fechas del dia bloqueado.");
+  }
+
+  const { error } = await supabase
+    .from("business_day_blocks")
+    .upsert({
+      id: dayBlock.id,
+      business_id: businessId,
+      starts_on: startsOn,
+      ends_on: endsOn,
+      reason
+    });
+
+  if (error) {
+    throw new Error("Unable to save the blocked day.");
+  }
+}
+
+async function deleteBusinessDayBlock(supabase: SupabaseClient, businessId: string, dayBlockId: string) {
+  const { error } = await supabase
+    .from("business_day_blocks")
+    .delete()
+    .eq("business_id", businessId)
+    .eq("id", dayBlockId);
+
+  if (error) {
+    throw new Error("Unable to delete the blocked day.");
   }
 }
 
@@ -692,6 +746,8 @@ async function createAppointment(
   timeZone: string,
   addonIds: string[]
 ) {
+  await enforceDateIsNotBlocked(supabase, businessId, appointment.date);
+
   const appointmentId = appointment.id || crypto.randomUUID();
   const startsAt = buildIsoInTimeZone(appointment.date, appointment.startTime, timeZone);
   const endsAt = buildIsoInTimeZone(appointment.date, appointment.endTime, timeZone);
@@ -847,6 +903,8 @@ async function rescheduleAppointment(
   employeeId: string,
   timeZone: string
 ) {
+  await enforceDateIsNotBlocked(supabase, businessId, date);
+
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
     .select("id, service_id, employee_id, starts_at, ends_at, status, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
@@ -966,6 +1024,23 @@ async function rescheduleAppointment(
   }
 }
 
+async function enforceDateIsNotBlocked(supabase: SupabaseClient, businessId: string, date: string) {
+  const { count, error } = await supabase
+    .from("business_day_blocks")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .lte("starts_on", date)
+    .gte("ends_on", date);
+
+  if (error) {
+    throw new Error("Unable to validate blocked days.");
+  }
+
+  if ((count ?? 0) > 0) {
+    throw new Error("DAY_BLOCK_CONFIG:Este dia esta bloqueado para reservas.");
+  }
+}
+
 async function upsertCustomer(
   supabase: SupabaseClient,
   businessId: string,
@@ -1049,4 +1124,13 @@ function buildSlug(name: string, fallbackId: string) {
     .replace(/^-+|-+$/g, "");
 
   return normalized || fallbackId;
+}
+
+function isValidDateValue(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const date = new Date(`${value}T12:00:00`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }

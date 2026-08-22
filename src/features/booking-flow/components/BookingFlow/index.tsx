@@ -58,6 +58,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
     paymentSettings: previewPaymentSettings,
     profile,
     services: previewServices,
+    businessDayBlocks: previewBusinessDayBlocks,
     theme: previewTheme
   } = useScheduling();
   const isPreview = mode === "preview";
@@ -81,6 +82,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   const service = isPreview ? previewServices.find((item) => item.id === serviceId) : publicPayload?.service;
   const employees = isPreview ? previewEmployees : publicPayload?.employees ?? [];
   const appointments = isPreview ? previewAppointments : publicPayload?.appointments ?? [];
+  const businessDayBlocks = isPreview ? previewBusinessDayBlocks : publicPayload?.businessDayBlocks ?? [];
   const paymentSettings = isPreview ? previewPaymentSettings : publicPayload?.paymentSettings ?? emptyPaymentSettings;
   const publicHeader = {
     address: isPreview ? profile.address : publicPayload?.address ?? "",
@@ -168,7 +170,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   const selectedEmployee = assignedEmployees.find((employee) => employee.id === draft.employeeId) ?? null;
   const availablePaymentOptions = service ? getAvailablePaymentOptions(service, paymentSettings) : [];
   const availableSlots = service && selectedEmployee
-    ? getAvailableSlotsForEmployee(service, selectedEmployee, appointments, monthDate, draft.partySize)
+    ? getAvailableSlotsForEmployee(service, selectedEmployee, appointments, monthDate, draft.partySize, new Date(), businessDayBlocks)
     : [];
   const selectedPaymentOption = draft.paymentOption && availablePaymentOptions.includes(draft.paymentOption)
     ? draft.paymentOption

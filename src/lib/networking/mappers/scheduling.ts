@@ -2,6 +2,7 @@ import {
   Appointment,
   AppointmentStatus,
   BusinessPaymentSettings,
+  BusinessDayBlock,
   DashboardMetric,
   Employee,
   PaymentMethod,
@@ -106,6 +107,13 @@ type PaymentSettingsRow = {
   transfer_cbu: string | null;
   transfer_alias: string | null;
   transfer_receipt_whatsapp: string | null;
+};
+
+type BusinessDayBlockRow = {
+  id: string;
+  starts_on: string;
+  ends_on: string;
+  reason: string | null;
 };
 
 const dayKeys: readonly DayKey[] = [
@@ -258,6 +266,17 @@ export function mapPaymentSettings(row: PaymentSettingsRow | null): BusinessPaym
       receiptWhatsapp: row?.transfer_receipt_whatsapp ?? ""
     }
   };
+}
+
+export function mapBusinessDayBlocks(rows: BusinessDayBlockRow[]): BusinessDayBlock[] {
+  return rows
+    .map((row) => ({
+      id: row.id,
+      startsOn: row.starts_on,
+      endsOn: row.ends_on,
+      reason: row.reason ?? ""
+    }))
+    .sort((left, right) => left.startsOn.localeCompare(right.startsOn));
 }
 
 export function buildDashboardMetrics(appointments: Appointment[], employees: Employee[], referenceDate: string): DashboardMetric[] {

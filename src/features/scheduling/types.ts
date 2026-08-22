@@ -122,6 +122,13 @@ export type BusinessPaymentSettings = {
   transfers: TransferPaymentSettings;
 };
 
+export type BusinessDayBlock = {
+  id: string;
+  startsOn: string;
+  endsOn: string;
+  reason: string;
+};
+
 export type BookingCustomer = {
   fullName: string;
   phone: string;

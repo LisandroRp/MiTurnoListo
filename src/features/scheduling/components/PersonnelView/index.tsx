@@ -1,4 +1,5 @@
-import { ChangeEvent, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { FiEdit2, FiPlus } from "react-icons/fi";
 
 import { PlanLimitModal } from "@/components/composed/PlanLimitModal";
@@ -63,6 +64,8 @@ export function PersonnelView({
   onValidationWarning,
   onImageUploadError
 }: PersonnelViewProps) {
+  const searchParams = useSearchParams();
+  const employeeSearchParam = searchParams.get("search") ?? "";
   const rangeIdCounter = useRef(1);
   const [mode, setMode] = useState<PersonnelMode>("grid");
   const [draft, setDraft] = useState<Employee>(() => createNewEmployeeDraft());
@@ -70,7 +73,7 @@ export function PersonnelView({
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [pendingEmployeeImageFile, setPendingEmployeeImageFile] = useState<File | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(employeeSearchParam);
   const [personnelFilter, setPersonnelFilter] = useState<PersonnelFilter>("all");
   const [showArchivedPersonnel, setShowArchivedPersonnel] = useState(false);
   const [isSavingEmployee, setIsSavingEmployee] = useState(false);
@@ -89,6 +92,10 @@ export function PersonnelView({
   );
   const todayKey = getDayKeyForDate(referenceDate);
   const wizardActionVisibility = useDualActionVisibility();
+  useEffect(() => {
+    setSearchTerm(employeeSearchParam);
+  }, [employeeSearchParam]);
+
   const filteredEmployees = employees.filter((employee) => {
     const matchesSearch = employee.name.toLowerCase().includes(searchTerm.trim().toLowerCase());
     const matchesFilter =

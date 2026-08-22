@@ -1,6 +1,7 @@
 import {
   Appointment,
   BookingCustomer,
+  BusinessDayBlock,
   BusinessPaymentSettings,
   Employee,
   PaymentMethod,
@@ -65,7 +66,8 @@ export function getAvailableSlotsForEmployee(
   appointments: Appointment[],
   monthDate: Date,
   partySize: number,
-  now = new Date()
+  now = new Date(),
+  dayBlocks: BusinessDayBlock[] = []
 ): BookingSlot[] {
   const slots: BookingSlot[] = [];
   const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
@@ -81,6 +83,11 @@ export function getAvailableSlotsForEmployee(
     }
 
     const dateKey = toDateKey(date);
+
+    if (isDateBlocked(dateKey, dayBlocks)) {
+      continue;
+    }
+
     const overlappingRanges = getOverlappingRanges(serviceRanges, employeeRanges);
 
     overlappingRanges.forEach((range) => {
@@ -114,6 +121,10 @@ export function getAvailableSlotsForEmployee(
   }
 
   return dedupeSlots(slots);
+}
+
+export function isDateBlocked(date: string, dayBlocks: BusinessDayBlock[]) {
+  return dayBlocks.some((block) => date >= block.startsOn && date <= block.endsOn);
 }
 
 export function getMonthGrid(monthDate: Date) {

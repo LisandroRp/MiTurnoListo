@@ -127,7 +127,7 @@ export function PublicLanding() {
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:py-24">
+      <section className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] pt-16">
         <div className="flex flex-col justify-center">
           <Badge tone="brand" className="w-fit">Agenda, equipo y servicios en un solo lugar</Badge>
           <h1 className="mt-5 max-w-3xl text-4xl font-bold leading-tight text-primary sm:text-6xl">

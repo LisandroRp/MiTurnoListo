@@ -1,8 +1,7 @@
 import { ChangeEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
-import QRCode from "qrcode";
-import { FiArrowLeft, FiArrowRight, FiCheck, FiCopy, FiEdit2, FiInfo, FiLink, FiMoreHorizontal, FiPlus, FiSearch, FiShare2, FiTrash2, FiX } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight, FiCheck, FiCopy, FiEdit2, FiInfo, FiMoreHorizontal, FiPlus, FiSearch, FiShare2, FiTrash2 } from "react-icons/fi";
 
 import { PlanLimitModal } from "@/components/composed/PlanLimitModal";
 import { SectionHeader } from "@/components/composed/SectionHeader";
@@ -20,6 +19,7 @@ import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
 import { AvailabilityEditor, dayKeys, getScheduleValidationMessage, maxRangesPerDay } from "@/features/scheduling/components/AvailabilityEditor";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
+import { ShareCatalogModal, ShareServiceModal } from "@/features/scheduling/components/ServicesView/ShareResourceModal";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, isFreePlan } from "@/features/scheduling/plan-limits";
 import {
@@ -815,166 +815,6 @@ export function ServicesView({
         actionLabel={messages.planLimits.lockedAction}
         onClose={() => setLockedService(null)}
       />
-    </div>
-  );
-}
-
-function ShareServiceModal({
-  messages,
-  service,
-  serviceUrl,
-  onClose,
-  onCopy
-}: {
-  messages: Messages;
-  service: Service;
-  serviceUrl: string;
-  onClose: () => void;
-  onCopy: () => void;
-}) {
-  const [qrDataUrl, setQrDataUrl] = useState("");
-
-  useEffect(() => {
-    let isActive = true;
-
-    void QRCode.toDataURL(serviceUrl, {
-      margin: 2,
-      width: 260
-    }).then((dataUrl) => {
-      if (isActive) {
-        setQrDataUrl(dataUrl);
-      }
-    });
-
-    return () => {
-      isActive = false;
-    };
-  }, [serviceUrl]);
-
-  return (
-    <div className="p-safe fixed inset-0 z-50 grid place-items-center bg-primary/35">
-      <Card className="grid w-fit max-w-full gap-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold uppercase text-muted">{messages.actions.share}</p>
-            <h2 className="mt-1 text-2xl font-bold text-primary">{messages.services.shareTitle}</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              {messages.services.shareDescription.replace("{serviceName}", service.name)}
-            </p>
-          </div>
-          <Button size="icon" variant="ghost" aria-label={messages.actions.cancel} onClick={onClose}>
-            <FiX />
-          </Button>
-        </div>
-
-        <div className="grid justify-items-center gap-4 rounded-xl border border-subtle bg-input p-5">
-          {qrDataUrl ? (
-            <Image
-              src={qrDataUrl}
-              alt={messages.services.shareQrAlt}
-              width={260}
-              height={260}
-              unoptimized
-              className="h-64 w-64 rounded-lg border border-subtle bg-surface p-3"
-            />
-          ) : (
-            <div className="grid h-64 w-64 place-items-center rounded-lg border border-subtle bg-surface text-sm text-muted">
-              {messages.services.generatingQr}
-            </div>
-          )}
-          <div className="flex w-full items-center gap-2 rounded-lg border border-subtle bg-surface px-3 py-2 text-sm text-muted">
-            <FiLink className="shrink-0" aria-hidden="true" />
-            <span className="truncate">{serviceUrl}</span>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <Button variant="secondary" onClick={onClose}>
-            {messages.actions.cancel}
-          </Button>
-          <Button icon={<FiCopy />} onClick={onCopy}>
-            {messages.services.copyPublicLink}
-          </Button>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-function ShareCatalogModal({
-  messages,
-  catalogUrl,
-  onClose,
-  onCopy
-}: {
-  messages: Messages;
-  catalogUrl: string;
-  onClose: () => void;
-  onCopy: () => void;
-}) {
-  const [qrDataUrl, setQrDataUrl] = useState("");
-
-  useEffect(() => {
-    let isActive = true;
-
-    void QRCode.toDataURL(catalogUrl, {
-      margin: 2,
-      width: 260
-    }).then((dataUrl) => {
-      if (isActive) {
-        setQrDataUrl(dataUrl);
-      }
-    });
-
-    return () => {
-      isActive = false;
-    };
-  }, [catalogUrl]);
-
-  return (
-    <div className="p-safe fixed inset-0 z-50 grid place-items-center bg-primary/35">
-      <Card className="grid w-fit max-w-full gap-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold uppercase text-muted">{messages.actions.share}</p>
-            <h2 className="mt-1 text-2xl font-bold text-primary">{messages.services.shareCatalogTitle}</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">{messages.services.shareCatalogDescription}</p>
-          </div>
-          <Button size="icon" variant="ghost" aria-label={messages.actions.cancel} onClick={onClose}>
-            <FiX />
-          </Button>
-        </div>
-
-        <div className="grid justify-items-center gap-4 rounded-xl border border-subtle bg-input p-5">
-          {qrDataUrl ? (
-            <Image
-              src={qrDataUrl}
-              alt={messages.services.shareCatalogQrAlt}
-              width={260}
-              height={260}
-              unoptimized
-              className="h-64 w-64 rounded-lg border border-subtle bg-surface p-3"
-            />
-          ) : (
-            <div className="grid h-64 w-64 place-items-center rounded-lg border border-subtle bg-surface text-sm text-muted">
-              {messages.services.generatingQr}
-            </div>
-          )}
-          <div className="flex w-full items-center gap-2 rounded-lg border border-subtle bg-surface px-3 py-2 text-sm text-muted">
-            <FiLink className="shrink-0" aria-hidden="true" />
-            <span className="truncate">{catalogUrl}</span>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <Button variant="secondary" onClick={onClose}>
-            {messages.actions.cancel}
-          </Button>
-          <Button icon={<FiCopy />} onClick={onCopy}>
-            {messages.services.copyPublicLink}
-          </Button>
-        </div>
-      </Card>
     </div>
   );
 }

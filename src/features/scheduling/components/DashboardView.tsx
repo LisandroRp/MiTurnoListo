@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
@@ -35,6 +36,7 @@ export function DashboardView({
   onMarkAppointmentPaid,
   onRescheduleAppointment
 }: DashboardViewProps) {
+  const router = useRouter();
   const activeServiceIds = new Set(services.filter((service) => !service.isArchived).map((service) => service.id));
   const todaysAppointments = appointments.filter((appointment) => appointment.date === referenceDate && activeServiceIds.has(appointment.serviceId));
   const activeTodaysAppointments = todaysAppointments.filter((appointment) => appointment.status !== "cancelled");
@@ -42,12 +44,15 @@ export function DashboardView({
   const todayKey = getDayKeyForDate(referenceDate);
   const employeesWorkingToday = employees.filter((employee) => (
     !employee.isArchived &&
-    ((employee.schedule[todayKey] ?? []).length > 0 || todaysAppointmentEmployeeIds.has(employee.id))
+    (todaysAppointmentEmployeeIds.has(employee.id) || (employee.isVisible && (employee.schedule[todayKey] ?? []).length > 0))
   ));
   const dayAppointments = todaysAppointments
     .slice()
     .sort((left, right) => left.startTime.localeCompare(right.startTime));
   const currentTimePosition = getCurrentTimePosition(referenceDate);
+  const openEmployeeInPersonnel = (employee: Employee) => {
+    router.push(`/personal?search=${encodeURIComponent(employee.name)}`);
+  };
 
   return (
     <div className="flex min-h-[calc(100vh-2.5rem)] flex-col gap-6">
@@ -95,13 +100,18 @@ export function DashboardView({
 
         <Card className="flex min-h-[28rem] h-[34rem] flex-col">
           <h2 className="text-lg font-bold text-primary">{messages.home.teamToday}</h2>
-          <div className="mt-4 grid content-start gap-3 overflow-auto">
+          <div className="mt-4 grid content-start gap-3 overflow-auto py-2">
             {employeesWorkingToday.map((employee) => {
               const employeeSchedule = employee.schedule[todayKey] ?? [];
               const employeeAppointments = activeTodaysAppointments.filter((appointment) => appointment.employeeId === employee.id);
 
               return (
-                <div key={employee.id} className="grid gap-3 rounded-lg border border-subtle bg-input p-3">
+                <button
+                  key={employee.id}
+                  type="button"
+                  className="grid cursor-pointer gap-3 rounded-lg border border-subtle bg-input p-3 text-left transition duration-200 hover:-translate-y-1 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-focus"
+                  onClick={() => openEmployeeInPersonnel(employee)}
+                >
                   <div className="flex items-center gap-3">
                     <span className={cx("grid h-10 w-10 place-items-center rounded-full text-sm font-bold text-on-brand", employeeColorClasses[employee.color])}>
                       {employee.initials}
@@ -122,7 +132,7 @@ export function DashboardView({
                       value={formatAppointmentCount(employeeAppointments.length, messages)}
                     />
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

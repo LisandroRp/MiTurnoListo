@@ -2,6 +2,7 @@
 
 import {
   Appointment,
+  BusinessDayBlock,
   BusinessPaymentSettings,
   Employee,
   Locale,
@@ -14,6 +15,7 @@ export type PublicBookingPayload = {
   address: string;
   appointments: Appointment[];
   businessName: string;
+  businessDayBlocks: BusinessDayBlock[];
   employees: Employee[];
   locale: Locale;
   paymentSettings: BusinessPaymentSettings;

@@ -7,6 +7,7 @@ import { useAuth } from "@/features/auth/components/AuthProvider";
 import { messages, Messages } from "@/features/scheduling/i18n/messages";
 import {
   Appointment,
+  BusinessDayBlock,
   BusinessPaymentSettings,
   BusinessProfile,
   CalendarMode,
@@ -23,6 +24,7 @@ import {
   createDashboardAppointment,
   deleteProSubscription as deleteProSubscriptionRequest,
   deleteAppointment as deleteAppointmentRequest,
+  deleteBusinessDayBlock as deleteBusinessDayBlockRequest,
   deleteEmployee as deleteEmployeeRequest,
   deleteService as deleteServiceRequest,
   loadSchedulingSnapshot,
@@ -31,6 +33,7 @@ import {
   refreshWorkspaceSubscription as refreshWorkspaceSubscriptionRequest,
   saveEmployee as saveEmployeeRequest,
   saveBusinessProfile as saveBusinessProfileRequest,
+  saveBusinessDayBlock as saveBusinessDayBlockRequest,
   saveProfileAvatar as saveProfileAvatarRequest,
   savePaymentSettings as savePaymentSettingsRequest,
   saveService as saveServiceRequest,
@@ -44,6 +47,7 @@ import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
 
 type SchedulingContextValue = {
   appointments: Appointment[];
+  businessDayBlocks: BusinessDayBlock[];
   dashboardMetrics: {
     id: string;
     labelKey: "revenue" | "activeEmployees" | "bookedAppointments" | "cancelledAppointments";
@@ -72,6 +76,7 @@ type SchedulingContextValue = {
   saveProfileAvatar: (avatarUrl: string) => Promise<boolean>;
   savePaymentSettings: (settings: BusinessPaymentSettings) => Promise<boolean>;
   saveService: (service: Service) => Promise<boolean>;
+  saveBusinessDayBlock: (dayBlock: BusinessDayBlock) => Promise<boolean>;
   selectedEmployeeIds: string[];
   setCalendarMode: (mode: CalendarMode) => void;
   setEmployeeQuery: (query: string) => void;
@@ -93,6 +98,7 @@ type SchedulingContextValue = {
   archiveService: (serviceId: string) => Promise<boolean>;
   deleteEmployee: (employeeId: string) => Promise<boolean>;
   deleteService: (serviceId: string) => Promise<boolean>;
+  deleteBusinessDayBlock: (dayBlockId: string) => Promise<boolean>;
   unarchiveEmployee: (employeeId: string) => Promise<boolean>;
   unarchiveService: (serviceId: string) => Promise<boolean>;
   updateEmployeeVisibility: (employeeId: string, isVisible: boolean) => Promise<boolean>;
@@ -144,6 +150,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
   const [profileState, setProfileState] = useState<Profile>(emptyProfile);
   const [appointmentList, setAppointmentList] = useState<Appointment[]>([]);
+  const [businessDayBlockList, setBusinessDayBlockList] = useState<BusinessDayBlock[]>([]);
   const [serviceList, setServiceList] = useState<Service[]>([]);
   const [paymentSettings, setPaymentSettings] = useState<BusinessPaymentSettings>(emptyPaymentSettings);
   const [themeOptions, setThemeOptions] = useState<ThemeId[]>(["coral", "blue", "sage"]);
@@ -164,6 +171,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     setEmployeeList([]);
     setProfileState(emptyProfile);
     setAppointmentList([]);
+    setBusinessDayBlockList([]);
     setServiceList([]);
     setPaymentSettings(emptyPaymentSettings);
     setDashboardMetrics([]);
@@ -183,6 +191,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       setSelectedEmployeeIds(snapshot.employees.filter((employee) => !employee.isArchived).map((employee) => employee.id));
       setProfileState(snapshot.profile);
       setAppointmentList(snapshot.appointments);
+      setBusinessDayBlockList(snapshot.businessDayBlocks);
       setServiceList(snapshot.services);
       setPaymentSettings(snapshot.paymentSettings);
       setDashboardMetrics(snapshot.dashboardMetrics);
@@ -305,6 +314,30 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       () => deleteAppointmentRequest(businessId, appointmentId, cancellationReason),
       copy.toast.appointmentDeleted,
       "Unable to delete the appointment."
+    );
+  }
+
+  async function saveBusinessDayBlock(dayBlock: BusinessDayBlock) {
+    if (!businessId) {
+      return false;
+    }
+
+    return runMutation(
+      () => saveBusinessDayBlockRequest(businessId, dayBlock),
+      copy.toast.businessDayBlockSaved,
+      "Unable to save the blocked day."
+    );
+  }
+
+  async function deleteBusinessDayBlock(dayBlockId: string) {
+    if (!businessId) {
+      return false;
+    }
+
+    return runMutation(
+      () => deleteBusinessDayBlockRequest(businessId, dayBlockId),
+      copy.toast.businessDayBlockDeleted,
+      "Unable to delete the blocked day."
     );
   }
 
@@ -649,6 +682,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     <SchedulingContext.Provider
       value={{
         appointments: appointmentList,
+        businessDayBlocks: businessDayBlockList,
         businessId,
         dashboardMetrics,
         cancelProSubscription,
@@ -666,6 +700,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         employeeQuery,
         locale,
         saveBusinessProfile,
+        saveBusinessDayBlock,
         saveProfileAvatar,
         saveEmployee,
         savePaymentSettings,
@@ -686,6 +721,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         archiveEmployee,
         archiveService,
         deleteAppointment,
+        deleteBusinessDayBlock,
         markAppointmentPaid,
         rescheduleAppointment,
         deleteEmployee,

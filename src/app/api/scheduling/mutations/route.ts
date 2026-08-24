@@ -12,7 +12,7 @@ import {
   mapScheduleToAvailabilityRows,
   mapServices
 } from "@/lib/networking/mappers/scheduling";
-import { buildIsoInTimeZone } from "@/lib/networking/utils/date-time";
+import { buildIsoInTimeZone, formatTodayForTimeZone } from "@/lib/networking/utils/date-time";
 import { getAvailableSlotsForEmployee } from "@/features/booking-flow/utils/booking";
 import { sendBookingCancelledEmails } from "@/lib/email/booking-emails";
 import { refundMercadoPagoPayment } from "@/lib/mercadopago/checkout";
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (payload.action === "saveBusinessDayBlock") {
-      await saveBusinessDayBlock(supabase, payload.businessId, payload.dayBlock);
+      await saveBusinessDayBlock(supabase, payload.businessId, payload.dayBlock, contextResult.context);
     }
 
     if (payload.action === "deleteBusinessDayBlock") {
@@ -441,7 +441,12 @@ async function deleteArchivedService(supabase: SupabaseClient, businessId: strin
   }
 }
 
-async function saveBusinessDayBlock(supabase: SupabaseClient, businessId: string, dayBlock: BusinessDayBlock) {
+async function saveBusinessDayBlock(
+  supabase: SupabaseClient,
+  businessId: string,
+  dayBlock: BusinessDayBlock,
+  context: BusinessContext
+) {
   const startsOn = dayBlock.startsOn?.trim() ?? "";
   const endsOn = dayBlock.endsOn?.trim() || startsOn;
   const reason = dayBlock.reason?.trim() || "Cerrado";
@@ -449,6 +454,9 @@ async function saveBusinessDayBlock(supabase: SupabaseClient, businessId: string
   if (!isValidDateValue(startsOn) || !isValidDateValue(endsOn) || startsOn > endsOn) {
     throw new Error("DAY_BLOCK_CONFIG:Revisa las fechas del dia bloqueado.");
   }
+
+  enforceBlockDateIsFuture(startsOn, context.timeZone);
+  await enforceNoAppointmentsInDateRange(supabase, businessId, startsOn, endsOn, context.timeZone);
 
   const { error } = await supabase
     .from("business_day_blocks")
@@ -463,6 +471,49 @@ async function saveBusinessDayBlock(supabase: SupabaseClient, businessId: string
   if (error) {
     throw new Error("Unable to save the blocked day.");
   }
+}
+
+function enforceBlockDateIsFuture(startsOn: string, timeZone: string) {
+  const today = formatTodayForTimeZone(timeZone);
+
+  if (startsOn <= today) {
+    throw new Error("DAY_BLOCK_CONFIG:No podes bloquear dias pasados ni el dia de hoy.");
+  }
+}
+
+async function enforceNoAppointmentsInDateRange(
+  supabase: SupabaseClient,
+  businessId: string,
+  startsOn: string,
+  endsOn: string,
+  timeZone: string
+) {
+  const startsAt = buildIsoInTimeZone(startsOn, "00:00", timeZone);
+  const endsAt = buildIsoInTimeZone(addDays(endsOn, 1), "00:00", timeZone);
+  const { count, error } = await supabase
+    .from("appointments")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .neq("status", "cancelled")
+    .gte("starts_at", startsAt)
+    .lt("starts_at", endsAt);
+
+  if (error) {
+    throw new Error("Unable to validate appointments for the blocked day.");
+  }
+
+  if ((count ?? 0) > 0) {
+    throw new Error("DAY_BLOCK_CONFIG:Este dia ya tiene turnos. Primero reprogramalos o cancelalos antes de bloquear el dia.");
+  }
+}
+
+function addDays(date: string, days: number) {
+  const [year, month, day] = date.split("-").map(Number);
+  const value = new Date(Date.UTC(year, month - 1, day));
+
+  value.setUTCDate(value.getUTCDate() + days);
+
+  return value.toISOString().slice(0, 10);
 }
 
 async function deleteBusinessDayBlock(supabase: SupabaseClient, businessId: string, dayBlockId: string) {

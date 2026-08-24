@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SelectField } from "@/components/ui/SelectField";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
-import { getPayments } from "@/lib/networking/endpoints/payments";
+import { getPayments, PaymentsPaginationMeta } from "@/lib/networking/endpoints/payments";
 import { LoadingDotsText } from "@/features/scheduling/components/LoadingDotsText";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { PaymentMethod, PaymentRecord, PaymentStatus } from "@/features/scheduling/types";
@@ -31,11 +32,23 @@ const statusToneMap: Record<PaymentStatus, "success" | "warning" | "danger" | "n
 };
 const tableHeaderClassName = "relative px-5 py-3 text-center font-semibold after:absolute after:right-0 after:top-2 after:bottom-2 after:w-px after:bg-subtle last:after:hidden";
 const compactTableHeaderClassName = "relative w-fit whitespace-nowrap px-4 py-3 text-center font-semibold after:absolute after:right-0 after:top-2 after:bottom-2 after:w-px after:bg-subtle last:after:hidden";
+const perPageOptions = [10, 20, 50, 100];
+
+const defaultPaginationMeta: PaymentsPaginationMeta = {
+  currentPage: 1,
+  perPage: 10,
+  totalAmount: 0,
+  totalItems: 0,
+  totalPages: 1
+};
 
 export function PaymentsView({ businessId, messages, onMarkAppointmentPaid }: PaymentsViewProps) {
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [methodFilter, setMethodFilter] = useState<MethodFilter>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [paginationMeta, setPaginationMeta] = useState<PaymentsPaginationMeta>(defaultPaginationMeta);
   const [isLoading, setIsLoading] = useState(Boolean(businessId));
   const [loadingPaymentId, setLoadingPaymentId] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -47,12 +60,18 @@ export function PaymentsView({ businessId, messages, onMarkAppointmentPaid }: Pa
 
     let isActive = true;
 
-    void loadPaymentRecords(businessId, messages.payments.loadError).then((result) => {
+    void loadPaymentRecords(businessId, messages.payments.loadError, {
+      method: methodFilter,
+      page: currentPage,
+      perPage,
+      status: statusFilter
+    }).then((result) => {
       if (!isActive) {
         return;
       }
 
       setPayments(result.payments);
+      setPaginationMeta(result.meta);
       setErrorMessage(result.errorMessage);
       setIsLoading(false);
     });
@@ -60,18 +79,7 @@ export function PaymentsView({ businessId, messages, onMarkAppointmentPaid }: Pa
     return () => {
       isActive = false;
     };
-  }, [businessId, messages.payments.loadError]);
-
-  const filteredPayments = payments.filter((payment) => (
-    (statusFilter === "all" || payment.status === statusFilter) &&
-    (methodFilter === "all" || payment.method === methodFilter)
-  ));
-  const paidPayments = payments.filter((payment) => payment.status === "paid");
-  const pendingPayments = payments.filter((payment) => payment.status === "pending");
-  const cancelledPayments = payments.filter((payment) => payment.status === "cancelled");
-  const refundedPayments = payments.filter((payment) => payment.status === "refunded");
-  const collectedAmount = paidPayments.reduce((total, payment) => total + payment.amount, 0);
-  const pendingAmount = pendingPayments.reduce((total, payment) => total + payment.amount, 0);
+  }, [businessId, currentPage, methodFilter, messages.payments.loadError, perPage, statusFilter]);
 
   async function handleMarkPaid(payment: PaymentRecord) {
     setLoadingPaymentId(payment.id);
@@ -79,8 +87,14 @@ export function PaymentsView({ businessId, messages, onMarkAppointmentPaid }: Pa
     setLoadingPaymentId("");
 
     if (didUpdate && businessId) {
-      const result = await loadPaymentRecords(businessId, messages.payments.loadError);
+      const result = await loadPaymentRecords(businessId, messages.payments.loadError, {
+        method: methodFilter,
+        page: currentPage,
+        perPage,
+        status: statusFilter
+      });
       setPayments(result.payments);
+      setPaginationMeta(result.meta);
       setErrorMessage(result.errorMessage);
     }
   }
@@ -94,21 +108,25 @@ export function PaymentsView({ businessId, messages, onMarkAppointmentPaid }: Pa
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <PaymentMetricCard label={messages.payments.collected} value={formatCurrency(collectedAmount)} helper={`${paidPayments.length} ${messages.payments.statuses.paid.toLowerCase()}`} tone="success" isLoading={isLoading} />
-        <PaymentMetricCard label={messages.payments.pending} value={formatCurrency(pendingAmount)} helper={`${pendingPayments.length} ${messages.payments.statuses.pending.toLowerCase()}`} tone="warning" isLoading={isLoading} />
-        <PaymentMetricCard label={messages.payments.cancelled} value={String(cancelledPayments.length)} helper={messages.payments.refunded + `: ${refundedPayments.length}`} tone="danger" isLoading={isLoading} />
-        <PaymentMetricCard label={messages.payments.totalPayments} value={String(payments.length)} helper={messages.payments.manualValidationHint} tone="brand" isLoading={isLoading} />
+        <PaymentMetricCard label={messages.payments.totalPayments} value={String(paginationMeta.totalItems)} helper={messages.payments.currentFilterHint} tone="brand" isLoading={isLoading} />
+        <PaymentMetricCard label={messages.payments.filteredAmount} value={formatCurrency(paginationMeta.totalAmount)} helper={messages.payments.currentFilterHint} tone="success" isLoading={isLoading} />
+        <PaymentMetricCard label={messages.payments.currentPage} value={`${paginationMeta.currentPage}/${paginationMeta.totalPages}`} helper={messages.payments.pageHint} tone="warning" isLoading={isLoading} />
+        <PaymentMetricCard label={messages.payments.perPage} value={String(paginationMeta.perPage)} helper={messages.payments.perPageHint} tone="brand" isLoading={isLoading} />
       </div>
 
       <Card className="grid gap-4">
-        <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto] lg:items-end">
+        <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end">
           <p className="rounded-lg border border-warning bg-warning-soft p-3 text-sm leading-6 text-warning">
             {messages.payments.manualValidationHint}
           </p>
           <FilterSelect
             label={messages.payments.statusFilter}
             value={statusFilter}
-            onChange={(value) => setStatusFilter(value as StatusFilter)}
+            onChange={(value) => {
+              setIsLoading(true);
+              setStatusFilter(value as StatusFilter);
+              setCurrentPage(1);
+            }}
             options={[
               { value: "all", label: messages.payments.allStatuses },
               { value: "pending", label: messages.payments.statuses.pending },
@@ -120,7 +138,11 @@ export function PaymentsView({ businessId, messages, onMarkAppointmentPaid }: Pa
           <FilterSelect
             label={messages.payments.methodFilter}
             value={methodFilter}
-            onChange={(value) => setMethodFilter(value as MethodFilter)}
+            onChange={(value) => {
+              setIsLoading(true);
+              setMethodFilter(value as MethodFilter);
+              setCurrentPage(1);
+            }}
             options={[
               { value: "all", label: messages.payments.allMethods },
               { value: "card", label: messages.paymentMethods.card },
@@ -129,6 +151,16 @@ export function PaymentsView({ businessId, messages, onMarkAppointmentPaid }: Pa
               { value: "mixed", label: messages.paymentMethods.mixed }
             ]}
           />
+          <FilterSelect
+            label={messages.payments.perPage}
+            value={String(perPage)}
+            onChange={(value) => {
+              setIsLoading(true);
+              setPerPage(Number(value));
+              setCurrentPage(1);
+            }}
+            options={perPageOptions.map((option) => ({ value: String(option), label: String(option) }))}
+          />
         </div>
 
         {isLoading ? (
@@ -136,9 +168,11 @@ export function PaymentsView({ businessId, messages, onMarkAppointmentPaid }: Pa
         ) : errorMessage ? (
           <PaymentsState title={messages.payments.loadError} description={errorMessage} />
         ) : payments.length === 0 ? (
-          <PaymentsState title={messages.payments.emptyTitle} description={messages.payments.emptyDescription} />
-        ) : filteredPayments.length === 0 ? (
-          <PaymentsState title={messages.payments.noResults} />
+          statusFilter !== "all" || methodFilter !== "all" ? (
+            <PaymentsState title={messages.payments.noResults} />
+          ) : (
+            <PaymentsState title={messages.payments.emptyTitle} description={messages.payments.emptyDescription} />
+          )
         ) : (
           <>
             <div className="hidden overflow-x-auto lg:block">
@@ -157,7 +191,7 @@ export function PaymentsView({ businessId, messages, onMarkAppointmentPaid }: Pa
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-subtle">
-                  {filteredPayments.map((payment) => (
+                  {payments.map((payment) => (
                     <PaymentTableRow
                       key={payment.id}
                       messages={messages}
@@ -171,7 +205,7 @@ export function PaymentsView({ businessId, messages, onMarkAppointmentPaid }: Pa
             </div>
 
             <div className="grid gap-3 lg:hidden">
-              {filteredPayments.map((payment) => (
+              {payments.map((payment) => (
                 <PaymentMobileCard
                   key={payment.id}
                   messages={messages}
@@ -181,6 +215,15 @@ export function PaymentsView({ businessId, messages, onMarkAppointmentPaid }: Pa
                 />
               ))}
             </div>
+
+            <PaymentsPagination
+              messages={messages}
+              meta={paginationMeta}
+              onPageChange={(page) => {
+                setIsLoading(true);
+                setCurrentPage(page);
+              }}
+            />
           </>
         )}
       </Card>
@@ -188,15 +231,28 @@ export function PaymentsView({ businessId, messages, onMarkAppointmentPaid }: Pa
   );
 }
 
-async function loadPaymentRecords(businessId: string, fallbackMessage: string) {
+async function loadPaymentRecords(
+  businessId: string,
+  fallbackMessage: string,
+  options: {
+    method: MethodFilter;
+    page: number;
+    perPage: number;
+    status: StatusFilter;
+  }
+) {
   try {
+    const response = await getPayments(businessId, options);
+
     return {
       errorMessage: "",
-      payments: await getPayments(businessId)
+      meta: response.meta,
+      payments: response.data
     };
   } catch (error) {
     return {
       errorMessage: getPayloadErrorMessage(error, fallbackMessage),
+      meta: defaultPaginationMeta,
       payments: []
     };
   }
@@ -224,7 +280,7 @@ function PaymentMetricCard({
 
   return (
     <Card className="grid gap-3">
-      <span className={`w-fit h-fit justify-center items-center text-center rounded-full px-3 py-3 text-xs font-bold uppercase tracking-[0.18em] ${toneClassName}`}>
+      <span className={`w-fit h-fit justify-center items-center text-center rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${toneClassName}`}>
         {label}
       </span>
       {isLoading ? (
@@ -261,6 +317,64 @@ function FilterSelect({
       className="min-w-52 font-semibold"
       options={options}
     />
+  );
+}
+
+function PaymentsPagination({
+  messages,
+  meta,
+  onPageChange
+}: {
+  messages: Messages;
+  meta: PaymentsPaginationMeta;
+  onPageChange: (page: number) => void;
+}) {
+  const pages = getVisiblePages(meta.currentPage, meta.totalPages);
+  const firstItem = meta.totalItems === 0 ? 0 : ((meta.currentPage - 1) * meta.perPage) + 1;
+  const lastItem = Math.min(meta.currentPage * meta.perPage, meta.totalItems);
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-sm font-semibold text-muted">
+        {messages.payments.paginationSummary
+          .replace("{from}", String(firstItem))
+          .replace("{to}", String(lastItem))
+          .replace("{total}", String(meta.totalItems))}
+      </p>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="icon"
+          variant="secondary"
+          aria-label={messages.payments.previousPage}
+          disabled={meta.currentPage <= 1}
+          onClick={() => onPageChange(meta.currentPage - 1)}
+        >
+          <FiChevronLeft />
+        </Button>
+
+        {pages.map((page) => (
+          <Button
+            key={page}
+            size="sm"
+            variant={page === meta.currentPage ? "primary" : "secondary"}
+            onClick={() => onPageChange(page)}
+          >
+            {page}
+          </Button>
+        ))}
+
+        <Button
+          size="icon"
+          variant="secondary"
+          aria-label={messages.payments.nextPage}
+          disabled={meta.currentPage >= meta.totalPages}
+          onClick={() => onPageChange(meta.currentPage + 1)}
+        >
+          <FiChevronRight />
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -401,4 +515,12 @@ function formatPaymentDate(value: string) {
 
 function formatPhoneForDisplay(value: string) {
   return value.replace(/\s+/g, "");
+}
+
+function getVisiblePages(currentPage: number, totalPages: number) {
+  const start = Math.max(1, currentPage - 2);
+  const end = Math.min(totalPages, start + 4);
+  const adjustedStart = Math.max(1, end - 4);
+
+  return Array.from({ length: end - adjustedStart + 1 }, (_, index) => adjustedStart + index);
 }

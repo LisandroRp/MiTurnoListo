@@ -10,12 +10,20 @@ import { SelectField } from "@/components/ui/SelectField";
 import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
 import { SectionHeader } from "@/components/composed/SectionHeader";
+import { ProfileSuperAdminPanel } from "@/features/scheduling/components/ProfileSuperAdminPanel";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { BusinessProfile, Locale, Profile, SubscriptionTier, ThemeId } from "@/features/scheduling/types";
+import {
+  getSuperAdminBusinesses,
+  runSuperAdminBusinessAction,
+  SuperAdminAction,
+  SuperAdminBusiness
+} from "@/lib/networking/endpoints/super-admin";
 import { uploadBusinessImageAsset } from "@/lib/storage/business-assets";
 
 const avatarAcceptedTypes = ["image/png", "image/jpeg", "image/webp", "image/heic", "image/heif"];
 const avatarAcceptedExtensions = [".heic", ".heif"];
+type ProfileTab = "account" | "business" | "superAdmin";
 
 type ProfileViewProps = {
   messages: Messages;
@@ -52,12 +60,18 @@ export function ProfileView({
 }: ProfileViewProps) {
   const plansRef = useRef<HTMLDivElement>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
-  const [activeTab, setActiveTab] = useState<"account" | "business">("account");
+  const [activeTab, setActiveTab] = useState<ProfileTab>("account");
   const [businessDraft, setBusinessDraft] = useState<BusinessProfile>(() => createBusinessDraft(profile));
   const [avatarDraftFile, setAvatarDraftFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
   const [pendingBusinessLogoFile, setPendingBusinessLogoFile] = useState<File | null>(null);
   const [pendingTier, setPendingTier] = useState<SubscriptionTier | null>(null);
+  const [superAdminBusinesses, setSuperAdminBusinesses] = useState<SuperAdminBusiness[]>([]);
+  const [superAdminError, setSuperAdminError] = useState("");
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isCheckingSuperAdmin, setIsCheckingSuperAdmin] = useState(true);
+  const [isLoadingSuperAdminBusinesses, setIsLoadingSuperAdminBusinesses] = useState(false);
+  const [superAdminActionBusinessId, setSuperAdminActionBusinessId] = useState("");
   const [isRequestingPasswordReset, setIsRequestingPasswordReset] = useState(false);
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const [isSavingBusiness, setIsSavingBusiness] = useState(false);
@@ -68,6 +82,25 @@ export function ProfileView({
     setBusinessDraft(createBusinessDraft(profile));
     setPendingBusinessLogoFile(null);
   }, [profile]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    void loadSuperAdminBusinesses().then((result) => {
+      if (!isActive) {
+        return;
+      }
+
+      setIsCheckingSuperAdmin(false);
+      setIsSuperAdmin(result.isSuperAdmin);
+      setSuperAdminBusinesses(result.businesses);
+      setSuperAdminError(result.errorMessage);
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!avatarDraftFile) {
@@ -97,6 +130,30 @@ export function ProfileView({
 
   function closeModal() {
     setPendingTier(null);
+  }
+
+  async function refreshSuperAdminBusinesses() {
+    setIsLoadingSuperAdminBusinesses(true);
+    const result = await loadSuperAdminBusinesses();
+
+    setIsLoadingSuperAdminBusinesses(false);
+    setIsSuperAdmin(result.isSuperAdmin);
+    setSuperAdminBusinesses(result.businesses);
+    setSuperAdminError(result.errorMessage);
+  }
+
+  async function handleSuperAdminAction(businessId: string, action: SuperAdminAction) {
+    setSuperAdminActionBusinessId(businessId);
+    setSuperAdminError("");
+
+    try {
+      await runSuperAdminBusinessAction(businessId, action);
+      await refreshSuperAdminBusinesses();
+    } catch (error) {
+      setSuperAdminError(error instanceof Error ? error.message : messages.profile.superAdminActionError);
+    } finally {
+      setSuperAdminActionBusinessId("");
+    }
   }
 
   async function confirmPlanChange() {
@@ -222,20 +279,23 @@ export function ProfileView({
       />
 
       <div className="flex w-fit rounded-xl border border-subtle bg-surface p-1">
-        <button
-          type="button"
+        <ProfileTabButton
+          isActive={activeTab === "account"}
+          label={messages.profile.accountTab}
           onClick={() => setActiveTab("account")}
-          className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-bold transition-colors ${activeTab === "account" ? "bg-brand text-on-brand" : "text-muted hover:bg-surface-strong hover:text-primary"}`}
-        >
-          {messages.profile.accountTab}
-        </button>
-        <button
-          type="button"
+        />
+        <ProfileTabButton
+          isActive={activeTab === "business"}
+          label={messages.profile.businessTab}
           onClick={() => setActiveTab("business")}
-          className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-bold transition-colors ${activeTab === "business" ? "bg-brand text-on-brand" : "text-muted hover:bg-surface-strong hover:text-primary"}`}
-        >
-          {messages.profile.businessTab}
-        </button>
+        />
+        {isSuperAdmin ? (
+          <ProfileTabButton
+            isActive={activeTab === "superAdmin"}
+            label={messages.profile.superAdminTab}
+            onClick={() => setActiveTab("superAdmin")}
+          />
+        ) : null}
       </div>
 
       <section className={`grid gap-6 ${activeTab === "account" ? "xl:grid-cols-[22rem_1fr]" : ""}`}>
@@ -343,7 +403,9 @@ export function ProfileView({
               </div>
             </Card>
           </div>
-        ) : (
+        ) : null}
+
+        {activeTab === "business" ? (
           <BusinessProfilePanel
             draft={businessDraft}
             isSaving={isSavingBusiness}
@@ -353,7 +415,19 @@ export function ProfileView({
             onSelectedLogoFileChange={setPendingBusinessLogoFile}
             onSave={() => void handleBusinessSave()}
           />
-        )}
+        ) : null}
+
+        {activeTab === "superAdmin" && isSuperAdmin ? (
+          <ProfileSuperAdminPanel
+            actionBusinessId={superAdminActionBusinessId}
+            businesses={superAdminBusinesses}
+            errorMessage={superAdminError}
+            isLoading={isCheckingSuperAdmin || isLoadingSuperAdminBusinesses}
+            messages={messages}
+            onAction={(targetBusinessId, action) => void handleSuperAdminAction(targetBusinessId, action)}
+            onRefresh={() => void refreshSuperAdminBusinesses()}
+          />
+        ) : null}
       </section>
 
       <Modal isOpen={Boolean(pendingTier)}>
@@ -414,6 +488,50 @@ export function ProfileView({
       </Modal>
     </div>
   );
+}
+
+function ProfileTabButton({
+  isActive,
+  label,
+  onClick
+}: {
+  isActive: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-bold transition-colors ${isActive ? "bg-brand text-on-brand" : "text-muted hover:bg-surface-strong hover:text-primary"}`}
+    >
+      {label}
+    </button>
+  );
+}
+
+async function loadSuperAdminBusinesses() {
+  try {
+    return {
+      businesses: await getSuperAdminBusinesses(),
+      errorMessage: "",
+      isSuperAdmin: true
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message === "SUPER_ADMIN_FORBIDDEN") {
+      return {
+        businesses: [],
+        errorMessage: "",
+        isSuperAdmin: false
+      };
+    }
+
+    return {
+      businesses: [],
+      errorMessage: error instanceof Error ? error.message : "Unable to load super admin businesses.",
+      isSuperAdmin: true
+    };
+  }
 }
 
 function ProfileAvatarUploader({

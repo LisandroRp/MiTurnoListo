@@ -1,20 +1,33 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
-import { FiSearch } from "react-icons/fi";
+import { FiChevronLeft, FiChevronRight, FiSearch } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { SelectField } from "@/components/ui/SelectField";
 import { cx } from "@/components/ui/utils";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
-import { getCustomers } from "@/lib/networking/endpoints/customers";
+import { CustomersPaginationMeta, getCustomers } from "@/lib/networking/endpoints/customers";
 import { LoadingDotsText } from "@/features/scheduling/components/LoadingDotsText";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { Customer } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 
 const tableHeaderClassName = "px-4 py-3 text-xs font-bold uppercase tracking-[0.04em] text-muted";
+const perPageOptions = [10, 20, 50, 100];
+
+const defaultPaginationMeta: CustomersPaginationMeta = {
+  currentPage: 1,
+  perPage: 10,
+  recurringCustomers: 0,
+  totalBookings: 0,
+  totalCustomers: 0,
+  totalPages: 1,
+  totalRevenue: 0
+};
 
 type CustomersViewProps = {
   businessId: string | null;
@@ -24,8 +37,23 @@ type CustomersViewProps = {
 export function CustomersView({ businessId, messages }: CustomersViewProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [paginationMeta, setPaginationMeta] = useState<CustomersPaginationMeta>(defaultPaginationMeta);
   const [isLoading, setIsLoading] = useState(Boolean(businessId));
   const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    const debounceTimer = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+      setCurrentPage(1);
+    }, 180);
+
+    return () => {
+      window.clearTimeout(debounceTimer);
+    };
+  }, [searchQuery]);
 
   useEffect(() => {
     if (!businessId) {
@@ -34,10 +62,15 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
 
     let isActive = true;
 
-    void getCustomers(businessId)
-      .then((nextCustomers) => {
+    void getCustomers(businessId, {
+      page: currentPage,
+      perPage,
+      search: debouncedSearchQuery
+    })
+      .then((response) => {
         if (isActive) {
-          setCustomers(nextCustomers);
+          setCustomers(response.data);
+          setPaginationMeta(response.meta);
           setErrorMessage("");
         }
       })
@@ -55,23 +88,7 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
     return () => {
       isActive = false;
     };
-  }, [businessId, messages.customers.loadError]);
-
-  const normalizedQuery = searchQuery.trim().toLowerCase();
-  const visibleCustomers = customers.filter((customer) => {
-    if (!normalizedQuery) {
-      return true;
-    }
-
-    return [
-      customer.fullName,
-      customer.email,
-      customer.phone
-    ].some((value) => value.toLowerCase().includes(normalizedQuery));
-  });
-  const recurringCustomers = customers.filter((customer) => customer.bookingCount > 1);
-  const totalBookings = customers.reduce((total, customer) => total + customer.bookingCount, 0);
-  const estimatedRevenue = customers.reduce((total, customer) => total + customer.totalRevenue, 0);
+  }, [businessId, currentPage, debouncedSearchQuery, messages.customers.loadError, perPage]);
 
   return (
     <div className="grid gap-6">
@@ -82,23 +99,40 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <CustomerMetricCard label={messages.customers.totalCustomers} value={String(customers.length)} isLoading={isLoading} />
-        <CustomerMetricCard label={messages.customers.recurringCustomers} value={String(recurringCustomers.length)} isLoading={isLoading} />
-        <CustomerMetricCard label={messages.customers.totalBookings} value={String(totalBookings)} isLoading={isLoading} />
-        <CustomerMetricCard label={messages.customers.estimatedRevenue} value={formatCurrency(estimatedRevenue)} isLoading={isLoading} />
+        <CustomerMetricCard label={messages.customers.totalCustomers} value={String(paginationMeta.totalCustomers)} isLoading={isLoading} />
+        <CustomerMetricCard label={messages.customers.recurringCustomers} value={String(paginationMeta.recurringCustomers)} isLoading={isLoading} />
+        <CustomerMetricCard label={messages.customers.totalBookings} value={String(paginationMeta.totalBookings)} isLoading={isLoading} />
+        <CustomerMetricCard label={messages.customers.estimatedRevenue} value={formatCurrency(paginationMeta.totalRevenue)} isLoading={isLoading} />
       </div>
 
-      <label className="relative block xl:max-w-xl">
-        <FiSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
-        <span className="sr-only">{messages.actions.search}</span>
-        <input
-          type="search"
-          value={searchQuery}
-          placeholder={messages.customers.searchPlaceholder}
-          className="h-11 w-full rounded-xl border border-subtle bg-input px-4 pl-10 text-sm text-primary shadow-sm outline-none transition placeholder:text-placeholder focus:border-brand focus:ring-2 focus:ring-focus"
-          onChange={(event) => setSearchQuery(event.target.value)}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <label className="relative block lg:min-w-[28rem] xl:max-w-xl">
+          <FiSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
+          <span className="sr-only">{messages.actions.search}</span>
+          <input
+            type="search"
+            value={searchQuery}
+            placeholder={messages.customers.searchPlaceholder}
+            className="h-11 w-full rounded-xl border border-subtle bg-input px-4 pl-10 text-sm text-primary shadow-sm outline-none transition placeholder:text-placeholder focus:border-brand focus:ring-2 focus:ring-focus"
+            onChange={(event) => {
+              setIsLoading(true);
+              setSearchQuery(event.target.value);
+            }}
+          />
+        </label>
+        <SelectField
+          label={messages.customers.perPage}
+          name="customers-per-page"
+          value={String(perPage)}
+          className="lg:w-36"
+          options={perPageOptions.map((option) => ({ value: String(option), label: String(option) }))}
+          onChange={(event) => {
+            setIsLoading(true);
+            setPerPage(Number(event.target.value));
+            setCurrentPage(1);
+          }}
         />
-      </label>
+      </div>
 
       <section className="overflow-hidden rounded-3xl border border-subtle bg-surface shadow-sm">
         {isLoading ? (
@@ -106,9 +140,11 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
         ) : errorMessage ? (
           <CustomersState title={messages.customers.loadError} description={errorMessage} />
         ) : customers.length === 0 ? (
-          <CustomersState title={messages.customers.emptyTitle} description={messages.customers.emptyDescription} />
-        ) : visibleCustomers.length === 0 ? (
-          <CustomersState title={messages.customers.noResults} />
+          debouncedSearchQuery ? (
+            <CustomersState title={messages.customers.noResults} />
+          ) : (
+            <CustomersState title={messages.customers.emptyTitle} description={messages.customers.emptyDescription} />
+          )
         ) : (
           <>
             <div className="hidden overflow-x-auto lg:block">
@@ -125,7 +161,7 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-subtle">
-                  {visibleCustomers.map((customer) => {
+                  {customers.map((customer) => {
                     const customerTag = getCustomerTag(customer, messages);
 
                     return (
@@ -149,10 +185,19 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
             </div>
 
             <div className="grid gap-3 p-4 lg:hidden">
-              {visibleCustomers.map((customer) => (
+              {customers.map((customer) => (
                 <CustomerMobileCard key={customer.id} customer={customer} messages={messages} />
               ))}
             </div>
+
+            <CustomersPagination
+              messages={messages}
+              meta={paginationMeta}
+              onPageChange={(page) => {
+                setIsLoading(true);
+                setCurrentPage(page);
+              }}
+            />
           </>
         )}
       </section>
@@ -170,6 +215,64 @@ function CustomerMetricCard({ isLoading, label, value }: { isLoading: boolean; l
         <strong className="text-3xl font-black text-primary">{value}</strong>
       )}
     </Card>
+  );
+}
+
+function CustomersPagination({
+  messages,
+  meta,
+  onPageChange
+}: {
+  messages: Messages;
+  meta: CustomersPaginationMeta;
+  onPageChange: (page: number) => void;
+}) {
+  const pages = getVisiblePages(meta.currentPage, meta.totalPages);
+  const firstItem = meta.totalCustomers === 0 ? 0 : ((meta.currentPage - 1) * meta.perPage) + 1;
+  const lastItem = Math.min(meta.currentPage * meta.perPage, meta.totalCustomers);
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-sm font-semibold text-muted">
+        {messages.customers.paginationSummary
+          .replace("{from}", String(firstItem))
+          .replace("{to}", String(lastItem))
+          .replace("{total}", String(meta.totalCustomers))}
+      </p>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="icon"
+          variant="secondary"
+          aria-label={messages.customers.previousPage}
+          disabled={meta.currentPage <= 1}
+          onClick={() => onPageChange(meta.currentPage - 1)}
+        >
+          <FiChevronLeft />
+        </Button>
+
+        {pages.map((page) => (
+          <Button
+            key={page}
+            size="sm"
+            variant={page === meta.currentPage ? "primary" : "secondary"}
+            onClick={() => onPageChange(page)}
+          >
+            {page}
+          </Button>
+        ))}
+
+        <Button
+          size="icon"
+          variant="secondary"
+          aria-label={messages.customers.nextPage}
+          disabled={meta.currentPage >= meta.totalPages}
+          onClick={() => onPageChange(meta.currentPage + 1)}
+        >
+          <FiChevronRight />
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -295,6 +398,14 @@ function getCustomerInitials(value: string) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("") || "CL";
+}
+
+function getVisiblePages(currentPage: number, totalPages: number) {
+  const start = Math.max(1, currentPage - 2);
+  const end = Math.min(totalPages, start + 4);
+  const adjustedStart = Math.max(1, end - 4);
+
+  return Array.from({ length: end - adjustedStart + 1 }, (_, index) => adjustedStart + index);
 }
 
 function getCustomerTag(customer: Customer, messages: Messages) {

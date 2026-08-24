@@ -7,6 +7,10 @@ import { formatDateForTimeZone, formatTimeForTimeZone } from "@/lib/networking/u
 
 export async function GET(request: NextRequest) {
   const businessId = request.nextUrl.searchParams.get("businessId");
+  const page = getPositiveIntegerParam(request.nextUrl.searchParams.get("page"), 1);
+  const perPage = Math.min(getPositiveIntegerParam(request.nextUrl.searchParams.get("perPage"), 20), 100);
+  const status = getPaymentStatusFilter(request.nextUrl.searchParams.get("status"));
+  const method = getPaymentMethodFilter(request.nextUrl.searchParams.get("method"));
 
   if (!businessId) {
     return NextResponse.json({ error: "Missing businessId." }, { status: 400 });
@@ -19,31 +23,25 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getSupabaseAdminClient();
-  const [businessResult, appointmentsResult, servicesResult, employeesResult] = await Promise.all([
+  const [businessResult, paymentsResult] = await Promise.all([
     supabase
       .from("businesses")
       .select("timezone")
       .eq("id", businessId)
       .limit(1)
       .maybeSingle(),
-    supabase
-      .from("appointments")
-      .select("id, service_id, employee_id, starts_at, status, total_amount, selected_payment_method, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot, mercadopago_payment_id, refunded_at")
-      .eq("business_id", businessId)
-      .order("starts_at", { ascending: false }),
-    supabase
-      .from("services")
-      .select("id, name")
-      .eq("business_id", businessId),
-    supabase
-      .from("employees")
-      .select("id, name")
-      .eq("business_id", businessId)
+    supabase.rpc("get_payment_summaries", {
+      method_filter: method,
+      page_number: page,
+      page_size: perPage,
+      status_filter: status,
+      target_business_id: businessId
+    })
   ]);
 
-  if (businessResult.error || appointmentsResult.error || servicesResult.error || employeesResult.error) {
+  if (businessResult.error || paymentsResult.error) {
     return createApiErrorResponse(
-      businessResult.error ?? appointmentsResult.error ?? servicesResult.error ?? employeesResult.error,
+      businessResult.error ?? paymentsResult.error,
       {
         code: "PAYMENTS_LOAD_FAILED",
         fallbackMessage: "Unable to load payments.",
@@ -53,53 +51,92 @@ export async function GET(request: NextRequest) {
   }
 
   const timeZone = businessResult.data?.timezone ?? "America/Argentina/Buenos_Aires";
-  const serviceNameById = new Map((servicesResult.data ?? []).map((service) => [service.id, service.name ?? ""]));
-  const employeeNameById = new Map((employeesResult.data ?? []).map((employee) => [employee.id, employee.name ?? ""]));
+  const rows = (paymentsResult.data ?? []) as PaymentSummaryRow[];
+  const firstRow = rows[0];
+  const totalItems = Number(firstRow?.total_items ?? 0);
+  const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
 
   return NextResponse.json({
-    payments: (appointmentsResult.data ?? []).map((appointment): PaymentRecord => ({
-      amount: appointment.total_amount ?? 0,
-      appointmentId: appointment.id,
-      customerEmail: appointment.customer_email_snapshot ?? "",
-      customerName: appointment.customer_name_snapshot ?? "",
-      customerPhone: appointment.customer_phone_snapshot ?? "",
-      date: formatDateForTimeZone(appointment.starts_at, timeZone),
-      employeeName: employeeNameById.get(appointment.employee_id) ?? "",
-      id: appointment.id,
-      method: appointment.selected_payment_method ?? "cash",
-      serviceName: serviceNameById.get(appointment.service_id) ?? "",
-      startTime: formatTimeForTimeZone(appointment.starts_at, timeZone),
-      status: getPaymentStatus({
-        appointmentStatus: appointment.status,
-        mercadoPagoPaymentId: appointment.mercadopago_payment_id,
-        refundedAt: appointment.refunded_at
-      })
-    }))
+    data: rows.map((payment): PaymentRecord => ({
+      amount: Number(payment.amount ?? 0),
+      appointmentId: payment.appointment_id,
+      customerEmail: payment.customer_email ?? "",
+      customerName: payment.customer_name ?? "",
+      customerPhone: payment.customer_phone ?? "",
+      date: formatDateForTimeZone(payment.starts_at, timeZone),
+      employeeName: payment.employee_name ?? "",
+      id: payment.id,
+      method: getPaymentMethod(payment.method),
+      serviceName: payment.service_name ?? "",
+      startTime: formatTimeForTimeZone(payment.starts_at, timeZone),
+      status: getPaymentStatus(payment.status)
+    })),
+    meta: {
+      currentPage: Math.min(page, totalPages),
+      perPage,
+      totalAmount: Number(firstRow?.total_amount ?? 0),
+      totalItems,
+      totalPages
+    }
   });
 }
 
-function getPaymentStatus({
-  appointmentStatus,
-  mercadoPagoPaymentId,
-  refundedAt
-}: {
-  appointmentStatus: string | null;
-  mercadoPagoPaymentId: string | null;
-  refundedAt: string | null;
-}): PaymentStatus {
-  if (refundedAt) {
-    return "refunded";
-  }
+type PaymentSummaryRow = {
+  id: string;
+  appointment_id: string;
+  customer_name: string | null;
+  customer_email: string | null;
+  customer_phone: string | null;
+  service_name: string | null;
+  employee_name: string | null;
+  starts_at: string;
+  amount: number | string | null;
+  method: string | null;
+  status: string | null;
+  total_items: number | string | null;
+  total_amount: number | string | null;
+};
 
-  if (appointmentStatus === "cancelled") {
-    return "cancelled";
-  }
-
-  if (appointmentStatus === "confirmed" || mercadoPagoPaymentId) {
-    return "paid";
+function getPaymentStatus(value: string | null): PaymentStatus {
+  if (value === "paid" || value === "cancelled" || value === "refunded") {
+    return value;
   }
 
   return "pending";
+}
+
+function getPaymentMethod(value: string | null): PaymentRecord["method"] {
+  if (value === "card" || value === "transfer" || value === "mixed") {
+    return value;
+  }
+
+  return "cash";
+}
+
+function getPaymentStatusFilter(value: string | null) {
+  if (value === "pending" || value === "paid" || value === "cancelled" || value === "refunded") {
+    return value;
+  }
+
+  return "all";
+}
+
+function getPaymentMethodFilter(value: string | null) {
+  if (value === "cash" || value === "card" || value === "transfer" || value === "mixed") {
+    return value;
+  }
+
+  return "all";
+}
+
+function getPositiveIntegerParam(value: string | null, fallback: number) {
+  const parsedValue = Number(value);
+
+  if (!Number.isInteger(parsedValue) || parsedValue < 1) {
+    return fallback;
+  }
+
+  return parsedValue;
 }
 
 async function authenticateRequest(request: NextRequest, businessId: string) {

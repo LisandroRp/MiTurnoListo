@@ -41,7 +41,9 @@ export function BusinessDayBlocksModal({
   const [draft, setDraft] = useState(defaultDraft);
   const [error, setError] = useState("");
   const [loadingAction, setLoadingAction] = useState<"save" | string | null>(null);
-  const sortedDayBlocks = [...dayBlocks].sort((left, right) => left.startsOn.localeCompare(right.startsOn));
+  const minimumBlockDate = getTomorrowDateValue();
+  const visibleDayBlocks = dayBlocks.filter((dayBlock) => dayBlock.endsOn >= minimumBlockDate);
+  const sortedDayBlocks = [...visibleDayBlocks].sort((left, right) => left.startsOn.localeCompare(right.startsOn));
 
   function updateDraft(key: keyof Draft, value: string) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -55,6 +57,11 @@ export function BusinessDayBlocksModal({
 
     if (!isValidDateRange(startsOn, endsOn)) {
       setError(messages.calendar.blockedDayInvalid);
+      return;
+    }
+
+    if (startsOn < minimumBlockDate || endsOn < minimumBlockDate) {
+      setError(messages.calendar.blockedDayPastDate);
       return;
     }
 
@@ -112,6 +119,7 @@ export function BusinessDayBlocksModal({
               label={messages.calendar.blockedFrom}
               name="blocked-day-start"
               type="date"
+              min={minimumBlockDate}
               value={draft.startsOn}
               required
               onChange={(event) => updateDraft("startsOn", event.target.value)}
@@ -120,6 +128,7 @@ export function BusinessDayBlocksModal({
               label={messages.calendar.blockedUntil}
               name="blocked-day-end"
               type="date"
+              min={draft.startsOn || minimumBlockDate}
               value={draft.endsOn}
               required
               onChange={(event) => updateDraft("endsOn", event.target.value)}
@@ -192,4 +201,16 @@ function formatDayBlockRange(dayBlock: BusinessDayBlock) {
 
 function isValidDateRange(startsOn: string, endsOn: string) {
   return Boolean(startsOn && endsOn && /^\d{4}-\d{2}-\d{2}$/.test(startsOn) && /^\d{4}-\d{2}-\d{2}$/.test(endsOn) && startsOn <= endsOn);
+}
+
+function getTomorrowDateValue() {
+  const tomorrow = new Date();
+
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const year = tomorrow.getFullYear();
+  const month = String(tomorrow.getMonth() + 1).padStart(2, "0");
+  const day = String(tomorrow.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }

@@ -5,6 +5,9 @@ import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin"
 
 export async function GET(request: NextRequest) {
   const businessId = request.nextUrl.searchParams.get("businessId");
+  const page = getPositiveIntegerParam(request.nextUrl.searchParams.get("page"), 1);
+  const perPage = Math.min(getPositiveIntegerParam(request.nextUrl.searchParams.get("perPage"), 20), 100);
+  const search = request.nextUrl.searchParams.get("search")?.trim() ?? "";
 
   if (!businessId) {
     return NextResponse.json({ error: "Missing businessId." }, { status: 400 });
@@ -17,69 +20,72 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getSupabaseAdminClient();
-  const [customersResult, appointmentsResult, servicesResult] = await Promise.all([
-    supabase
-      .from("customers")
-      .select("id, full_name, email, phone, last_booked_at")
-      .eq("business_id", businessId)
-      .order("last_booked_at", { ascending: false }),
-    supabase
-      .from("appointments")
-      .select("customer_id, service_id, starts_at, status, total_amount")
-      .eq("business_id", businessId)
-      .not("customer_id", "is", null)
-      .order("starts_at", { ascending: false }),
-    supabase
-      .from("services")
-      .select("id, name")
-      .eq("business_id", businessId)
-  ]);
+  const { data, error } = await supabase.rpc("get_customer_summaries", {
+    page_number: page,
+    page_size: perPage,
+    search_query: search,
+    target_business_id: businessId
+  });
 
-  if (customersResult.error || appointmentsResult.error || servicesResult.error) {
-    return createApiErrorResponse(customersResult.error ?? appointmentsResult.error ?? servicesResult.error, {
+  if (error) {
+    return createApiErrorResponse(error, {
       code: "CUSTOMERS_LOAD_FAILED",
       fallbackMessage: "Unable to load customers.",
       status: 500
     });
   }
 
-  const bookingCountByCustomerId = new Map<string, number>();
-  const totalRevenueByCustomerId = new Map<string, number>();
-  const lastServiceByCustomerId = new Map<string, string>();
-  const serviceNameById = new Map((servicesResult.data ?? []).map((service) => [service.id, service.name ?? ""]));
-
-  for (const appointment of appointmentsResult.data ?? []) {
-    if (appointment.customer_id) {
-      bookingCountByCustomerId.set(
-        appointment.customer_id,
-        (bookingCountByCustomerId.get(appointment.customer_id) ?? 0) + 1
-      );
-
-      if (appointment.status !== "cancelled") {
-        totalRevenueByCustomerId.set(
-          appointment.customer_id,
-          (totalRevenueByCustomerId.get(appointment.customer_id) ?? 0) + (appointment.total_amount ?? 0)
-        );
-      }
-
-      if (!lastServiceByCustomerId.has(appointment.customer_id)) {
-        lastServiceByCustomerId.set(appointment.customer_id, serviceNameById.get(appointment.service_id) ?? "");
-      }
-    }
-  }
+  const rows = (data ?? []) as CustomerSummaryRow[];
+  const firstRow = rows[0];
+  const totalCustomers = Number(firstRow?.total_customers ?? 0);
+  const totalPages = Math.max(1, Math.ceil(totalCustomers / perPage));
 
   return NextResponse.json({
-    customers: (customersResult.data ?? []).map((customer) => ({
-      bookingCount: bookingCountByCustomerId.get(customer.id) ?? 0,
+    data: rows.map((customer) => ({
+      bookingCount: Number(customer.booking_count ?? 0),
       email: customer.email ?? "",
       fullName: customer.full_name ?? "",
       id: customer.id,
       lastBookedAt: customer.last_booked_at ?? "",
-      lastServiceName: lastServiceByCustomerId.get(customer.id) ?? "",
+      lastServiceName: customer.last_service_name ?? "",
       phone: customer.phone ?? "",
-      totalRevenue: totalRevenueByCustomerId.get(customer.id) ?? 0
-    }))
+      totalRevenue: Number(customer.total_revenue ?? 0)
+    })),
+    meta: {
+      currentPage: Math.min(page, totalPages),
+      perPage,
+      recurringCustomers: Number(firstRow?.recurring_customers ?? 0),
+      totalBookings: Number(firstRow?.total_bookings ?? 0),
+      totalCustomers,
+      totalPages,
+      totalRevenue: Number(firstRow?.total_revenue_sum ?? 0)
+    }
   });
+}
+
+type CustomerSummaryRow = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  last_booked_at: string | null;
+  booking_count: number | string | null;
+  total_revenue: number | string | null;
+  last_service_name: string | null;
+  total_customers: number | string | null;
+  recurring_customers?: number | string | null;
+  total_bookings?: number | string | null;
+  total_revenue_sum?: number | string | null;
+};
+
+function getPositiveIntegerParam(value: string | null, fallback: number) {
+  const parsedValue = Number(value);
+
+  if (!Number.isInteger(parsedValue) || parsedValue < 1) {
+    return fallback;
+  }
+
+  return parsedValue;
 }
 
 async function authenticateRequest(request: NextRequest, businessId: string) {

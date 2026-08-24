@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { FiUsers } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
@@ -100,8 +101,9 @@ export function DashboardView({
 
         <Card className="flex min-h-[28rem] h-[34rem] flex-col">
           <h2 className="text-lg font-bold text-primary">{messages.home.teamToday}</h2>
-          <div className="mt-4 grid content-start gap-3 overflow-auto py-2">
-            {employeesWorkingToday.map((employee) => {
+          {employeesWorkingToday.length > 0 ? (
+            <div className="mt-4 grid content-start gap-3 overflow-auto py-2">
+              {employeesWorkingToday.map((employee) => {
               const employeeSchedule = employee.schedule[todayKey] ?? [];
               const employeeAppointments = activeTodaysAppointments.filter((appointment) => appointment.employeeId === employee.id);
 
@@ -134,8 +136,16 @@ export function DashboardView({
                   </div>
                 </button>
               );
-            })}
-          </div>
+              })}
+            </div>
+          ) : (
+            <div className="grid flex-1 place-items-center py-8 text-center">
+              <div className="grid justify-items-center gap-3">
+                <FiUsers className="text-5xl text-muted opacity-35" aria-hidden="true" />
+                <p className="max-w-56 text-sm font-semibold text-muted">{messages.home.noActiveTeam}</p>
+              </div>
+            </div>
+          )}
         </Card>
       </section>
     </div>
@@ -183,6 +193,7 @@ function DayAgenda({
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
 }) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const currentTimeLabel = currentTimePosition !== null ? getCurrentTimeLabel() : "";
 
   useEffect(() => {
     if (currentTimePosition === null || !scrollContainerRef.current) {
@@ -208,11 +219,14 @@ function DayAgenda({
         <div className="relative h-[144rem]">
           {currentTimePosition !== null ? (
             <div
-              className="pointer-events-none absolute left-0 right-0 flex w-full items-center"
+              className="pointer-events-none absolute left-0 right-0 flex w-full items-center pt-5"
               style={{ top: `${currentTimePosition}%` }}
             >
               <span className="h-2 w-2 rounded-full bg-danger" />
               <span className="h-px flex-1 bg-danger" />
+              <span className="absolute left-4 bottom-1 text-xs font-bold text-danger">
+                {currentTimeLabel}
+              </span>
             </div>
           ) : null}
           {Array.from({ length: 24 }, (_, hour) => {
@@ -268,7 +282,20 @@ function getCurrentTimePosition(referenceDate: string) {
 }
 
 function getTodayDateValue() {
-  return new Date().toISOString().slice(0, 10);
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getCurrentTimeLabel() {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+
+  return `${hours}:${minutes}`;
 }
 
 function getDayKeyForDate(date: string) {

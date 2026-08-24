@@ -206,7 +206,7 @@ export function CalendarView({
                 >
                   <FiChevronLeft />
                 </Button>
-                <p className="min-w-44 px-2 text-center text-sm font-semibold capitalize text-primary">{periodLabel}</p>
+                <p className="min-w-44 px-2 text-center text-sm font-semibold text-primary">{periodLabel}</p>
                 <Button
                   size="icon"
                   variant="ghost"
@@ -309,7 +309,7 @@ function EmployeeDropdown({
     <div className="relative">
       <Button
         variant="secondary"
-        className="min-w-44 justify-between"
+        className="h-[50px] min-w-48 justify-between px-5"
         onClick={() => setIsOpen((current) => !current)}
       >
         <span>{messages.calendar.employees}</span>
@@ -1124,10 +1124,14 @@ function getPeriodLabel(focusedDate: string, mode: CalendarMode) {
     return `${new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(start)} - ${new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(end)}`;
   }
 
-  return new Intl.DateTimeFormat("es-AR", {
+  return capitalizeFirstLetter(new Intl.DateTimeFormat("es-AR", {
     month: "long",
     year: "numeric"
-  }).format(date);
+  }).format(date));
+}
+
+function capitalizeFirstLetter(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function formatPhoneForDisplay(value: string) {

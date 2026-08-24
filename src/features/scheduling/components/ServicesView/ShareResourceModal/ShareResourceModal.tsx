@@ -72,7 +72,6 @@ export function ShareResourceModal({
             "grid gap-4 overflow-y-auto p-4 sm:p-5","justify-items-center"
           )}
         >
-          <div className={cx("grid justify-items-center gap-3 rounded-xl border border-subtle bg-input p-3", isQrExpanded ? "w-fit" : "w-full max-w-xs")}>
             {qrDataUrl ? (
               <Image
                 src={qrDataUrl}
@@ -99,8 +98,6 @@ export function ShareResourceModal({
               {isQrExpanded ? messages.services.shrinkQr : messages.services.expandQr}
             </Button>
           </div>
-        </div>
-
         <div className="flex flex-col-reverse gap-3 border-t border-subtle bg-surface px-4 py-4 sm:flex-row sm:justify-end sm:px-5">
           <Button variant="secondary" onClick={onClose}>
             {messages.actions.cancel}

@@ -11,6 +11,7 @@ import { getMercadoPagoPublicOrigin } from "@/lib/mercadopago/checkout";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 
 const mercadoPagoSubscriptionApiBaseUrl = "https://api.mercadopago.com/preapproval";
+const mercadoPagoPaymentApiBaseUrl = "https://api.mercadopago.com/v1/payments";
 const defaultCurrencyId = "ARS";
 const defaultFrequency = 1;
 const defaultFrequencyType = "months";
@@ -30,6 +31,18 @@ type MercadoPagoSubscription = {
 
 type MercadoPagoSubscriptionSearchResponse = {
   results?: MercadoPagoSubscription[];
+};
+
+type MercadoPagoSubscriptionPayment = {
+  currency_id?: string;
+  date_approved?: string | null;
+  date_created?: string | null;
+  external_reference?: string | null;
+  id?: number | string;
+  metadata?: Record<string, unknown> | null;
+  preapproval_id?: string | null;
+  status?: string;
+  transaction_amount?: number | string | null;
 };
 
 type StoredBusinessSubscription = {
@@ -136,6 +149,35 @@ export async function syncSubscriptionTierByPreapprovalId(preapprovalId: string)
     status: subscription.status ?? "unknown",
     subscriptionTier: mapMercadoPagoStatusToTier(subscription.status)
   } satisfies SubscriptionStatusResult;
+}
+
+export async function syncSubscriptionPaymentByPaymentId(paymentId: string) {
+  const payment = await getSubscriptionPaymentById(paymentId);
+  const supabase = getSupabaseAdminClient();
+  const providerSubscriptionId = getSubscriptionIdFromPayment(payment);
+  const businessId = await resolveBusinessIdForSubscriptionPayment({
+    payment,
+    providerSubscriptionId,
+    supabase
+  });
+
+  if (!businessId || !payment.id) {
+    return null;
+  }
+
+  await persistBusinessSubscriptionPayment({
+    businessId,
+    payment,
+    providerSubscriptionId
+  });
+
+  return {
+    amount: Number(payment.transaction_amount ?? 0),
+    businessId,
+    paymentId: String(payment.id),
+    providerSubscriptionId,
+    status: payment.status ?? "unknown"
+  };
 }
 
 export async function syncBusinessSubscriptionByPreapprovalId({
@@ -358,6 +400,26 @@ async function getSubscriptionById(preapprovalId: string) {
 
   if (!response.ok || !payload?.id) {
     throw new Error(payload?.message ?? "No pudimos verificar la suscripcion en Mercado Pago.");
+  }
+
+  return payload;
+}
+
+async function getSubscriptionPaymentById(paymentId: string) {
+  const config = getSubscriptionConfig();
+  const response = await fetch(`${mercadoPagoPaymentApiBaseUrl}/${encodeURIComponent(paymentId)}`, {
+    headers: {
+      Authorization: `Bearer ${config.accessToken}`
+    },
+    cache: "no-store"
+  });
+
+  const payload = await response.json().catch(() => null) as (MercadoPagoSubscriptionPayment & {
+    message?: string;
+  }) | null;
+
+  if (!response.ok || !payload?.id) {
+    throw new Error(payload?.message ?? "No pudimos verificar el pago de la suscripcion en Mercado Pago.");
   }
 
   return payload;
@@ -631,6 +693,101 @@ async function resolveBusinessIdForSubscription(supabase: SupabaseClient, subscr
   }
 
   return membership?.business_id as string | null ?? null;
+}
+
+async function resolveBusinessIdForSubscriptionPayment({
+  payment,
+  providerSubscriptionId,
+  supabase
+}: {
+  payment: MercadoPagoSubscriptionPayment;
+  providerSubscriptionId: string;
+  supabase: SupabaseClient;
+}) {
+  const metadataBusinessId = getStringMetadataValue(payment.metadata, ["business_id", "businessId"]);
+
+  if (metadataBusinessId) {
+    return metadataBusinessId;
+  }
+
+  const externalBusinessId = extractBusinessIdFromExternalReference(payment.external_reference);
+
+  if (externalBusinessId) {
+    return externalBusinessId;
+  }
+
+  if (!providerSubscriptionId) {
+    return null;
+  }
+
+  const storedSubscription = await findStoredBusinessSubscriptionByProviderId(supabase, providerSubscriptionId);
+
+  return storedSubscription?.business_id ?? null;
+}
+
+async function persistBusinessSubscriptionPayment({
+  businessId,
+  payment,
+  providerSubscriptionId
+}: {
+  businessId: string;
+  payment: MercadoPagoSubscriptionPayment;
+  providerSubscriptionId: string;
+}) {
+  if (!payment.id) {
+    return;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("business_subscription_payments")
+    .upsert({
+      amount: Number(payment.transaction_amount ?? 0),
+      business_id: businessId,
+      currency: payment.currency_id ?? defaultCurrencyId,
+      paid_at: payment.date_approved ?? payment.date_created ?? now,
+      provider: "mercadopago",
+      provider_payment_id: String(payment.id),
+      provider_status: payment.status ?? "unknown",
+      provider_subscription_id: providerSubscriptionId || null,
+      raw_payload: payment,
+      updated_at: now
+    }, {
+      onConflict: "provider,provider_payment_id"
+    });
+
+  if (error) {
+    throw new Error("No pudimos guardar el pago de la suscripcion.");
+  }
+}
+
+function getSubscriptionIdFromPayment(payment: MercadoPagoSubscriptionPayment) {
+  return payment.preapproval_id ??
+    getStringMetadataValue(payment.metadata, [
+      "preapproval_id",
+      "preapprovalId",
+      "provider_subscription_id",
+      "subscription_id",
+      "subscriptionId"
+    ]) ??
+    "";
+}
+
+function getStringMetadataValue(metadata: Record<string, unknown> | null | undefined, keys: string[]) {
+  if (!metadata) {
+    return "";
+  }
+
+  for (const key of keys) {
+    const value = metadata[key];
+
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return "";
 }
 
 async function resolveUniqueRecentPendingBusinessId(planId: string) {

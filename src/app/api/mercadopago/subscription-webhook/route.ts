@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { syncSubscriptionTierByPreapprovalId } from "@/lib/mercadopago/subscriptions";
+import {
+  syncSubscriptionPaymentByPaymentId,
+  syncSubscriptionTierByPreapprovalId
+} from "@/lib/mercadopago/subscriptions";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 
 type SubscriptionWebhookPayload = {
@@ -27,7 +30,7 @@ export async function POST(request: NextRequest) {
 
   const payload = await request.json().catch(() => null) as SubscriptionWebhookPayload | null;
   const type = payload?.type ?? payload?.topic ?? request.nextUrl.searchParams.get("type") ?? request.nextUrl.searchParams.get("topic");
-  const preapprovalId =
+  const resourceId =
     payload?.data?.id ??
     (payload?.id === undefined ? null : String(payload.id)) ??
     request.nextUrl.searchParams.get("data.id") ??
@@ -37,15 +40,22 @@ export async function POST(request: NextRequest) {
   await persistWebhookEvent({
     action: payload?.action ?? null,
     payload,
-    preapprovalId,
+    preapprovalId: type && isPaymentEvent(type) ? null : resourceId,
     type
   });
 
-  if (!preapprovalId || (type && !isPreapprovalEvent(type))) {
+  if (!resourceId) {
     return NextResponse.json({ ok: true });
   }
 
-  await syncSubscriptionTierByPreapprovalId(preapprovalId).catch(() => null);
+  if (type && isPaymentEvent(type)) {
+    await syncSubscriptionPaymentByPaymentId(resourceId).catch(() => null);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (!type || isPreapprovalEvent(type)) {
+    await syncSubscriptionTierByPreapprovalId(resourceId).catch(() => null);
+  }
 
   return NextResponse.json({ ok: true });
 }
@@ -78,4 +88,8 @@ function isPreapprovalEvent(type: string) {
   const normalizedType = type.toLowerCase();
 
   return normalizedType.includes("preapproval") || normalizedType.includes("subscription");
+}
+
+function isPaymentEvent(type: string) {
+  return type.toLowerCase().includes("payment");
 }

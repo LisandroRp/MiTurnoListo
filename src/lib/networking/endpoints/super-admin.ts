@@ -9,7 +9,8 @@ export type SuperAdminBusiness = {
   employeeCount: number;
   monthlyAppointmentCount: number;
   monthlyCancelledCount: number;
-  monthlyRevenue: number;
+  monthlyPaidSubscriptionCount: number;
+  monthlySubscriptionRevenue: number;
   ownerCreatedAt: string;
   ownerEmail: string;
   ownerEmailVerified: boolean;
@@ -20,6 +21,8 @@ export type SuperAdminBusiness = {
   providerSubscriptionId: string;
   serviceCount: number;
   subscriptionTier: string;
+  totalPaidSubscriptionCount: number;
+  totalSubscriptionRevenue: number;
 };
 
 export type SuperAdminAction = "activatePro" | "downgradeFree";

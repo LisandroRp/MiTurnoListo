@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { FiInfo, FiRefreshCw, FiSearch, FiZap } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
@@ -21,6 +21,7 @@ type ProfileSuperAdminPanelProps = {
 };
 
 type PlanFilter = "all" | "free" | "pro";
+type RevenueMode = "monthly" | "total";
 
 export function ProfileSuperAdminPanel({
   actionBusinessId,
@@ -33,6 +34,7 @@ export function ProfileSuperAdminPanel({
 }: ProfileSuperAdminPanelProps) {
   const [query, setQuery] = useState("");
   const [planFilter, setPlanFilter] = useState<PlanFilter>("all");
+  const [revenueMode, setRevenueMode] = useState<RevenueMode>("monthly");
   const filteredBusinesses = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -48,7 +50,12 @@ export function ProfileSuperAdminPanel({
 
   const proCount = businesses.filter((business) => business.plan === "pro").length;
   const freeCount = businesses.filter((business) => business.plan !== "pro").length;
-  const monthlyRevenue = businesses.reduce((total, business) => total + business.monthlyRevenue, 0);
+  const paidSubscriptionCount = businesses.reduce((total, business) => (
+    total + (revenueMode === "monthly" ? business.monthlyPaidSubscriptionCount : business.totalPaidSubscriptionCount)
+  ), 0);
+  const subscriptionRevenue = businesses.reduce((total, business) => (
+    total + (revenueMode === "monthly" ? business.monthlySubscriptionRevenue : business.totalSubscriptionRevenue)
+  ), 0);
 
   return (
     <div className="grid gap-6">
@@ -62,8 +69,16 @@ export function ProfileSuperAdminPanel({
           value={`${proCount} Pro / ${freeCount} Free`}
         />
         <SuperAdminMetricCard
-          label={messages.profile.superAdminMonthlyRevenue}
-          value={formatCurrency(monthlyRevenue)}
+          action={(
+            <RevenueModeToggle
+              messages={messages}
+              mode={revenueMode}
+              onChange={setRevenueMode}
+            />
+          )}
+          helper={`${paidSubscriptionCount} ${messages.profile.superAdminPaidSubscriptions}`}
+          label={messages.profile.superAdminSubscriptionRevenue}
+          value={formatCurrency(subscriptionRevenue)}
         />
       </div>
 
@@ -165,12 +180,60 @@ export function ProfileSuperAdminPanel({
   );
 }
 
-function SuperAdminMetricCard({ label, value }: { label: string; value: string }) {
+function SuperAdminMetricCard({
+  action,
+  helper,
+  label,
+  value
+}: {
+  action?: ReactNode;
+  helper?: string;
+  label: string;
+  value: string;
+}) {
   return (
     <Card>
-      <p className="text-sm font-semibold text-muted">{label}</p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-semibold text-muted">{label}</p>
+        {action}
+      </div>
       <p className="mt-3 text-2xl font-bold text-primary">{value}</p>
+      {helper ? <p className="mt-1 text-xs font-semibold text-muted">{helper}</p> : null}
     </Card>
+  );
+}
+
+function RevenueModeToggle({
+  messages,
+  mode,
+  onChange
+}: {
+  messages: Messages;
+  mode: RevenueMode;
+  onChange: (mode: RevenueMode) => void;
+}) {
+  const options: { label: string; value: RevenueMode }[] = [
+    { label: messages.profile.superAdminMonthly, value: "monthly" },
+    { label: messages.profile.superAdminTotal, value: "total" }
+  ];
+
+  return (
+    <div className="flex rounded-lg border border-subtle bg-input p-0.5">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className={`rounded-md px-2.5 py-1 text-xs font-bold transition-colors ${
+            mode === option.value
+              ? "bg-brand text-on-brand"
+              : "text-muted hover:text-primary"
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -247,7 +310,8 @@ function SuperAdminBusinessCard({
           <VerificationBadge isVerified={business.ownerEmailVerified} messages={messages} />
           <AccountInfoPopover business={business} messages={messages} />
         </div>
-        <p>{business.monthlyAppointmentCount} {messages.calendar.appointments} · {formatCurrency(business.monthlyRevenue)}</p>
+        <p>{business.monthlyAppointmentCount} {messages.calendar.appointments}</p>
+        <p>{business.monthlyPaidSubscriptionCount} {messages.profile.superAdminPaidSubscriptions} · {formatCurrency(business.monthlySubscriptionRevenue)}</p>
         <p>{business.serviceCount} {messages.nav.services}</p>
         <p>{business.employeeCount} {messages.nav.personnel}</p>
         <p>{business.providerStatus} · {business.providerSubscriptionId || messages.profile.superAdminManualPlan}</p>

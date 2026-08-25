@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
+import {
+  aggregateSubscriptionPaymentsByBusinessId,
+  aggregateSubscriptionRevenueByBusinessId,
+  SubscriptionPaymentRevenueRow,
+  SubscriptionRevenueRow
+} from "@/lib/super-admin/subscription-revenue";
 
 type SuperAdminAction = "activatePro" | "downgradeFree";
 
@@ -18,10 +24,13 @@ type BusinessRow = {
 
 type BusinessSubscriptionRow = {
   business_id: string;
+  cancelled_at: string | null;
   provider_status: string | null;
   provider_subscription_id: string | null;
+  started_at: string | null;
   subscription_tier: string | null;
-};
+  updated_at: string | null;
+} & SubscriptionRevenueRow;
 
 type BusinessMembershipRow = {
   business_id: string;
@@ -210,6 +219,7 @@ async function loadSuperAdminBusinesses(supabase: ReturnType<typeof getSupabaseA
     businessResult,
     membershipResult,
     subscriptionResult,
+    subscriptionPaymentResult,
     serviceResult,
     employeeResult,
     appointmentResult
@@ -224,7 +234,11 @@ async function loadSuperAdminBusinesses(supabase: ReturnType<typeof getSupabaseA
       .eq("role", "owner"),
     supabase
       .from("business_subscriptions")
-      .select("business_id, provider_status, provider_subscription_id, subscription_tier"),
+      .select("business_id, cancelled_at, provider_status, provider_subscription_id, started_at, subscription_tier, updated_at")
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("business_subscription_payments")
+      .select("business_id, provider_status, amount, paid_at"),
     supabase
       .from("services")
       .select("business_id, id"),
@@ -238,19 +252,34 @@ async function loadSuperAdminBusinesses(supabase: ReturnType<typeof getSupabaseA
       .lt("starts_at", monthRange.end)
   ]);
 
-  if (businessResult.error || membershipResult.error || subscriptionResult.error || serviceResult.error || employeeResult.error || appointmentResult.error) {
-    throw businessResult.error ?? membershipResult.error ?? subscriptionResult.error ?? serviceResult.error ?? employeeResult.error ?? appointmentResult.error;
+  if (businessResult.error || membershipResult.error || subscriptionResult.error || subscriptionPaymentResult.error || serviceResult.error || employeeResult.error || appointmentResult.error) {
+    throw businessResult.error ?? membershipResult.error ?? subscriptionResult.error ?? subscriptionPaymentResult.error ?? serviceResult.error ?? employeeResult.error ?? appointmentResult.error;
   }
 
   const businesses = (businessResult.data ?? []) as BusinessRow[];
   const owners = await loadOwnerAccounts(supabase, (membershipResult.data ?? []) as BusinessMembershipRow[]);
-  const subscriptionsByBusinessId = getFirstByBusinessId((subscriptionResult.data ?? []) as BusinessSubscriptionRow[]);
+  const subscriptions = (subscriptionResult.data ?? []) as BusinessSubscriptionRow[];
+  const subscriptionsByBusinessId = getFirstByBusinessId(subscriptions);
+  const subscriptionRevenueByBusinessId = aggregateSubscriptionRevenueByBusinessId({
+    monthRange,
+    proPrice: getProSubscriptionPrice(),
+    rows: subscriptions
+  });
+  const subscriptionPaymentsByBusinessId = aggregateSubscriptionPaymentsByBusinessId({
+    monthRange,
+    rows: (subscriptionPaymentResult.data ?? []) as SubscriptionPaymentRevenueRow[]
+  });
   const serviceCounts = countByBusinessId((serviceResult.data ?? []) as CountRow[]);
   const employeeCounts = countByBusinessId((employeeResult.data ?? []) as CountRow[]);
   const monthlyAppointments = aggregateAppointmentsByBusinessId((appointmentResult.data ?? []) as AppointmentRow[]);
 
   return businesses.map((business) => {
     const subscription = subscriptionsByBusinessId.get(business.id);
+    const realSubscriptionRevenue = subscriptionPaymentsByBusinessId.get(business.id);
+    const estimatedSubscriptionRevenue = subscriptionRevenueByBusinessId.get(business.id);
+    const subscriptionRevenue = realSubscriptionRevenue?.totalPaidCount || realSubscriptionRevenue?.monthlyPaidCount
+      ? realSubscriptionRevenue
+      : estimatedSubscriptionRevenue;
     const appointments = monthlyAppointments.get(business.id);
 
     return {
@@ -259,7 +288,8 @@ async function loadSuperAdminBusinesses(supabase: ReturnType<typeof getSupabaseA
       employeeCount: employeeCounts.get(business.id) ?? 0,
       monthlyAppointmentCount: appointments?.count ?? 0,
       monthlyCancelledCount: appointments?.cancelledCount ?? 0,
-      monthlyRevenue: appointments?.revenue ?? 0,
+      monthlyPaidSubscriptionCount: subscriptionRevenue?.monthlyPaidCount ?? 0,
+      monthlySubscriptionRevenue: subscriptionRevenue?.monthlyRevenue ?? 0,
       ownerCreatedAt: owners.get(business.id)?.createdAt ?? "",
       ownerEmail: owners.get(business.id)?.email ?? "-",
       ownerEmailVerified: owners.get(business.id)?.isEmailVerified ?? false,
@@ -269,7 +299,9 @@ async function loadSuperAdminBusinesses(supabase: ReturnType<typeof getSupabaseA
       providerStatus: subscription?.provider_status ?? "manual",
       providerSubscriptionId: subscription?.provider_subscription_id ?? "",
       serviceCount: serviceCounts.get(business.id) ?? 0,
-      subscriptionTier: subscription?.subscription_tier ?? business.subscription_tier ?? "free"
+      subscriptionTier: subscription?.subscription_tier ?? business.subscription_tier ?? "free",
+      totalPaidSubscriptionCount: subscriptionRevenue?.totalPaidCount ?? 0,
+      totalSubscriptionRevenue: subscriptionRevenue?.totalRevenue ?? 0
     };
   });
 }
@@ -343,6 +375,12 @@ function getFirstByBusinessId(rows: BusinessSubscriptionRow[]) {
 
     return accumulator;
   }, new Map());
+}
+
+function getProSubscriptionPrice() {
+  const price = Number(process.env.MERCADO_PAGO_PRO_PRICE_ARS?.trim() || "25000");
+
+  return Number.isFinite(price) && price > 0 ? price : 25000;
 }
 
 function getCurrentMonthRange() {

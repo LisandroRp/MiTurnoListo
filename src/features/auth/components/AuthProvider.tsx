@@ -12,10 +12,6 @@ import {
 import { getSupabaseBrowserClient } from "@/lib/networking/clients/supabase-browser";
 import { bootstrapWorkspace } from "@/lib/networking/endpoints/auth";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
-import {
-  shouldBootstrapWorkspaceForSession,
-  shouldShowBootstrapLoading
-} from "@/features/auth/auth-bootstrap";
 
 const passwordRecoverySessionKey = "miturnolisto_password_recovery";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -57,8 +53,6 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const isAuthActionInProgress = useRef(false);
-  const isBootstrappingWorkspace = useRef(false);
-  const bootstrappedUserId = useRef<string | null>(null);
   const [authState, setAuthState] = useState<{ status: AuthStatus; userEmail: string | null; userId: string | null }>({
     status: "loading",
     userEmail: null,
@@ -79,7 +73,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function clearAllAuthState() {
-    bootstrappedUserId.current = null;
     clearLocalAuthStorage();
     clearSupabaseSessionPersistence();
   }
@@ -120,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const syncAuthState = useEffectEvent(async () => {
-    if (isAuthActionInProgress.current || isBootstrappingWorkspace.current) {
+    if (isAuthActionInProgress.current) {
       return;
     }
 
@@ -152,41 +145,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const hasPasswordRecoverySession = hasRecoveryReturn || hasStoredPasswordRecoverySession;
-    const sessionUserId = session.user.id;
-
-    if (shouldBootstrapWorkspaceForSession({
-      bootstrappedUserId: bootstrappedUserId.current,
-      hasPasswordRecoverySession,
-      sessionUserId
-    })) {
-      isBootstrappingWorkspace.current = true;
-
-      if (shouldShowBootstrapLoading({
-        currentStatus: authState.status,
-        currentUserId: authState.userId,
-        sessionUserId
-      })) {
-        setAuthState({
-          status: "bootstrapping",
-          userEmail: session.user.email ?? null,
-          userId: sessionUserId
-        });
-      }
-
-      try {
-        await bootstrapWorkspace(session.access_token);
-        bootstrappedUserId.current = sessionUserId;
-      } catch {
-        isBootstrappingWorkspace.current = false;
-        await supabase.auth.signOut({ scope: "local" });
-        clearAllAuthState();
-        setAuthState({ status: "guest", userEmail: null, userId: null });
-        return;
-      }
-
-      isBootstrappingWorkspace.current = false;
-    }
-
     const {
       data: { user },
       error: userError
@@ -201,9 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthState({
       status: hasPasswordRecoverySession
         ? "recovery"
-        : isBootstrappingWorkspace.current
-          ? "bootstrapping"
-          : "authenticated",
+        : "authenticated",
       userEmail: user.email ?? null,
       userId: user.id
     });
@@ -273,23 +229,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     isAuthActionInProgress.current = false;
-    isBootstrappingWorkspace.current = true;
     setAuthState((current) => ({ ...current, status: "bootstrapping" }));
 
     try {
       await bootstrapWorkspace(data.session?.access_token);
     } catch (bootstrapError) {
-      isBootstrappingWorkspace.current = false;
       await signOutLocally();
       return {
         status: "error",
-        message: getErrorMessage(bootstrapError, "No pudimos preparar tu espacio. Intenta otra vez.")
+        message: getAuthBootstrapErrorMessage(bootstrapError)
       };
     }
 
     clearRecoverySession();
-    bootstrappedUserId.current = data.user.id;
-    isBootstrappingWorkspace.current = false;
     setAuthState({
       status: "authenticated",
       userEmail: data.user.email ?? null,
@@ -335,23 +287,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (data.session?.user) {
       isAuthActionInProgress.current = false;
-      isBootstrappingWorkspace.current = true;
       setAuthState((current) => ({ ...current, status: "bootstrapping" }));
 
       try {
         await bootstrapWorkspace(data.session.access_token);
       } catch (bootstrapError) {
-        isBootstrappingWorkspace.current = false;
         await signOutLocally();
         return {
           status: "error",
-          message: getErrorMessage(bootstrapError, "No pudimos preparar tu espacio. Intenta otra vez.")
+          message: getAuthBootstrapErrorMessage(bootstrapError)
         };
       }
 
       clearRecoverySession();
-      bootstrappedUserId.current = data.session.user.id;
-      isBootstrappingWorkspace.current = false;
       setAuthState({
         status: "authenticated",
         userEmail: data.session.user.email ?? null,
@@ -495,4 +443,14 @@ function getErrorMessage(error: unknown, fallbackMessage: string) {
   }
 
   return getPayloadErrorMessage(error, fallbackMessage);
+}
+
+function getAuthBootstrapErrorMessage(error: unknown) {
+  const message = getErrorMessage(error, "No pudimos cargar tu espacio. Intenta otra vez.");
+
+  if (/prepare|prepar/i.test(message)) {
+    return "No pudimos cargar tu espacio. Intenta otra vez.";
+  }
+
+  return message;
 }

@@ -16,6 +16,7 @@ export default function ProfileSectionPage() {
   const {
     businessId,
     cancelProSubscription,
+    isSuperAdmin,
     messages,
     profile,
     locale,
@@ -97,6 +98,7 @@ export default function ProfileSectionPage() {
       messages={messages}
       profile={profile}
       businessId={businessId}
+      isSuperAdmin={isSuperAdmin}
       locale={locale}
       theme={theme}
       themeOptions={themeOptions}

@@ -111,7 +111,7 @@ export function AppShell({ children }: AppShellProps) {
     });
   }, [appointments, isLoading, messages, profile.subscriptionTier, showToast]);
 
-  if (isLoading) {
+  if (isLoading && !businessId) {
     return <WorkspaceLoadingState theme={theme} />;
   }
 
@@ -174,7 +174,7 @@ export function AppShell({ children }: AppShellProps) {
           onClick={() => setIsMobileSidebarOpen(false)}
         />
         <div
-          className={`absolute inset-y-0 left-0 transition-transform duration-300 ease-out ${
+          className={`absolute left-0 top-0 h-dvh max-h-dvh transition-transform duration-300 ease-out ${
             isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
@@ -210,11 +210,23 @@ export function AppShell({ children }: AppShellProps) {
           </div>
         </header>
         <div className="pb-safe-6 mx-auto grid min-w-0 max-w-[1440px] gap-6 overflow-auto px-4 pt-5 sm:px-6 lg:px-8 lg:pb-5">
-          {children}
+          {isLoading ? <ContentLoadingState /> : children}
         </div>
       </main>
 
       <ToastViewport toasts={toasts} onDismiss={dismissToast} />
+    </div>
+  );
+}
+
+function ContentLoadingState() {
+  return (
+    <div className="grid min-h-[calc(100vh-8rem)] place-items-center">
+      <span
+        className="h-10 w-10 animate-spin rounded-full border-4 border-brand-strong border-t-transparent"
+        aria-label="Cargando"
+        role="status"
+      />
     </div>
   );
 }

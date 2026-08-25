@@ -7,10 +7,20 @@ type BootstrapPayload = {
   timeZone?: string;
 };
 
+type BusinessMembership = {
+  business_id: string;
+  role: string;
+  locale: string | null;
+  theme: string | null;
+};
+
+type SupabaseAdminClient = ReturnType<typeof getSupabaseAdminClient>;
+
 const defaultLocale = "es";
 const defaultTheme = "coral";
 const defaultSubscriptionTier = "free";
 const fallbackTimeZone = "UTC";
+const uniqueViolationCode = "23505";
 
 export async function POST(request: NextRequest) {
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
@@ -32,12 +42,7 @@ export async function POST(request: NextRequest) {
   }
 
   const seed = buildDefaultSeed(user.email);
-  const { data: membership, error: membershipError } = await supabase
-    .from("business_memberships")
-    .select("business_id, role, locale, theme")
-    .eq("user_id", user.id)
-    .limit(1)
-    .maybeSingle();
+  let { data: membership, error: membershipError } = await loadBusinessMembership(supabase, user.id);
 
   if (membershipError) {
     return createApiErrorResponse(membershipError, {
@@ -47,7 +52,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const businessId = membership?.business_id ?? crypto.randomUUID();
+  let businessId = membership?.business_id ?? crypto.randomUUID();
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
     .select("id")
@@ -130,13 +135,32 @@ export async function POST(request: NextRequest) {
       });
 
     if (insertMembershipError) {
-      return createApiErrorResponse(insertMembershipError, {
-        code: "BOOTSTRAP_MEMBERSHIP_CREATE_FAILED",
-        fallbackMessage: "Unable to create the workspace membership.",
-        status: 500
-      });
+      if (isPostgresErrorCode(insertMembershipError, uniqueViolationCode)) {
+        await deleteUnusedBusiness(supabase, businessId);
+
+        const recoveredMembership = await loadBusinessMembership(supabase, user.id);
+
+        if (!recoveredMembership.error && recoveredMembership.data) {
+          membership = recoveredMembership.data;
+          businessId = recoveredMembership.data.business_id;
+        } else {
+          return createApiErrorResponse(recoveredMembership.error ?? insertMembershipError, {
+            code: "BOOTSTRAP_MEMBERSHIP_RECOVER_FAILED",
+            fallbackMessage: "Unable to recover the workspace membership.",
+            status: 409
+          });
+        }
+      } else {
+        return createApiErrorResponse(insertMembershipError, {
+          code: "BOOTSTRAP_MEMBERSHIP_CREATE_FAILED",
+          fallbackMessage: "Unable to create the workspace membership.",
+          status: 500
+        });
+      }
     }
-  } else if (!membership.locale || !membership.theme) {
+  }
+
+  if (membership && (!membership.locale || !membership.theme)) {
     const { error: updateMembershipError } = await supabase
       .from("business_memberships")
       .update({
@@ -194,4 +218,28 @@ function buildBusinessSlug(name: string, businessId: string) {
   const suffix = businessId.replace(/-/g, "").slice(0, 8);
 
   return `${normalizedName || "negocio"}-${suffix}`;
+}
+
+function loadBusinessMembership(supabase: SupabaseAdminClient, userId: string) {
+  return supabase
+    .from("business_memberships")
+    .select("business_id, role, locale, theme")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle<BusinessMembership>();
+}
+
+async function deleteUnusedBusiness(supabase: SupabaseAdminClient, businessId: string) {
+  await supabase
+    .from("businesses")
+    .delete()
+    .eq("id", businessId);
+}
+
+function isPostgresErrorCode(error: unknown, code: string) {
+  if (!error || typeof error !== "object" || !("code" in error)) {
+    return false;
+  }
+
+  return error.code === code;
 }

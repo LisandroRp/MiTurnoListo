@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   shouldBootstrapWorkspaceForSession,
+  shouldRepairWorkspaceAfterSnapshotError,
   shouldShowBootstrapLoading
 } from "./auth-bootstrap.ts";
 
@@ -68,5 +69,29 @@ test("shouldShowBootstrapLoading keeps the dashboard visible for the current aut
       sessionUserId: "user-2"
     }),
     true
+  );
+});
+
+test("shouldRepairWorkspaceAfterSnapshotError repairs recoverable workspace errors once", () => {
+  assert.equal(
+    shouldRepairWorkspaceAfterSnapshotError({
+      didAttemptWorkspaceRepair: false,
+      isRecoverableLoadError: true
+    }),
+    true
+  );
+  assert.equal(
+    shouldRepairWorkspaceAfterSnapshotError({
+      didAttemptWorkspaceRepair: true,
+      isRecoverableLoadError: true
+    }),
+    false
+  );
+  assert.equal(
+    shouldRepairWorkspaceAfterSnapshotError({
+      didAttemptWorkspaceRepair: false,
+      isRecoverableLoadError: false
+    }),
+    false
   );
 });

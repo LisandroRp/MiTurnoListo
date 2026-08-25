@@ -1,4 +1,4 @@
-import { ChangeEvent, RefObject, useEffect, useRef, useState } from "react";
+import { ChangeEvent, RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { FiArrowRight, FiCheckCircle, FiClock, FiLock, FiMapPin, FiUpload, FiX, FiZap } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
@@ -29,6 +29,7 @@ type ProfileViewProps = {
   messages: Messages;
   profile: Profile;
   businessId: string | null;
+  isSuperAdmin: boolean;
   locale: Locale;
   theme: ThemeId;
   themeOptions: ThemeId[];
@@ -46,6 +47,7 @@ export function ProfileView({
   messages,
   profile,
   businessId,
+  isSuperAdmin,
   locale,
   theme,
   themeOptions,
@@ -68,8 +70,7 @@ export function ProfileView({
   const [pendingTier, setPendingTier] = useState<SubscriptionTier | null>(null);
   const [superAdminBusinesses, setSuperAdminBusinesses] = useState<SuperAdminBusiness[]>([]);
   const [superAdminError, setSuperAdminError] = useState("");
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [isCheckingSuperAdmin, setIsCheckingSuperAdmin] = useState(true);
+  const [hasLoadedSuperAdminBusinesses, setHasLoadedSuperAdminBusinesses] = useState(false);
   const [isLoadingSuperAdminBusinesses, setIsLoadingSuperAdminBusinesses] = useState(false);
   const [superAdminActionBusinessId, setSuperAdminActionBusinessId] = useState("");
   const [isRequestingPasswordReset, setIsRequestingPasswordReset] = useState(false);
@@ -83,24 +84,29 @@ export function ProfileView({
     setPendingBusinessLogoFile(null);
   }, [profile]);
 
-  useEffect(() => {
-    let isActive = true;
+  const refreshSuperAdminBusinesses = useCallback(async () => {
+    setIsLoadingSuperAdminBusinesses(true);
+    const result = await loadSuperAdminBusinesses();
 
-    void loadSuperAdminBusinesses().then((result) => {
-      if (!isActive) {
-        return;
-      }
-
-      setIsCheckingSuperAdmin(false);
-      setIsSuperAdmin(result.isSuperAdmin);
-      setSuperAdminBusinesses(result.businesses);
-      setSuperAdminError(result.errorMessage);
-    });
-
-    return () => {
-      isActive = false;
-    };
+    setIsLoadingSuperAdminBusinesses(false);
+    setSuperAdminBusinesses(result.businesses);
+    setSuperAdminError(result.errorMessage);
+    setHasLoadedSuperAdminBusinesses(result.isSuperAdmin);
   }, []);
+
+  useEffect(() => {
+    if (!isSuperAdmin && activeTab === "superAdmin") {
+      setActiveTab("account");
+    }
+  }, [activeTab, isSuperAdmin]);
+
+  useEffect(() => {
+    if (!isSuperAdmin || activeTab !== "superAdmin" || hasLoadedSuperAdminBusinesses || isLoadingSuperAdminBusinesses) {
+      return;
+    }
+
+    void refreshSuperAdminBusinesses();
+  }, [activeTab, hasLoadedSuperAdminBusinesses, isLoadingSuperAdminBusinesses, isSuperAdmin, refreshSuperAdminBusinesses]);
 
   useEffect(() => {
     if (!avatarDraftFile) {
@@ -130,16 +136,6 @@ export function ProfileView({
 
   function closeModal() {
     setPendingTier(null);
-  }
-
-  async function refreshSuperAdminBusinesses() {
-    setIsLoadingSuperAdminBusinesses(true);
-    const result = await loadSuperAdminBusinesses();
-
-    setIsLoadingSuperAdminBusinesses(false);
-    setIsSuperAdmin(result.isSuperAdmin);
-    setSuperAdminBusinesses(result.businesses);
-    setSuperAdminError(result.errorMessage);
   }
 
   async function handleSuperAdminAction(businessId: string, action: SuperAdminAction) {
@@ -422,7 +418,7 @@ export function ProfileView({
             actionBusinessId={superAdminActionBusinessId}
             businesses={superAdminBusinesses}
             errorMessage={superAdminError}
-            isLoading={isCheckingSuperAdmin || isLoadingSuperAdminBusinesses}
+            isLoading={isLoadingSuperAdminBusinesses}
             messages={messages}
             onAction={(targetBusinessId, action) => void handleSuperAdminAction(targetBusinessId, action)}
             onRefresh={() => void refreshSuperAdminBusinesses()}

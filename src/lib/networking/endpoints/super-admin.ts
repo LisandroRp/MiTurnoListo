@@ -24,6 +24,26 @@ export type SuperAdminBusiness = {
 
 export type SuperAdminAction = "activatePro" | "downgradeFree";
 
+export async function getSuperAdminStatus() {
+  const accessToken = await getAccessToken();
+  const response = await fetch("/api/super-admin/me", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(await getResponseErrorMessage(response, "Unable to load super admin status."));
+  }
+
+  const payload = await response.json() as {
+    isSuperAdmin?: boolean;
+  };
+
+  return Boolean(payload.isSuperAdmin);
+}
+
 export async function getSuperAdminBusinesses() {
   const accessToken = await getAccessToken();
   const response = await fetch("/api/super-admin/businesses", {

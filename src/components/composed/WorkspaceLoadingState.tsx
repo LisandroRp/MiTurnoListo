@@ -7,7 +7,7 @@ type WorkspaceLoadingStateProps = {
 };
 
 export function WorkspaceLoadingState({
-  title = "Preparando tu espacio...",
+  title = "Cargando tu espacio...",
   theme
 }: WorkspaceLoadingStateProps) {
   return (

@@ -43,7 +43,7 @@ export function NavigationSidebar({
     <aside
       className={cx(
         "flex shrink-0 flex-col border-r border-subtle bg-sidebar transition-all duration-200",
-        isMobile ? "min-h-screen" : "h-screen",
+        isMobile ? "h-dvh max-h-dvh overflow-hidden" : "h-screen",
         shouldCollapse ? "w-24" : "w-72"
       )}
     >
@@ -93,7 +93,7 @@ export function NavigationSidebar({
         </Button>
       </div>
 
-      <nav className="grid gap-1 p-3">
+      <nav className="grid min-h-0 flex-1 auto-rows-max gap-1 overflow-y-auto p-3">
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = activeView === item.id;
@@ -118,7 +118,7 @@ export function NavigationSidebar({
         })}
       </nav>
 
-      <div className="mt-auto border-t border-subtle p-3">
+      <div className="shrink-0 border-t border-subtle p-3">
         <Button
           size={shouldCollapse ? "icon" : "md"}
           variant="ghost"

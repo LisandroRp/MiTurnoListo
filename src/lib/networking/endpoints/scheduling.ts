@@ -43,9 +43,69 @@ type ServiceInput = SchedulingSnapshot["services"][number];
 type EmployeeInput = SchedulingSnapshot["employees"][number];
 type AppointmentInput = SchedulingSnapshot["appointments"][number];
 type BusinessDayBlockInput = SchedulingSnapshot["businessDayBlocks"][number];
+export type SchedulingSnapshotScope =
+  | "booking"
+  | "calendar"
+  | "dashboard"
+  | "payments"
+  | "paymentMethods"
+  | "personnel"
+  | "profile"
+  | "services"
+  | "statistics";
 
-export async function loadSchedulingSnapshot() {
+type LoadSchedulingSnapshotOptions = {
+  scope?: SchedulingSnapshotScope;
+};
+
+type SchedulingSnapshotScopeConfig = {
+  includeAppointments: boolean;
+  includeBusinessDayBlocks: boolean;
+  includeEmployeeAvailability: boolean;
+  includeEmployees: boolean;
+  includePaymentSettings: boolean;
+  includeServiceAddons: boolean;
+  includeServiceAvailability: boolean;
+  includeServiceEmployees: boolean;
+  includeServices: boolean;
+};
+
+type WorkspaceLoadErrorCode =
+  | "workspace_business_missing"
+  | "workspace_membership_missing"
+  | "workspace_profile_missing";
+
+const emptyPaymentSettings: BusinessPaymentSettings = {
+  mercadoPago: {
+    accessToken: "",
+    publicKey: "",
+    isConfigured: false
+  },
+  transfers: {
+    accountHolder: "",
+    cbu: "",
+    alias: "",
+    receiptWhatsapp: ""
+  }
+};
+
+export class WorkspaceLoadError extends Error {
+  code: WorkspaceLoadErrorCode;
+
+  constructor(code: WorkspaceLoadErrorCode, message: string) {
+    super(message);
+    this.name = "WorkspaceLoadError";
+    this.code = code;
+  }
+}
+
+export function isRecoverableWorkspaceLoadError(error: unknown) {
+  return error instanceof WorkspaceLoadError;
+}
+
+export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedulingSnapshotOptions = {}) {
   const supabase = getSupabaseBrowserClient();
+  const scopeConfig = getSchedulingSnapshotScopeConfig(scope);
   const { data: authData, error: authError } = await supabase.auth.getUser();
 
   if (authError || !authData.user) {
@@ -61,8 +121,12 @@ export async function loadSchedulingSnapshot() {
     .limit(1)
     .maybeSingle();
 
-  if (membershipError || !membership) {
+  if (membershipError) {
     throw new Error("Business membership not found.");
+  }
+
+  if (!membership) {
+    throw new WorkspaceLoadError("workspace_membership_missing", "Business membership not found.");
   }
 
   const businessId = membership.business_id;
@@ -92,42 +156,68 @@ export async function loadSchedulingSnapshot() {
       .eq("id", businessId)
       .limit(1)
       .single(),
-    supabase
-      .from("employees")
-      .select("id, name, role, description, image_url, color_token, is_public, is_active")
-      .eq("business_id", businessId)
-      .order("is_active", { ascending: false })
-      .order("name", { ascending: true }),
-    supabase
-      .from("employee_weekly_availability")
-      .select("id, employee_id, weekday, start_time, end_time"),
-    supabase
-      .from("services")
-      .select("id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
-      .eq("business_id", businessId)
-      .order("is_active", { ascending: false })
-      .order("name", { ascending: true }),
-    supabase
-      .from("service_employees")
-      .select("service_id, employee_id"),
-    supabase
-      .from("service_weekly_availability")
-      .select("id, service_id, weekday, start_time, end_time"),
-    supabase
-      .from("service_addons")
-      .select("id, service_id, name, price_amount, is_active, sort_order"),
-    supabase
-      .from("appointments")
-      .select("id, service_id, employee_id, starts_at, ends_at, status, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
-      .eq("business_id", businessId)
-      .order("starts_at", { ascending: true }),
-    supabase
-      .from("business_day_blocks")
-      .select("id, starts_on, ends_on, reason")
-      .eq("business_id", businessId)
-      .order("starts_on", { ascending: true }),
-    getPaymentSettings(businessId)
+    scopeConfig.includeEmployees
+      ? supabase
+        .from("employees")
+        .select("id, name, role, description, image_url, color_token, is_public, is_active")
+        .eq("business_id", businessId)
+        .order("is_active", { ascending: false })
+        .order("name", { ascending: true })
+      : createSkippedQueryResult([]),
+    scopeConfig.includeEmployeeAvailability
+      ? supabase
+        .from("employee_weekly_availability")
+        .select("id, employee_id, weekday, start_time, end_time")
+      : createSkippedQueryResult([]),
+    scopeConfig.includeServices
+      ? supabase
+        .from("services")
+        .select("id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
+        .eq("business_id", businessId)
+        .order("is_active", { ascending: false })
+        .order("name", { ascending: true })
+      : createSkippedQueryResult([]),
+    scopeConfig.includeServiceEmployees
+      ? supabase
+        .from("service_employees")
+        .select("service_id, employee_id")
+      : createSkippedQueryResult([]),
+    scopeConfig.includeServiceAvailability
+      ? supabase
+        .from("service_weekly_availability")
+        .select("id, service_id, weekday, start_time, end_time")
+      : createSkippedQueryResult([]),
+    scopeConfig.includeServiceAddons
+      ? supabase
+        .from("service_addons")
+        .select("id, service_id, name, price_amount, is_active, sort_order")
+      : createSkippedQueryResult([]),
+    scopeConfig.includeAppointments
+      ? supabase
+        .from("appointments")
+        .select("id, service_id, employee_id, starts_at, ends_at, status, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+        .eq("business_id", businessId)
+        .order("starts_at", { ascending: true })
+      : createSkippedQueryResult([]),
+    scopeConfig.includeBusinessDayBlocks
+      ? supabase
+        .from("business_day_blocks")
+        .select("id, starts_on, ends_on, reason")
+        .eq("business_id", businessId)
+        .order("starts_on", { ascending: true })
+      : createSkippedQueryResult([]),
+    scopeConfig.includePaymentSettings
+      ? getPaymentSettings(businessId)
+      : Promise.resolve(emptyPaymentSettings)
   ]);
+
+  if (isMissingSingleRowError(userProfileResult.error)) {
+    throw new WorkspaceLoadError("workspace_profile_missing", "User profile not found.");
+  }
+
+  if (isMissingSingleRowError(businessResult.error)) {
+    throw new WorkspaceLoadError("workspace_business_missing", "Business not found.");
+  }
 
   if (userProfileResult.error || businessResult.error || employeeResult.error || employeeAvailabilityResult.error) {
     throw new Error("Unable to load the user workspace.");
@@ -486,5 +576,96 @@ export function createNewServiceDraft() {
     schedule: createEmptySchedule(),
     employeeIds: [],
     addons: []
+  };
+}
+
+function isMissingSingleRowError(error: unknown) {
+  if (!error || typeof error !== "object" || !("code" in error)) {
+    return false;
+  }
+
+  return error.code === "PGRST116";
+}
+
+function createSkippedQueryResult<T>(data: T) {
+  return {
+    data,
+    error: null
+  };
+}
+
+export function getSchedulingSnapshotScopeConfig(scope: SchedulingSnapshotScope): SchedulingSnapshotScopeConfig {
+  const baseConfig: SchedulingSnapshotScopeConfig = {
+    includeAppointments: false,
+    includeBusinessDayBlocks: false,
+    includeEmployeeAvailability: false,
+    includeEmployees: false,
+    includePaymentSettings: false,
+    includeServiceAddons: false,
+    includeServiceAvailability: false,
+    includeServiceEmployees: false,
+    includeServices: false
+  };
+
+  const scopedConfig: Record<SchedulingSnapshotScope, Partial<SchedulingSnapshotScopeConfig>> = {
+    booking: {
+      includeAppointments: true,
+      includeBusinessDayBlocks: true,
+      includeEmployeeAvailability: true,
+      includeEmployees: true,
+      includeServiceAddons: true,
+      includeServiceAvailability: true,
+      includeServiceEmployees: true,
+      includeServices: true
+    },
+    calendar: {
+      includeAppointments: true,
+      includeBusinessDayBlocks: true,
+      includeEmployeeAvailability: true,
+      includeEmployees: true,
+      includeServiceAvailability: true,
+      includeServiceEmployees: true,
+      includeServices: true
+    },
+    dashboard: {
+      includeAppointments: true,
+      includeEmployeeAvailability: true,
+      includeEmployees: true,
+      includeServices: true
+    },
+    payments: {},
+    paymentMethods: {
+      includePaymentSettings: true
+    },
+    personnel: {
+      includeAppointments: true,
+      includeEmployeeAvailability: true,
+      includeEmployees: true,
+      includeServiceEmployees: true,
+      includeServices: true
+    },
+    profile: {
+      includePaymentSettings: true
+    },
+    services: {
+      includeAppointments: true,
+      includeEmployeeAvailability: true,
+      includeEmployees: true,
+      includePaymentSettings: true,
+      includeServiceAddons: true,
+      includeServiceAvailability: true,
+      includeServiceEmployees: true,
+      includeServices: true
+    },
+    statistics: {
+      includeAppointments: true,
+      includeEmployees: true,
+      includeServices: true
+    }
+  };
+
+  return {
+    ...baseConfig,
+    ...scopedConfig[scope]
   };
 }

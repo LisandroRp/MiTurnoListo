@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FiRefreshCw, FiSearch, FiZap } from "react-icons/fi";
+import { FiInfo, FiRefreshCw, FiSearch, FiZap } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -68,19 +68,18 @@ export function ProfileSuperAdminPanel({
       </div>
 
       <Card className="overflow-hidden p-0">
-        <div className="grid gap-4 border-b border-subtle p-5 lg:grid-cols-[1fr_auto_auto] lg:items-end">
+        <div className="grid gap-5 border-b border-subtle p-5">
           <div>
             <h2 className="text-lg font-bold text-primary">{messages.profile.superAdminBusinesses}</h2>
             <p className="mt-1 text-sm leading-6 text-muted">{messages.profile.superAdminDescription}</p>
           </div>
-          <TextField
-            label={messages.profile.superAdminSearch}
-            value={query}
-            prefix={<FiSearch />}
-            className="lg:min-w-72"
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          <div className="grid gap-3 sm:grid-cols-[11rem_auto]">
+          <div className="grid gap-3 lg:grid-cols-[minmax(18rem,28rem)_12rem_auto] lg:items-end">
+            <TextField
+              label={messages.profile.superAdminSearch}
+              value={query}
+              prefix={<FiSearch />}
+              onChange={(event) => setQuery(event.target.value)}
+            />
             <SelectField
               label={messages.profile.superAdminPlanFilter}
               value={planFilter}
@@ -95,6 +94,7 @@ export function ProfileSuperAdminPanel({
               variant="secondary"
               icon={<FiRefreshCw />}
               isLoading={isLoading}
+              className="h-11"
               onClick={onRefresh}
             >
               {messages.actions.refresh}
@@ -128,7 +128,7 @@ export function ProfileSuperAdminPanel({
                     <th className="px-5 py-3">{messages.profile.superAdminOwner}</th>
                     <th className="px-5 py-3">{messages.profile.superAdminAccount}</th>
                     <th className="px-5 py-3">{messages.profile.superAdminPlan}</th>
-                    <th className="px-5 py-3">{messages.profile.superAdminUsage}</th>
+                    <th className="w-36 px-5 py-3">{messages.profile.superAdminUsage}</th>
                     <th className="px-5 py-3">{messages.profile.superAdminSubscription}</th>
                     <th className="px-5 py-3 text-right">{messages.profile.superAdminActions}</th>
                   </tr>
@@ -189,23 +189,22 @@ function SuperAdminBusinessRow({
     <tr>
       <td className="px-5 py-4">
         <p className="font-bold text-primary">{business.businessName}</p>
-        <p className="mt-1 text-xs text-muted">{business.businessId}</p>
+        <p className="mt-1 text-xs text-muted">{formatShortId(business.businessId)}</p>
       </td>
       <td className="px-5 py-4 text-muted">{business.ownerEmail}</td>
       <td className="px-5 py-4 text-muted">
-        <div className="grid gap-1.5">
+        <div className="flex items-center gap-2">
           <VerificationBadge isVerified={business.ownerEmailVerified} messages={messages} />
-          <p>{messages.profile.superAdminSignup}: {formatDateTime(business.ownerCreatedAt)}</p>
-          <p>{messages.profile.superAdminLastLogin}: {formatDateTime(business.ownerLastSignInAt)}</p>
-          <p>{messages.profile.superAdminProvider}: {business.ownerProvider}</p>
+          <AccountInfoPopover business={business} messages={messages} />
         </div>
       </td>
       <td className="px-5 py-4">
         <PlanBadge plan={business.plan} messages={messages} />
       </td>
-      <td className="px-5 py-4 text-muted">
+      <td className="w-36 whitespace-nowrap px-5 py-4 text-muted">
         <p>{business.monthlyAppointmentCount} {messages.calendar.appointments}</p>
-        <p className="mt-1">{business.serviceCount} {messages.nav.services} · {business.employeeCount} {messages.nav.personnel}</p>
+        <p className="mt-1">{business.serviceCount} {messages.nav.services}</p>
+        <p className="mt-1">{business.employeeCount} {messages.nav.personnel}</p>
       </td>
       <td className="px-5 py-4 text-muted">
         <p className="font-semibold text-primary">{business.providerStatus}</p>
@@ -244,14 +243,13 @@ function SuperAdminBusinessCard({
         <PlanBadge plan={business.plan} messages={messages} />
       </div>
       <div className="grid gap-2 text-sm text-muted">
-        <p>
+        <div className="flex items-center gap-2">
           <VerificationBadge isVerified={business.ownerEmailVerified} messages={messages} />
-        </p>
-        <p>{messages.profile.superAdminSignup}: {formatDateTime(business.ownerCreatedAt)}</p>
-        <p>{messages.profile.superAdminLastLogin}: {formatDateTime(business.ownerLastSignInAt)}</p>
-        <p>{messages.profile.superAdminProvider}: {business.ownerProvider}</p>
+          <AccountInfoPopover business={business} messages={messages} />
+        </div>
         <p>{business.monthlyAppointmentCount} {messages.calendar.appointments} · {formatCurrency(business.monthlyRevenue)}</p>
-        <p>{business.serviceCount} {messages.nav.services} · {business.employeeCount} {messages.nav.personnel}</p>
+        <p>{business.serviceCount} {messages.nav.services}</p>
+        <p>{business.employeeCount} {messages.nav.personnel}</p>
         <p>{business.providerStatus} · {business.providerSubscriptionId || messages.profile.superAdminManualPlan}</p>
       </div>
       <SuperAdminPlanAction
@@ -266,7 +264,7 @@ function SuperAdminBusinessCard({
 
 function PlanBadge({ plan, messages }: { plan: string; messages: Messages }) {
   return (
-    <Badge tone={plan === "pro" ? "success" : "neutral"}>
+    <Badge tone={plan === "pro" ? "warning" : "neutral"} className={plan === "pro" ? "bg-warning text-primary" : ""}>
       {plan === "pro" ? messages.profile.proPlan : messages.profile.freePlan}
     </Badge>
   );
@@ -277,6 +275,37 @@ function VerificationBadge({ isVerified, messages }: { isVerified: boolean; mess
     <Badge tone={isVerified ? "success" : "warning"}>
       {isVerified ? messages.profile.superAdminVerified : messages.profile.superAdminUnverified}
     </Badge>
+  );
+}
+
+function AccountInfoPopover({
+  business,
+  messages
+}: {
+  business: SuperAdminBusiness;
+  messages: Messages;
+}) {
+  return (
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        className="grid h-7 w-7 cursor-help place-items-center rounded-full border border-subtle bg-input text-muted transition-colors hover:border-brand hover:text-brand-strong focus:outline-none focus:ring-2 focus:ring-focus"
+        aria-label={messages.profile.superAdminAccount}
+      >
+        <FiInfo aria-hidden="true" />
+      </button>
+      <span className="pointer-events-none absolute left-0 top-9 z-20 hidden w-64 rounded-lg border border-subtle bg-surface p-3 text-xs leading-5 text-muted shadow-lg group-hover:block group-focus-within:block">
+        <span className="block">
+          <span className="font-bold text-primary">{messages.profile.superAdminSignup}:</span> {formatDateTime(business.ownerCreatedAt)}
+        </span>
+        <span className="mt-1 block">
+          <span className="font-bold text-primary">{messages.profile.superAdminLastLogin}:</span> {formatDateTime(business.ownerLastSignInAt)}
+        </span>
+        <span className="mt-1 block">
+          <span className="font-bold text-primary">{messages.profile.superAdminProvider}:</span> {business.ownerProvider}
+        </span>
+      </span>
+    </span>
   );
 }
 
@@ -321,4 +350,8 @@ function formatDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit"
   }).format(new Date(value));
+}
+
+function formatShortId(value: string) {
+  return value.slice(0, 8);
 }

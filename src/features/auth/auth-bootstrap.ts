@@ -10,6 +10,11 @@ type BootstrapLoadingDecisionInput = {
   sessionUserId: string;
 };
 
+type WorkspaceRepairDecisionInput = {
+  didAttemptWorkspaceRepair: boolean;
+  isRecoverableLoadError: boolean;
+};
+
 export function shouldBootstrapWorkspaceForSession({
   bootstrappedUserId,
   hasPasswordRecoverySession,
@@ -24,4 +29,11 @@ export function shouldShowBootstrapLoading({
   sessionUserId
 }: BootstrapLoadingDecisionInput) {
   return currentStatus !== "authenticated" || currentUserId !== sessionUserId;
+}
+
+export function shouldRepairWorkspaceAfterSnapshotError({
+  didAttemptWorkspaceRepair,
+  isRecoverableLoadError
+}: WorkspaceRepairDecisionInput) {
+  return isRecoverableLoadError && !didAttemptWorkspaceRepair;
 }

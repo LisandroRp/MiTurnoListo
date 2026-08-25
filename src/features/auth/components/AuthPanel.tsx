@@ -129,7 +129,7 @@ export function AuthPanel() {
   }, [mode, nextPath, router, status]);
 
   if (status === "loading" || status === "bootstrapping" || (status === "authenticated" && mode !== "recovery")) {
-    return <WorkspaceLoadingState title={status === "bootstrapping" ? "Preparando tu espacio..." : "Verificando tu sesion..."} />;
+    return <WorkspaceLoadingState title={status === "bootstrapping" ? "Cargando tu espacio..." : "Verificando tu sesion..."} />;
   }
 
   return (

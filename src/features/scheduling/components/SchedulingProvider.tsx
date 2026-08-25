@@ -1,10 +1,14 @@
 "use client";
 
-import { createContext, ReactNode, useContext, useEffect, useRef, useState } from "react";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import { ToastMessage } from "@/components/ui/Toast";
+import { shouldRepairWorkspaceAfterSnapshotError } from "@/features/auth/auth-bootstrap";
 import { useAuth } from "@/features/auth/components/AuthProvider";
 import { messages, Messages } from "@/features/scheduling/i18n/messages";
+import { bootstrapWorkspace } from "@/lib/networking/endpoints/auth";
+import { getSuperAdminStatus } from "@/lib/networking/endpoints/super-admin";
 import {
   Appointment,
   BusinessDayBlock,
@@ -27,7 +31,10 @@ import {
   deleteBusinessDayBlock as deleteBusinessDayBlockRequest,
   deleteEmployee as deleteEmployeeRequest,
   deleteService as deleteServiceRequest,
+  isRecoverableWorkspaceLoadError,
+  getSchedulingSnapshotScopeConfig,
   loadSchedulingSnapshot,
+  SchedulingSnapshotScope,
   markAppointmentPaid as markAppointmentPaidRequest,
   rescheduleAppointment as rescheduleAppointmentRequest,
   refreshWorkspaceSubscription as refreshWorkspaceSubscriptionRequest,
@@ -59,7 +66,9 @@ type SchedulingContextValue = {
   }[];
   employees: Employee[];
   focusedDate: string;
+  isFetching: boolean;
   isLoading: boolean;
+  isSuperAdmin: boolean;
   loadError: string | null;
   messages: Messages;
   paymentSettings: BusinessPaymentSettings;
@@ -139,7 +148,11 @@ function getTodayDateValue() {
 
 export function SchedulingProvider({ children }: { children: ReactNode }) {
   const toastCounter = useRef(1);
+  const didAttemptWorkspaceRepair = useRef(false);
+  const loadedSnapshotScopesRef = useRef<Set<SchedulingSnapshotScope>>(new Set());
   const { status: authStatus } = useAuth();
+  const pathname = usePathname();
+  const snapshotScope = useMemo(() => getSchedulingSnapshotScope(pathname), [pathname]);
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [locale, setLocaleState] = useState<Locale>("es");
   const [theme, setThemeState] = useState<ThemeId>("coral");
@@ -155,13 +168,21 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [paymentSettings, setPaymentSettings] = useState<BusinessPaymentSettings>(emptyPaymentSettings);
   const [themeOptions, setThemeOptions] = useState<ThemeId[]>(["coral", "blue", "sage"]);
   const [dashboardMetrics, setDashboardMetrics] = useState<SchedulingContextValue["dashboardMetrics"]>([]);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadedSnapshotScopes, setLoadedSnapshotScopes] = useState<SchedulingSnapshotScope[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const copy = messages[locale];
+  const isCurrentScopeCached = loadedSnapshotScopes.includes(snapshotScope);
+  const isSnapshotScopePending = authStatus === "authenticated" && !isCurrentScopeCached;
+  const isWorkspaceLoading = isLoading || isSnapshotScopePending;
 
   function clearWorkspace() {
+    didAttemptWorkspaceRepair.current = false;
+    loadedSnapshotScopesRef.current = new Set();
     setBusinessId(null);
     setLocaleState("es");
     setThemeState("coral");
@@ -175,33 +196,101 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     setServiceList([]);
     setPaymentSettings(emptyPaymentSettings);
     setDashboardMetrics([]);
+    setIsSuperAdmin(false);
     setLoadError(null);
+    setIsFetching(false);
     setIsLoading(false);
+    setLoadedSnapshotScopes([]);
   }
 
-  async function hydrateWorkspace() {
+  function markSnapshotScopeLoaded(scope: SchedulingSnapshotScope) {
+    if (loadedSnapshotScopesRef.current.has(scope)) {
+      return;
+    }
+
+    loadedSnapshotScopesRef.current = new Set([...loadedSnapshotScopesRef.current, scope]);
+    setLoadedSnapshotScopes(Array.from(loadedSnapshotScopesRef.current));
+  }
+
+  const loadSchedulingSnapshotWithRepair = useCallback(async () => {
     try {
-      const snapshot = await loadSchedulingSnapshot();
+      return await loadSchedulingSnapshot({ scope: snapshotScope });
+    } catch (error) {
+      const shouldRepairWorkspace = shouldRepairWorkspaceAfterSnapshotError({
+        didAttemptWorkspaceRepair: didAttemptWorkspaceRepair.current,
+        isRecoverableLoadError: isRecoverableWorkspaceLoadError(error)
+      });
+
+      if (!shouldRepairWorkspace) {
+        throw error;
+      }
+
+      didAttemptWorkspaceRepair.current = true;
+      try {
+        await bootstrapWorkspace();
+      } catch {
+        throw new Error("No pudimos cargar tu espacio. Refresca la pagina o vuelve a iniciar sesion.");
+      }
+
+      return loadSchedulingSnapshot({ scope: snapshotScope });
+    }
+  }, [snapshotScope]);
+
+  const hydrateWorkspace = useCallback(async () => {
+    try {
+      const [snapshot, superAdminStatus] = await Promise.all([
+        loadSchedulingSnapshotWithRepair(),
+        snapshotScope === "profile" ? loadSuperAdminStatus() : Promise.resolve<boolean | null>(null)
+      ]);
+      const scopeConfig = getSchedulingSnapshotScopeConfig(snapshotScope);
       setBusinessId(snapshot.businessId);
       setLocaleState(snapshot.locale);
       setThemeState(snapshot.theme);
       setThemeOptions(snapshot.themeOptions);
       setFocusedDate(snapshot.focusedDate);
-      setEmployeeList(snapshot.employees);
-      setSelectedEmployeeIds(snapshot.employees.filter((employee) => !employee.isArchived).map((employee) => employee.id));
       setProfileState(snapshot.profile);
-      setAppointmentList(snapshot.appointments);
-      setBusinessDayBlockList(snapshot.businessDayBlocks);
-      setServiceList(snapshot.services);
-      setPaymentSettings(snapshot.paymentSettings);
-      setDashboardMetrics(snapshot.dashboardMetrics);
+
+      if (scopeConfig.includeEmployees) {
+        setEmployeeList(snapshot.employees);
+        setSelectedEmployeeIds((current) => (
+          current.length > 0
+            ? current.filter((employeeId) => snapshot.employees.some((employee) => employee.id === employeeId && !employee.isArchived))
+            : snapshot.employees.filter((employee) => !employee.isArchived).map((employee) => employee.id)
+        ));
+      }
+
+      if (scopeConfig.includeAppointments) {
+        setAppointmentList(snapshot.appointments);
+      }
+
+      if (scopeConfig.includeBusinessDayBlocks) {
+        setBusinessDayBlockList(snapshot.businessDayBlocks);
+      }
+
+      if (scopeConfig.includeServices) {
+        setServiceList(snapshot.services);
+      }
+
+      if (scopeConfig.includePaymentSettings) {
+        setPaymentSettings(snapshot.paymentSettings);
+      }
+
+      if (scopeConfig.includeAppointments && scopeConfig.includeEmployees) {
+        setDashboardMetrics(snapshot.dashboardMetrics);
+      }
+
+      if (superAdminStatus !== null) {
+        setIsSuperAdmin(superAdminStatus);
+      }
+
       setLoadError(null);
+      markSnapshotScopeLoaded(snapshotScope);
       return true;
     } catch (error) {
-      setLoadError(getErrorMessage(error, "Unable to load the workspace."));
+      setLoadError(getWorkspaceLoadErrorMessage(error));
       return false;
     }
-  }
+  }, [loadSchedulingSnapshotWithRepair, snapshotScope]);
 
   useEffect(() => {
     if (authStatus !== "authenticated") {
@@ -219,8 +308,10 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     }
 
     let isActive = true;
+    const hasScopeCache = loadedSnapshotScopesRef.current.has(snapshotScope);
     const loadTimer = window.setTimeout(() => {
-      setIsLoading(true);
+      setIsLoading(!hasScopeCache);
+      setIsFetching(hasScopeCache);
       setLoadError(null);
 
       void hydrateWorkspace().then((didLoad) => {
@@ -229,6 +320,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         }
 
         setIsLoading(false);
+        setIsFetching(false);
       });
     }, 0);
 
@@ -236,7 +328,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       isActive = false;
       window.clearTimeout(loadTimer);
     };
-  }, [authStatus]);
+  }, [authStatus, hydrateWorkspace, snapshotScope]);
 
   function showToast(toast: Omit<ToastMessage, "id">) {
     const toastId = `toast-${toastCounter.current}`;
@@ -688,7 +780,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         cancelProSubscription,
         employees: employeeList,
         focusedDate,
-        isLoading,
+        isFetching,
+        isLoading: isWorkspaceLoading,
+        isSuperAdmin,
         loadError,
         messages: copy,
         paymentSettings,
@@ -752,4 +846,56 @@ function getErrorMessage(error: unknown, fallbackMessage: string) {
   }
 
   return getPayloadErrorMessage(error, fallbackMessage);
+}
+
+function getWorkspaceLoadErrorMessage(error: unknown) {
+  if (isRecoverableWorkspaceLoadError(error)) {
+    return "No pudimos cargar tu espacio. Refresca la pagina o vuelve a iniciar sesion.";
+  }
+
+  return getErrorMessage(error, "No pudimos cargar tu espacio. Intenta refrescar la pagina.");
+}
+
+async function loadSuperAdminStatus() {
+  try {
+    return await getSuperAdminStatus();
+  } catch {
+    return false;
+  }
+}
+
+function getSchedulingSnapshotScope(pathname: string): SchedulingSnapshotScope {
+  if (pathname.startsWith("/calendario")) {
+    return "calendar";
+  }
+
+  if (pathname.startsWith("/servicios")) {
+    return "services";
+  }
+
+  if (pathname.startsWith("/personal")) {
+    return "personnel";
+  }
+
+  if (pathname.startsWith("/pagos")) {
+    return "payments";
+  }
+
+  if (pathname.startsWith("/metodos-de-pago")) {
+    return "paymentMethods";
+  }
+
+  if (pathname.startsWith("/nueva-reserva")) {
+    return "booking";
+  }
+
+  if (pathname.startsWith("/estadisticas")) {
+    return "statistics";
+  }
+
+  if (pathname.startsWith("/perfil")) {
+    return "profile";
+  }
+
+  return "dashboard";
 }

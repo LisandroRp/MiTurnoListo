@@ -7,6 +7,7 @@ import { SchedulingProvider } from "@/features/scheduling/components/SchedulingP
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.miturnolisto.com";
 const siteName = "MiTurnoListo";
 const siteDescription = "MiTurnoListo es una agenda virtual y organizador de turnos online para negocios de servicios. Gestiona reservas, horarios, personal, pagos y clientes desde un solo lugar.";
+const socialImage = "/branding/og-image.png";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -51,7 +52,7 @@ export const metadata: Metadata = {
     description: siteDescription,
     images: [
       {
-        url: "/branding/logo-wide.png",
+        url: socialImage,
         width: 1200,
         height: 630,
         alt: siteName
@@ -62,7 +63,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: siteName,
     description: siteDescription,
-    images: ["/branding/logo-wide.png"]
+    images: [socialImage]
   },
   robots: {
     index: true,

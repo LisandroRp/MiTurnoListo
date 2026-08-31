@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CheckboxField } from "@/components/ui/CheckboxField";
+import { FloatingInfoPopover } from "@/components/ui/FloatingInfoPopover";
 import { SelectField } from "@/components/ui/SelectField";
 import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
@@ -862,6 +863,7 @@ function ServiceFilters({
 
 function ServiceEmployeePills({ messages, employees }: { messages: Messages; employees: Employee[] }) {
   const visibleEmployees = employees.slice(0, visibleServiceEmployeeLimit);
+  const hiddenEmployees = employees.slice(visibleServiceEmployeeLimit);
   const hiddenCount = Math.max(employees.length - visibleServiceEmployeeLimit, 0);
 
   if (employees.length === 0) {
@@ -876,9 +878,21 @@ function ServiceEmployeePills({ messages, employees }: { messages: Messages; emp
         </span>
       ))}
       {hiddenCount > 0 ? (
-        <span className="shrink-0 rounded-full bg-shell px-3 py-1 text-xs font-semibold text-primary">
+        <FloatingInfoPopover
+          ariaLabel={`${hiddenCount} ${messages.services.professionalsColumn}`}
+          className="shrink-0 rounded-full bg-shell px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-brand-soft focus:outline-none focus:ring-2 focus:ring-focus"
+          content={
+            <span className="grid gap-1">
+              {hiddenEmployees.map((employee) => (
+                <span key={employee.id} className="block font-semibold text-primary">
+                  {employee.name}
+                </span>
+              ))}
+            </span>
+          }
+        >
           +{hiddenCount}
-        </span>
+        </FloatingInfoPopover>
       ) : null}
     </div>
   );

@@ -4,6 +4,7 @@ import { FiInfo, FiRefreshCw, FiSearch, FiZap } from "react-icons/fi";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { FloatingInfoPopover } from "@/components/ui/FloatingInfoPopover";
 import { SelectField } from "@/components/ui/SelectField";
 import { TextField } from "@/components/ui/TextField";
 import { Messages } from "@/features/scheduling/i18n/messages";
@@ -350,15 +351,11 @@ function AccountInfoPopover({
   messages: Messages;
 }) {
   return (
-    <span className="group relative inline-flex">
-      <button
-        type="button"
-        className="grid h-7 w-7 cursor-help place-items-center rounded-full border border-subtle bg-input text-muted transition-colors hover:border-brand hover:text-brand-strong focus:outline-none focus:ring-2 focus:ring-focus"
-        aria-label={messages.profile.superAdminAccount}
-      >
-        <FiInfo aria-hidden="true" />
-      </button>
-      <span className="pointer-events-none absolute left-0 top-9 z-20 hidden w-64 rounded-lg border border-subtle bg-surface p-3 text-xs leading-5 text-muted shadow-lg group-hover:block group-focus-within:block">
+    <FloatingInfoPopover
+      ariaLabel={messages.profile.superAdminAccount}
+      className="grid h-7 w-7 cursor-help place-items-center rounded-full border border-subtle bg-input text-muted transition-colors hover:border-brand hover:text-brand-strong focus:outline-none focus:ring-2 focus:ring-focus"
+      content={
+        <>
         <span className="block">
           <span className="font-bold text-primary">{messages.profile.superAdminSignup}:</span> {formatDateTime(business.ownerCreatedAt)}
         </span>
@@ -368,8 +365,11 @@ function AccountInfoPopover({
         <span className="mt-1 block">
           <span className="font-bold text-primary">{messages.profile.superAdminProvider}:</span> {business.ownerProvider}
         </span>
-      </span>
-    </span>
+        </>
+      }
+    >
+      <FiInfo aria-hidden="true" />
+    </FloatingInfoPopover>
   );
 }
 

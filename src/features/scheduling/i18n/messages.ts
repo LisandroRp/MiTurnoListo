@@ -116,7 +116,7 @@ export const messages = {
     },
     metrics: {
       revenue: "Ingresos estimados",
-      activeEmployees: "Personal trabajando",
+      activeEmployees: "Personal activo",
       bookedAppointments: "Turnos tomados",
       cancelledAppointments: "Turnos cancelados",
       current: "Actual",
@@ -173,6 +173,12 @@ export const messages = {
       customerPhone: "Telefono",
       professional: "Profesional",
       dateAndTime: "Dia y horario",
+      source: "Origen",
+      sources: {
+        public: "Online",
+        dashboard: "Manual",
+        walkIn: "Sobreturno"
+      },
       paymentStatus: "Estado de pago",
       cancelAppointment: "Cancelar turno",
       cancelAppointmentTitle: "Desea cancelar el turno?",
@@ -220,8 +226,8 @@ export const messages = {
       archived: "Archivado",
       savingVisibility: "Guardando",
       price: "Precio ($)",
-      duration: "Duracion",
-      durationMinutesLabel: "Duracion (minutos)",
+      duration: "Duracion estimada",
+      durationMinutesLabel: "Duracion estimada (minutos)",
       capacity: "Cupo maximo",
       deposit: "Anticipo ($)",
       leadTime: "Anticipacion para reservar (minutos)",
@@ -231,9 +237,9 @@ export const messages = {
       paymentMethod: "Metodo de pago",
       paymentMethodDisabledHint: "Algunas opciones estan deshabilitadas porque falta configurar Mercado Pago o transferencia bancaria en Metodos de pago.",
       detailsSection: "Datos del servicio",
-      detailsSectionHint: "Defini nombre, descripcion, imagen y visibilidad.",
+      detailsSectionHint: "Defini nombre, descripcion y visibilidad.",
       bookingSection: "Reserva y cobro",
-      bookingSectionHint: "Configura precio, duracion, cupos, anticipos y reglas de reserva del servicio.",
+      bookingSectionHint: "Configura precio, duracion estimada, cupos, anticipos y reglas de reserva del servicio.",
       addonsSection: "Extras del servicio",
       addonsSectionHint: "Suma opciones con precio adicional para servicios variables.",
       addAddon: "Agregar extra",
@@ -250,13 +256,10 @@ export const messages = {
       copySuffix: "(copia)",
       name: "Nombre",
       descriptionLabel: "Descripcion",
-      imageUrl: "Imagen",
-      imageUploadHint: "Acepta PNG, JPG, WEBP o HEIC. Maximo 5 MB.",
-      imageRequirements: "Usa una imagen liviana y clara para que el servicio se vea prolijo.",
       people: "personas",
       minutes: "minutos",
       schedule: "Horarios",
-      requiredHint: "Nombre, precio, duracion y capacidad son obligatorios.",
+      requiredHint: "Nombre, precio, duracion estimada y capacidad son obligatorios.",
       empty: "Todavia no hay servicios cargados.",
       shareHiddenHint: "Activa la visibilidad del servicio para compartir su link publico.",
       shareCatalogAction: "Compartir catalogo",
@@ -290,7 +293,7 @@ export const messages = {
       },
       validation: {
         details: "Carga un nombre para continuar.",
-        booking: "Carga precio, duracion en minutos y capacidad. La anticipacion para cancelar debe ser de al menos 1 dia.",
+        booking: "Carga precio, duracion estimada y capacidad. La anticipacion para cancelar debe ser de al menos 1 dia.",
         paymentMethod: "Configura el metodo de pago seleccionado antes de usarlo en el servicio.",
         schedule: "Agrega al menos una franja horaria para continuar.",
         maxScheduleRanges: "Podes cargar hasta 3 franjas por dia.",
@@ -591,7 +594,28 @@ export const messages = {
       serviceLabel: "Servicio a reservar",
       selectTitle: "Elegi un servicio para reservar",
       changeService: "Cambiar servicio",
-      disclaimer: "Esta reserva se guarda en el calendario del negocio."
+      disclaimer: "Esta reserva se guarda en el calendario del negocio.",
+      noAvailableSlots: "No hay turnos disponibles para crear una reserva."
+    },
+    walkInAppointment: {
+      eyebrow: "Sin reserva previa",
+      title: "Sobreturno",
+      description: "Registra una atencion inmediata con la hora actual.",
+      action: "Sobreturno",
+      serviceLabel: "Servicio",
+      servicePlaceholder: "Elegi un servicio",
+      employeeLabel: "Profesional",
+      employeePlaceholder: "Elegi un profesional",
+      employeeDisabledHint: "Primero elegi un servicio.",
+      addCustomerDetails: "Agregar datos del cliente",
+      addCustomerDetailsHint: "Opcional. Si lo activas, nombre, telefono y email son obligatorios.",
+      nowLabel: "Se guarda con la hora actual",
+      summary: "Duracion estimada: {duration}. Importe: {price}.",
+      emptyState: "No hay servicios visibles con profesionales disponibles.",
+      noActiveTeamTitle: "Hoy no hay profesionales activos",
+      noActiveTeamDescription: "Desea crearlo de todas formas?",
+      createAnywayAction: "Crear de todas formas",
+      saveAction: "Guardar sobreturno"
     },
     bookingFlow: {
       serviceNotFound: "Este servicio no existe o no esta disponible.",
@@ -630,6 +654,7 @@ export const messages = {
       noDatesAvailable: "No hay dias disponibles en este mes.",
       noHoursAvailable: "No hay horarios disponibles para este dia.",
       availableHours: "Horarios disponibles",
+      remainingSpot: "1 cupo disponible",
       remainingSpots: "cupos disponibles",
       soldOut: "Sin cupos",
       nextMonth: "Mes siguiente",
@@ -640,6 +665,7 @@ export const messages = {
       customerName: "Nombre completo",
       customerPhone: "Telefono",
       customerEmail: "Email",
+      customerLookupLoading: "Buscando clientes...",
       paymentMethod: "Metodo de pago",
       paymentOptions: {
         transfer: "Transferencia bancaria",
@@ -690,6 +716,9 @@ export const messages = {
       loadError: "No pudimos cargar los servicios",
       emptyTitle: "No hay servicios disponibles",
       emptyDescription: "Este negocio todavia no tiene servicios publicados para reservar online.",
+      searchPlaceholder: "Buscar por servicio y/o profesional...",
+      noSearchResultsTitle: "No encontramos servicios",
+      noSearchResultsDescription: "Proba buscar por otro servicio o profesional.",
       bookAction: "Sacar turno"
     },
     toast: {
@@ -723,10 +752,10 @@ export const messages = {
       cancelled: "Cancelado"
     },
     paymentMethods: {
-      cash: "Efectivo",
-      card: "Tarjeta",
+      cash: "Pago en el lugar",
+      card: "Mercado Pago",
       transfer: "Transferencia",
-      mixed: "Todos los anteriores"
+      mixed: "Todos"
     },
     themes: {
       coral: "Coral",
@@ -915,6 +944,12 @@ export const messages = {
       customerPhone: "Phone",
       professional: "Professional",
       dateAndTime: "Date and time",
+      source: "Source",
+      sources: {
+        public: "Online",
+        dashboard: "Manual",
+        walkIn: "Walk-in"
+      },
       paymentStatus: "Payment status",
       cancelAppointment: "Cancel appointment",
       cancelAppointmentTitle: "Do you want to cancel this appointment?",
@@ -962,8 +997,8 @@ export const messages = {
       archived: "Archived",
       savingVisibility: "Saving",
       price: "Price ($)",
-      duration: "Duration",
-      durationMinutesLabel: "Duration (minutes)",
+      duration: "Estimated duration",
+      durationMinutesLabel: "Estimated duration (minutes)",
       capacity: "Maximum capacity (people)",
       deposit: "Deposit ($)",
       leadTime: "Booking lead time (minutes)",
@@ -973,9 +1008,9 @@ export const messages = {
       paymentMethod: "Payment method",
       paymentMethodDisabledHint: "Some options are disabled because Mercado Pago or bank transfer details are missing in Payment methods.",
       detailsSection: "Service details",
-      detailsSectionHint: "Define name, description, image and visibility.",
+      detailsSectionHint: "Define name, description and visibility.",
       bookingSection: "Booking and payment",
-      bookingSectionHint: "Set price, duration, capacity, deposits and booking rules for the service.",
+      bookingSectionHint: "Set price, estimated duration, capacity, deposits and booking rules for the service.",
       addonsSection: "Service add-ons",
       addonsSectionHint: "Add optional items with an extra price for variable services.",
       addAddon: "Add add-on",
@@ -992,13 +1027,10 @@ export const messages = {
       copySuffix: "(copy)",
       name: "Name",
       descriptionLabel: "Description",
-      imageUrl: "Image",
-      imageUploadHint: "Accepts PNG, JPG, WEBP or HEIC. Up to 5 MB.",
-      imageRequirements: "Use a lightweight, clear image so the service looks polished.",
       people: "people",
       minutes: "minutes",
       schedule: "Schedule",
-      requiredHint: "Name, price, duration and capacity are required.",
+      requiredHint: "Name, price, estimated duration and capacity are required.",
       empty: "No services have been created yet.",
       shareHiddenHint: "Enable service visibility to share its public link.",
       shareCatalogAction: "Share catalog",
@@ -1032,7 +1064,7 @@ export const messages = {
       },
       validation: {
         details: "Add a name to continue.",
-        booking: "Add price, duration in minutes and capacity. Cancellation lead time must be at least 1 day.",
+        booking: "Add price, estimated duration and capacity. Cancellation lead time must be at least 1 day.",
         paymentMethod: "Configure the selected payment method before using it in the service.",
         schedule: "Add at least one available time range to continue.",
         maxScheduleRanges: "You can add up to 3 ranges per day.",
@@ -1333,7 +1365,28 @@ export const messages = {
       serviceLabel: "Service to book",
       selectTitle: "Choose a service to book",
       changeService: "Change service",
-      disclaimer: "This booking is saved to the business calendar."
+      disclaimer: "This booking is saved to the business calendar.",
+      noAvailableSlots: "There are no available times to create a booking."
+    },
+    walkInAppointment: {
+      eyebrow: "Without prior booking",
+      title: "Walk-in",
+      description: "Register an immediate appointment with the current time.",
+      action: "Walk-in",
+      serviceLabel: "Service",
+      servicePlaceholder: "Choose a service",
+      employeeLabel: "Professional",
+      employeePlaceholder: "Choose a professional",
+      employeeDisabledHint: "Choose a service first.",
+      addCustomerDetails: "Add customer details",
+      addCustomerDetailsHint: "Optional. When enabled, name, phone and email are required.",
+      nowLabel: "Saved with the current time",
+      summary: "Estimated duration: {duration}. Amount: {price}.",
+      emptyState: "There are no visible services with available professionals.",
+      noActiveTeamTitle: "There are no active professionals today",
+      noActiveTeamDescription: "Do you want to create it anyway?",
+      createAnywayAction: "Create anyway",
+      saveAction: "Save walk-in"
     },
     bookingFlow: {
       serviceNotFound: "This service does not exist or is unavailable.",
@@ -1372,6 +1425,7 @@ export const messages = {
       noDatesAvailable: "There are no available days in this month.",
       noHoursAvailable: "There are no available times for this day.",
       availableHours: "Available times",
+      remainingSpot: "1 spot left",
       remainingSpots: "spots left",
       soldOut: "Sold out",
       nextMonth: "Next month",
@@ -1382,6 +1436,7 @@ export const messages = {
       customerName: "Full name",
       customerPhone: "Phone",
       customerEmail: "Email",
+      customerLookupLoading: "Searching customers...",
       paymentMethod: "Payment method",
       paymentOptions: {
         transfer: "Bank transfer",
@@ -1432,6 +1487,9 @@ export const messages = {
       loadError: "We could not load services",
       emptyTitle: "No services available",
       emptyDescription: "This business has not published services for online booking yet.",
+      searchPlaceholder: "Search by service and/or professional...",
+      noSearchResultsTitle: "No services found",
+      noSearchResultsDescription: "Try searching for another service or professional.",
       bookAction: "Book appointment"
     },
     toast: {
@@ -1465,10 +1523,10 @@ export const messages = {
       cancelled: "Cancelled"
     },
     paymentMethods: {
-      cash: "Cash",
-      card: "Card",
+      cash: "Pay at venue",
+      card: "Mercado Pago",
       transfer: "Transfer",
-      mixed: "All previous options"
+      mixed: "All"
     },
     themes: {
       coral: "Coral",

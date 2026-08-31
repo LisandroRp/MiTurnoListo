@@ -1,18 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { FiArrowLeft, FiSearch } from "react-icons/fi";
+import { FiArrowLeft, FiPlusCircle, FiSearch } from "react-icons/fi";
 
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { BookingFlow } from "@/features/booking-flow/components/BookingFlow";
+import { getAvailableSlotsForEmployees } from "@/features/booking-flow/utils/booking";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
+import { WalkInAppointmentModal } from "@/features/scheduling/components/WalkInAppointmentModal";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 
 export default function NewBookingPreviewPage() {
-  const { employees, messages, services } = useScheduling();
+  const { appointments, businessDayBlocks, businessId, createAppointment, employees, messages, services } = useScheduling();
   const reservableEmployeeIds = new Set(
     employees.filter((employee) => !employee.isArchived && employee.isVisible).map((employee) => employee.id)
   );
@@ -21,27 +23,42 @@ export default function NewBookingPreviewPage() {
     service.isVisible &&
     service.employeeIds.some((employeeId) => reservableEmployeeIds.has(employeeId))
   ));
+  const servicesWithAvailableSlots = visibleServices.filter((service) => {
+    const assignedEmployees = employees.filter((employee) => (
+      !employee.isArchived &&
+      employee.isVisible &&
+      service.employeeIds.includes(employee.id)
+    ));
+
+    return hasAvailableBookingSlots(service, assignedEmployees, appointments, businessDayBlocks);
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [requestedServiceId, setRequestedServiceId] = useState("");
+  const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
   const normalizedSearch = searchTerm.trim().toLowerCase();
-  const filteredServices = visibleServices.filter((service) => {
+  const filteredServices = servicesWithAvailableSlots.filter((service) => {
     if (!normalizedSearch) {
       return true;
     }
 
     return `${service.name} ${service.description}`.toLowerCase().includes(normalizedSearch);
   });
-  const selectedServiceId = visibleServices.some((service) => service.id === requestedServiceId)
+  const selectedServiceId = servicesWithAvailableSlots.some((service) => service.id === requestedServiceId)
     ? requestedServiceId
     : "";
 
   return (
     <div className="grid gap-6">
-      <SectionHeader
-        eyebrow={messages.bookingPreview.eyebrow}
-        title={messages.bookingPreview.title}
-        description={messages.bookingPreview.description}
-      />
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <SectionHeader
+          eyebrow={messages.bookingPreview.eyebrow}
+          title={messages.bookingPreview.title}
+          description={messages.bookingPreview.description}
+        />
+        <Button icon={<FiPlusCircle />} onClick={() => setIsWalkInModalOpen(true)}>
+          {messages.walkInAppointment.action}
+        </Button>
+      </div>
 
       {selectedServiceId ? (
         <div className="grid gap-4">
@@ -73,13 +90,9 @@ export default function NewBookingPreviewPage() {
                 <Card
                   key={service.id}
                   onClick={() => setRequestedServiceId(service.id)}
-                  className="flex h-full w-full flex-col overflow-hidden p-0 transition duration-200 hover:-translate-y-1 hover:scale-[1.01] hover:border-brand hover:shadow-lg"
+                  className="flex h-full w-full flex-col transition duration-200 hover:-translate-y-1 hover:scale-[1.01] hover:border-brand hover:shadow-lg"
                 >
-                  <div
-                    className="h-36 bg-surface-strong bg-contain bg-center bg-no-repeat"
-                    style={{ backgroundImage: service.imageUrl ? `url(${service.imageUrl})` : undefined }}
-                  />
-                  <div className="flex flex-1 flex-col gap-4 p-5">
+                  <div className="flex flex-1 flex-col gap-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <h2 className="text-lg font-bold text-primary">{service.name}</h2>
@@ -101,14 +114,48 @@ export default function NewBookingPreviewPage() {
           ) : (
             <Card>
               <p className="text-sm font-semibold text-muted">
-                {visibleServices.length > 0 ? messages.services.noResults : messages.services.empty}
+                {servicesWithAvailableSlots.length > 0 ? messages.services.noResults : messages.bookingPreview.noAvailableSlots}
               </p>
             </Card>
           )}
         </div>
       )}
+
+      <WalkInAppointmentModal
+        businessId={businessId}
+        employees={employees}
+        isOpen={isWalkInModalOpen}
+        messages={messages}
+        services={services}
+        onClose={() => setIsWalkInModalOpen(false)}
+        onCreateAppointment={createAppointment}
+      />
     </div>
   );
+}
+
+function hasAvailableBookingSlots(
+  service: Parameters<typeof getAvailableSlotsForEmployees>[0],
+  employees: Parameters<typeof getAvailableSlotsForEmployees>[1],
+  appointments: Parameters<typeof getAvailableSlotsForEmployees>[2],
+  businessDayBlocks: Parameters<typeof getAvailableSlotsForEmployees>[6]
+) {
+  const now = new Date();
+  const monthsToCheck = [0, 1, 2];
+
+  return monthsToCheck.some((monthOffset) => {
+    const monthDate = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+
+    return getAvailableSlotsForEmployees(
+      service,
+      employees,
+      appointments,
+      monthDate,
+      1,
+      now,
+      businessDayBlocks
+    ).length > 0;
+  });
 }
 
 function ServiceFact({ label, value }: { label: string; value: string }) {

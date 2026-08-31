@@ -30,7 +30,7 @@ export async function GET(_: Request, context: RouteContext) {
       .maybeSingle(),
     supabase
       .from("services")
-      .select("id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, payment_mode")
+      .select("id, name, description, price_amount, deposit_amount, duration_minutes, capacity, payment_mode")
       .eq("business_id", businessId)
       .eq("is_active", true)
       .eq("is_public", true)
@@ -52,6 +52,7 @@ export async function GET(_: Request, context: RouteContext) {
   const publicServices = servicesResult.data ?? [];
   const publicServiceIds = publicServices.map((service) => service.id);
   let reservableServiceIds = new Set<string>();
+  const employeeNamesByServiceId = new Map<string, string[]>();
 
   if (publicServiceIds.length > 0) {
     const serviceEmployeesResult = await supabase
@@ -71,7 +72,7 @@ export async function GET(_: Request, context: RouteContext) {
     const employeesResult = assignedEmployeeIds.length > 0
       ? await supabase
           .from("employees")
-          .select("id")
+          .select("id, name")
           .eq("business_id", businessId)
           .eq("is_active", true)
           .eq("is_public", true)
@@ -86,7 +87,22 @@ export async function GET(_: Request, context: RouteContext) {
       });
     }
 
-    const reservableEmployeeIds = new Set((employeesResult?.data ?? []).map((employee) => employee.id));
+    const reservableEmployees = employeesResult?.data ?? [];
+    const reservableEmployeeIds = new Set(reservableEmployees.map((employee) => employee.id));
+    const employeeNameById = new Map(reservableEmployees.map((employee) => [employee.id, employee.name]));
+
+    (serviceEmployeesResult.data ?? []).forEach((row) => {
+      const employeeName = employeeNameById.get(row.employee_id);
+
+      if (!employeeName) {
+        return;
+      }
+
+      employeeNamesByServiceId.set(row.service_id, [
+        ...(employeeNamesByServiceId.get(row.service_id) ?? []),
+        employeeName
+      ]);
+    });
     reservableServiceIds = new Set(
       (serviceEmployeesResult.data ?? [])
         .filter((row) => reservableEmployeeIds.has(row.employee_id))
@@ -106,8 +122,8 @@ export async function GET(_: Request, context: RouteContext) {
       deposit: service.deposit_amount,
       description: service.description ?? "",
       durationMinutes: service.duration_minutes,
+      employeeNames: employeeNamesByServiceId.get(service.id) ?? [],
       id: service.id,
-      imageUrl: normalizeStoredImageUrl(service.image_url),
       name: service.name,
       paymentMethod: service.payment_mode as PaymentMethod,
       price: service.price_amount

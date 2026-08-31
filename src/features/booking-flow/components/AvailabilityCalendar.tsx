@@ -233,7 +233,7 @@ export function AvailabilityHourList({
                   {slot.endTime}
                 </p>
                 <p className={cx("mt-3 text-xs font-semibold uppercase", isSelected ? "text-on-brand/85" : "text-brand-strong")}>
-                  {slot.remainingCapacity} {copy.remainingSpots}
+                  {formatRemainingCapacity(slot.remainingCapacity, copy)}
                 </p>
               </button>
             );
@@ -242,4 +242,10 @@ export function AvailabilityHourList({
       )}
     </Card>
   );
+}
+
+function formatRemainingCapacity(remainingCapacity: number, copy: Messages["bookingFlow"]) {
+  return remainingCapacity === 1
+    ? copy.remainingSpot
+    : `${remainingCapacity} ${copy.remainingSpots}`;
 }

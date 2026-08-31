@@ -1,5 +1,4 @@
 import { ChangeEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { createPortal } from "react-dom";
 import { FiArrowLeft, FiArrowRight, FiCheck, FiCopy, FiEdit2, FiInfo, FiMoreHorizontal, FiPlus, FiSearch, FiShare2, FiTrash2 } from "react-icons/fi";
 
@@ -12,7 +11,6 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CheckboxField } from "@/components/ui/CheckboxField";
-import { ImageUploadField } from "@/components/ui/ImageUploadField";
 import { SelectField } from "@/components/ui/SelectField";
 import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
@@ -31,7 +29,6 @@ import {
 import { Appointment, Employee, PaymentMethod, Service, ServiceAddon, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 import { createNewServiceDraft } from "@/lib/networking/endpoints/scheduling";
-import { uploadBusinessImageAsset } from "@/lib/storage/business-assets";
 
 type ServicesViewProps = {
   messages: Messages;
@@ -47,7 +44,6 @@ type ServicesViewProps = {
   onDeleteService: (serviceId: string) => Promise<boolean>;
   onUnarchiveService: (serviceId: string) => Promise<boolean>;
   onValidationWarning: () => void;
-  onImageUploadError: (message: string) => void;
   onShareSuccess: () => void;
   onShareError: () => void;
 };
@@ -75,7 +71,6 @@ export function ServicesView({
   onDeleteService,
   onUnarchiveService,
   onValidationWarning,
-  onImageUploadError,
   onShareSuccess,
   onShareError
 }: ServicesViewProps) {
@@ -85,7 +80,6 @@ export function ServicesView({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
-  const [pendingServiceImageFile, setPendingServiceImageFile] = useState<File | null>(null);
   const [isSavingService, setIsSavingService] = useState(false);
   const [savingVisibilityId, setSavingVisibilityId] = useState<string | null>(null);
   const [sharingService, setSharingService] = useState<Service | null>(null);
@@ -129,7 +123,6 @@ export function ServicesView({
     setDraft(createNewServiceDraft());
     setEditingId(null);
     setCurrentStepIndex(0);
-    setPendingServiceImageFile(null);
     setValidationMessage(null);
     setMode("form");
   }
@@ -141,7 +134,6 @@ export function ServicesView({
     }));
     setEditingId(service.id);
     setCurrentStepIndex(0);
-    setPendingServiceImageFile(null);
     setValidationMessage(null);
     setMode("form");
   }
@@ -162,7 +154,6 @@ export function ServicesView({
     }));
     setEditingId(null);
     setCurrentStepIndex(0);
-    setPendingServiceImageFile(null);
     setValidationMessage(null);
     setMode("form");
   }
@@ -175,7 +166,6 @@ export function ServicesView({
     setMode("grid");
     setEditingId(null);
     setCurrentStepIndex(0);
-    setPendingServiceImageFile(null);
     setValidationMessage(null);
   }
 
@@ -189,6 +179,13 @@ export function ServicesView({
     return (event: ChangeEvent<HTMLInputElement>) => {
       setDraft((current) => ({ ...current, [field]: parseNumericInput(event.target.value) }));
     };
+  }
+
+  function handleCapacityBlur() {
+    setDraft((current) => ({
+      ...current,
+      capacity: Math.max(current.capacity, 1)
+    }));
   }
 
   function handleCancellationLeadDaysChange(event: ChangeEvent<HTMLInputElement>) {
@@ -400,33 +397,16 @@ export function ServicesView({
     setIsSavingService(true);
 
     try {
-      if (pendingServiceImageFile && !businessId) {
-        throw new Error("No pudimos identificar el negocio para subir la imagen.");
-      }
-
-      const serviceToSave = pendingServiceImageFile && businessId
-        ? {
-            ...draft,
-            imageUrl: await uploadBusinessImageAsset({
-              businessId,
-              file: pendingServiceImageFile,
-              path: `${businessId}/services/${draft.id}.webp`
-            })
-          }
-        : draft;
       const didSave = await onSaveService(normalizeServiceDraft({
-        ...serviceToSave,
-        employeeIds: serviceToSave.employeeIds.filter((employeeId) => assignableEmployeeIds.has(employeeId))
+        ...draft,
+        employeeIds: draft.employeeIds.filter((employeeId) => assignableEmployeeIds.has(employeeId))
       }));
 
       if (didSave) {
         setMode("grid");
         setEditingId(null);
-        setPendingServiceImageFile(null);
         setValidationMessage(null);
       }
-    } catch (error) {
-      onImageUploadError(error instanceof Error ? error.message : "No pudimos subir la imagen del servicio.");
     } finally {
       setIsSavingService(false);
     }
@@ -476,18 +456,6 @@ export function ServicesView({
             <FormSection title={messages.services.detailsSection} description={messages.services.detailsSectionHint}>
             <div className="grid items-start gap-4">
               <TextField label={messages.services.name} value={draft.name} required onChange={handleTextChange("name")} />
-              <ImageUploadField
-                label={messages.services.imageUrl}
-                value={draft.imageUrl}
-                onChange={(value) => setDraft((current) => ({ ...current, imageUrl: value }))}
-                onSelectedFileChange={setPendingServiceImageFile}
-                onError={onImageUploadError}
-                chooseLabel={messages.actions.uploadImage}
-                replaceLabel={messages.actions.replaceImage}
-                removeLabel={messages.actions.removeImage}
-                requirementsLabel={messages.services.imageRequirements}
-                helperText={messages.services.imageUploadHint}
-              />
             </div>
             <TextAreaField label={messages.services.descriptionLabel} value={draft.description} onChange={handleTextChange("description")} />
             <CheckboxField
@@ -527,6 +495,7 @@ export function ServicesView({
                 value={formatNumericInputValue(draft.capacity)}
                 required
                 onChange={handleNumericTextChange("capacity")}
+                onBlur={handleCapacityBlur}
               />
               <TextField
                 label={messages.services.deposit}
@@ -692,12 +661,13 @@ export function ServicesView({
       <section className="overflow-hidden rounded-3xl border border-subtle bg-surface shadow-sm">
         {filteredServices.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[58rem] border-collapse text-left">
+            <table className="w-full min-w-[66rem] border-collapse text-left">
               <thead className="bg-shell text-xs font-bold uppercase tracking-[0.04em] text-muted">
                 <tr>
                   <th className="px-4 py-3">{messages.services.serviceColumn}</th>
                   <th className="px-4 py-3">{messages.services.duration}</th>
                   <th className="px-4 py-3">{messages.services.price}</th>
+                  <th className="px-4 py-3">{messages.services.paymentMethod}</th>
                   <th className="px-4 py-3">{messages.services.professionalsColumn}</th>
                   <th className="px-4 py-3">{messages.services.monthBookings}</th>
                   <th className="px-4 py-3">{messages.services.statusColumn}</th>
@@ -715,7 +685,6 @@ export function ServicesView({
                     <tr key={service.id} className={cx("relative transition-colors hover:bg-brand-soft/45", isArchived && "bg-shell/70 opacity-60 grayscale")}>
                       <td className="px-4 py-4">
                         <div className={cx("flex min-w-0 items-center gap-3", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
-                          <ServiceImagePreview service={service} messages={messages} />
                           <div className="min-w-0">
                             <h2 className="truncate text-sm font-bold text-primary">{service.name}</h2>
                             <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">{service.description || messages.services.emptyDescription}</p>
@@ -730,6 +699,9 @@ export function ServicesView({
                         {service.deposit > 0 ? (
                           <p className="mt-1 text-xs font-semibold text-muted">{messages.services.depositShort} {formatCurrency(service.deposit)}</p>
                         ) : null}
+                      </td>
+                      <td className={cx("px-4 py-4 text-sm font-semibold text-primary", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
+                        {getAcceptedPaymentLabels(service.paymentMethod, messages, isMercadoPagoConfigured, isTransferConfigured).join(", ")}
                       </td>
                       <td className={cx("px-4 py-4", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
                         <ServiceEmployeePills messages={messages} employees={serviceEmployees} />
@@ -885,27 +857,6 @@ function ServiceFilters({
         ]}
       />
     </div>
-  );
-}
-
-function ServiceImagePreview({ service, messages }: { service: Service; messages: Messages }) {
-  return (
-    <span className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-subtle bg-shell">
-      {service.imageUrl ? (
-        <span
-          className="absolute inset-0 bg-contain bg-center bg-no-repeat"
-          style={{ backgroundImage: `url(${service.imageUrl})` }}
-        />
-      ) : (
-        <Image
-          src="/branding/brand-icon.png"
-          alt={messages.appName}
-          width={32}
-          height={32}
-          className="h-8 w-8 object-contain"
-        />
-      )}
-    </span>
   );
 }
 
@@ -1247,11 +1198,7 @@ function ServiceReview({ messages, service, employees }: { messages: Messages; s
 
   return (
     <FormSection title={messages.services.reviewSection} description={messages.services.reviewSectionHint}>
-      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-        <div
-          className="min-h-56 rounded-lg bg-surface-strong bg-contain bg-center bg-no-repeat"
-          style={{ backgroundImage: service.imageUrl ? `url(${service.imageUrl})` : undefined }}
-        />
+      <div className="grid gap-4">
         <div className="grid gap-4">
           <div>
             <Badge tone={service.isVisible ? "success" : "neutral"}>
@@ -1464,10 +1411,30 @@ function isPaymentMethodDisabled(
   return false;
 }
 
+function getAcceptedPaymentLabels(
+  paymentMethod: PaymentMethod,
+  messages: Messages,
+  isMercadoPagoConfigured: boolean,
+  isTransferConfigured: boolean
+) {
+  if (paymentMethod === "mixed") {
+    if (isMercadoPagoConfigured && isTransferConfigured) {
+      return [messages.paymentMethods.mixed];
+    }
+
+    return [
+      ...(isTransferConfigured ? [messages.paymentMethods.transfer] : []),
+      ...(isMercadoPagoConfigured ? [messages.paymentMethods.card] : []),
+      messages.paymentMethods.cash
+    ];
+  }
+
+  return [messages.paymentMethods[paymentMethod]];
+}
+
 function hasValidBookingNumbers(service: Service) {
   const numericValues = [
     service.price,
-    service.durationMinutes,
     service.capacity,
     service.deposit,
     service.reservationLeadMinutes,
@@ -1476,9 +1443,10 @@ function hasValidBookingNumbers(service: Service) {
 
   return (
     numericValues.every((value) => Number.isInteger(value) && value >= 0) &&
+    Number.isInteger(service.durationMinutes) &&
+    service.durationMinutes > 0 &&
     hasValidCancellationLeadMinutes(service.cancellationLeadMinutes) &&
     service.price > 0 &&
-    service.durationMinutes > 0 &&
     service.capacity >= 1
   );
 }

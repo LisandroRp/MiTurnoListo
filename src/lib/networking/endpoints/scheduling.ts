@@ -172,7 +172,7 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
     scopeConfig.includeServices
       ? supabase
         .from("services")
-        .select("id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
+        .select("id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
         .eq("business_id", businessId)
         .order("is_active", { ascending: false })
         .order("name", { ascending: true })
@@ -195,7 +195,7 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
     scopeConfig.includeAppointments
       ? supabase
         .from("appointments")
-        .select("id, service_id, employee_id, starts_at, ends_at, status, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+        .select("id, service_id, employee_id, starts_at, ends_at, status, source, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
         .eq("business_id", businessId)
         .order("starts_at", { ascending: true })
       : createSkippedQueryResult([]),
@@ -563,7 +563,6 @@ export function createNewServiceDraft() {
     id: globalThis.crypto.randomUUID(),
     name: "",
     description: "",
-    imageUrl: "",
     price: 0,
     capacity: 1,
     deposit: 0,
@@ -631,6 +630,7 @@ export function getSchedulingSnapshotScopeConfig(scope: SchedulingSnapshotScope)
       includeAppointments: true,
       includeEmployeeAvailability: true,
       includeEmployees: true,
+      includeServiceEmployees: true,
       includeServices: true
     },
     payments: {},

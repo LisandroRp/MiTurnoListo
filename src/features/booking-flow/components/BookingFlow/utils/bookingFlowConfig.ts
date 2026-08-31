@@ -2,7 +2,7 @@ import { BookingDraft } from "@/features/booking-flow/types";
 import { createEmptyCustomer } from "@/features/booking-flow/utils/booking";
 import { BusinessPaymentSettings } from "@/features/scheduling/types";
 
-export const bookingStepOrder = ["service", "addons", "employee", "datetime", "details", "summary"] as const;
+export const bookingStepOrder = ["service", "addons", "datetime", "employee", "details", "summary"] as const;
 
 export const bookingLocaleMap = {
   es: "es-AR",

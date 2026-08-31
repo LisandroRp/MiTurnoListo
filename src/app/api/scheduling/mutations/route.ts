@@ -696,7 +696,6 @@ async function saveService(supabase: SupabaseClient, businessId: string, service
       slug: buildSlug(service.name, service.id),
       name: service.name,
       description: service.description,
-      image_url: service.imageUrl || null,
       price_amount: service.price,
       deposit_amount: service.deposit,
       currency_code: "ARS",
@@ -821,7 +820,7 @@ async function createAppointment(
       customer_id: customerId,
       service_id: appointment.serviceId,
       employee_id: appointment.employeeId,
-      source: "dashboard",
+      source: appointment.source ?? "dashboard",
       status: appointment.status,
       starts_at: startsAt,
       ends_at: endsAt,
@@ -958,7 +957,7 @@ async function rescheduleAppointment(
 
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
-    .select("id, service_id, employee_id, starts_at, ends_at, status, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+    .select("id, service_id, employee_id, starts_at, ends_at, status, source, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
     .eq("id", appointmentId)
     .eq("business_id", businessId)
     .limit(1)
@@ -982,7 +981,7 @@ async function rescheduleAppointment(
   ] = await Promise.all([
     supabase
       .from("services")
-      .select("id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
+      .select("id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
       .eq("id", appointment.service_id)
       .eq("business_id", businessId)
       .limit(1)
@@ -1009,7 +1008,7 @@ async function rescheduleAppointment(
       .eq("employee_id", employeeId),
     supabase
       .from("appointments")
-      .select("id, service_id, employee_id, starts_at, ends_at, status, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+      .select("id, service_id, employee_id, starts_at, ends_at, status, source, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
       .eq("business_id", businessId)
   ]);
 

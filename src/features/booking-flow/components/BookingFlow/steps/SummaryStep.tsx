@@ -53,8 +53,12 @@ export function SummaryStep({
           value={draft.paymentOption ? messages.bookingFlow.paymentOptions[draft.paymentOption] : "-"}
         />
         <SummaryRow label={messages.bookingFlow.summary.customer} value={draft.customer.fullName || "-"} />
-        <SummaryRow label={messages.bookingFlow.summary.attendees} value={String(draft.partySize)} />
-        <SummaryRow label={messages.bookingFlow.summary.deposit} value={formatCurrency(service.deposit * draft.partySize)} />
+        {service.capacity > 1 ? (
+          <SummaryRow label={messages.bookingFlow.summary.attendees} value={String(draft.partySize)} />
+        ) : null}
+        {service.deposit > 0 ? (
+          <SummaryRow label={messages.bookingFlow.summary.deposit} value={formatCurrency(service.deposit * draft.partySize)} />
+        ) : null}
         <SummaryRow label={messages.bookingFlow.summary.total} value={formatCurrency(total)} />
       </Card>
       <Card className="border-brand bg-brand-soft">

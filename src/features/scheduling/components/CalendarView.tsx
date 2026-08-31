@@ -604,6 +604,7 @@ export function AppointmentCard({
   const [loadingAction, setLoadingAction] = useState<"paid" | "cancel" | "reschedule" | null>(null);
   const appointmentToneClass = employee ? appointmentToneClasses[employee.color] : "border-brand bg-brand-soft";
   const paymentState = getPaymentState(appointment.status);
+  const sourceLabel = messages.calendar.sources[getAppointmentSourceMessageKey(appointment.source)];
   const availableRescheduleEmployees = service
     ? getRescheduleEmployees(service, employees, appointments, appointment, rescheduleDate, businessDayBlocks)
     : [];
@@ -719,7 +720,10 @@ export function AppointmentCard({
       onClick={() => setIsOpen(true)}
       className="grid w-full cursor-pointer grid-cols-[1.2fr_1fr_1fr_0.9fr_0.8fr] items-center gap-3 rounded-lg border border-subtle bg-surface px-3 py-1.5 text-left text-sm shadow-sm transition-colors hover:bg-brand-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
     >
-      <span className="truncate font-semibold text-primary">{appointment.customerName}</span>
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="truncate font-semibold text-primary">{appointment.customerName}</span>
+        <Badge tone="neutral">{sourceLabel}</Badge>
+      </span>
       <span className="truncate text-muted">{serviceName}</span>
       <span className="truncate text-muted">{employeeName}</span>
       <span className="whitespace-nowrap text-muted">{appointment.startTime} - {appointment.endTime}</span>
@@ -738,7 +742,10 @@ export function AppointmentCard({
         appointmentToneClass
       )}
     >
-      <p className="truncate text-sm font-bold text-primary">{appointment.customerName}</p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="truncate text-sm font-bold text-primary">{appointment.customerName}</p>
+        <Badge tone="neutral">{sourceLabel}</Badge>
+      </div>
       <p className="mt-1 text-xs text-muted">
         {[serviceName, employeeName].filter(Boolean).join(" - ")}
       </p>
@@ -766,6 +773,7 @@ export function AppointmentCard({
             <p className="mt-1 text-sm text-muted">
               {[serviceName, employeeName].filter(Boolean).join(" - ")}
             </p>
+            <Badge tone="neutral" className="mt-3">{sourceLabel}</Badge>
           </div>
           <Button
             size="icon"
@@ -988,6 +996,10 @@ function getRescheduleEmployees(
 
 function getPaymentState(status: Appointment["status"]) {
   return status === "confirmed" ? "paid" : "pending";
+}
+
+function getAppointmentSourceMessageKey(source: Appointment["source"]) {
+  return source === "walk_in" ? "walkIn" : source;
 }
 
 function MonthCalendar({

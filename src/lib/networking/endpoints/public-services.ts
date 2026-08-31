@@ -8,8 +8,8 @@ export type PublicServiceSummary = {
   deposit: number;
   description: string;
   durationMinutes: number;
+  employeeNames: string[];
   id: string;
-  imageUrl: string;
   name: string;
   paymentMethod: PaymentMethod;
   price: number;

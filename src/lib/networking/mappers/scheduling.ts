@@ -1,5 +1,6 @@
 import {
   Appointment,
+  AppointmentSource,
   AppointmentStatus,
   BusinessPaymentSettings,
   BusinessDayBlock,
@@ -43,7 +44,6 @@ type ServiceRow = {
   id: string;
   name: string;
   description: string;
-  image_url: string | null;
   price_amount: number;
   deposit_amount: number;
   duration_minutes: number;
@@ -76,6 +76,7 @@ type AppointmentRow = {
   starts_at: string;
   ends_at: string;
   status: AppointmentStatus;
+  source: string | null;
   total_amount: number;
   selected_payment_method: Exclude<PaymentMethod, "mixed"> | null;
   party_size: number;
@@ -177,7 +178,6 @@ export function mapServices(
     id: service.id,
     name: service.name,
     description: service.description,
-    imageUrl: normalizeStoredImageUrl(service.image_url),
     price: service.price_amount,
     capacity: service.capacity,
     deposit: service.deposit_amount,
@@ -222,6 +222,7 @@ export function mapAppointments(appointmentRows: AppointmentRow[], timeZone: str
       startTime: formatTimeForTimeZone(appointment.starts_at, timeZone),
       endTime: formatTimeForTimeZone(appointment.ends_at, timeZone),
       status: appointment.status,
+      source: normalizeAppointmentSource(appointment.source),
       revenue: appointment.total_amount,
       paymentMethod: appointment.selected_payment_method ?? "cash",
       partySize: appointment.party_size
@@ -231,6 +232,14 @@ export function mapAppointments(appointmentRows: AppointmentRow[], timeZone: str
       const rightKey = `${right.date}T${right.startTime}`;
       return leftKey.localeCompare(rightKey);
     });
+}
+
+function normalizeAppointmentSource(source: string | null): AppointmentSource {
+  if (source === "public" || source === "dashboard" || source === "walk_in") {
+    return source;
+  }
+
+  return "dashboard";
 }
 
 export function mapProfile(

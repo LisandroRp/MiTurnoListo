@@ -3,7 +3,7 @@ import { InputHTMLAttributes, ReactNode } from "react";
 import { cx } from "@/components/ui/utils";
 
 type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "prefix"> & {
-  label: string;
+  label?: string;
   helperText?: string;
   prefix?: ReactNode;
   suffix?: ReactNode;
@@ -15,7 +15,7 @@ export function TextField({ label, helperText, prefix, suffix, className, id, ..
   return (
     <label className="grid gap-2 text-sm font-medium text-primary" htmlFor={fieldId}>
       <span>
-        {label}
+        {label ? label : null}
         {props.required ? <span className="ml-1 text-danger">*</span> : null}
       </span>
       <span className="relative">

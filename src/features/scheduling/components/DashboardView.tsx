@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiUsers } from "react-icons/fi";
+import { FiPlusCircle, FiUsers } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Modal } from "@/components/ui/Modal";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { AppointmentCard } from "@/features/scheduling/components/CalendarView";
+import { getDayKeyForDate, getEmployeesWorkingOnDate } from "@/features/scheduling/components/dashboardTeamUtils";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
+import { WalkInAppointmentModal } from "@/features/scheduling/components/WalkInAppointmentModal";
 import { Appointment, DashboardMetric, Employee, Service } from "@/features/scheduling/types";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { formatCurrency } from "@/features/scheduling/utils/format";
@@ -20,7 +24,9 @@ type DashboardViewProps = {
   employees: Employee[];
   services: Service[];
   appointments: Appointment[];
+  businessId: string | null;
   referenceDate: string;
+  onCreateAppointment: (appointment: Appointment) => Promise<boolean> | void;
   onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
@@ -32,27 +38,39 @@ export function DashboardView({
   employees,
   services,
   appointments,
+  businessId,
   referenceDate,
+  onCreateAppointment,
   onDeleteAppointment,
   onMarkAppointmentPaid,
   onRescheduleAppointment
 }: DashboardViewProps) {
   const router = useRouter();
+  const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
+  const [isWalkInConfirmationOpen, setIsWalkInConfirmationOpen] = useState(false);
   const activeServiceIds = new Set(services.filter((service) => !service.isArchived).map((service) => service.id));
   const todaysAppointments = appointments.filter((appointment) => appointment.date === referenceDate && activeServiceIds.has(appointment.serviceId));
   const activeTodaysAppointments = todaysAppointments.filter((appointment) => appointment.status !== "cancelled");
-  const todaysAppointmentEmployeeIds = new Set(activeTodaysAppointments.map((appointment) => appointment.employeeId));
   const todayKey = getDayKeyForDate(referenceDate);
-  const employeesWorkingToday = employees.filter((employee) => (
-    !employee.isArchived &&
-    (todaysAppointmentEmployeeIds.has(employee.id) || (employee.isVisible && (employee.schedule[todayKey] ?? []).length > 0))
-  ));
+  const employeesWorkingToday = getEmployeesWorkingOnDate(employees, services, appointments, referenceDate);
   const dayAppointments = todaysAppointments
     .slice()
     .sort((left, right) => left.startTime.localeCompare(right.startTime));
   const currentTimePosition = getCurrentTimePosition(referenceDate);
   const openEmployeeInPersonnel = (employee: Employee) => {
     router.push(`/personal?search=${encodeURIComponent(employee.name)}`);
+  };
+  const openWalkInFlow = () => {
+    if (employeesWorkingToday.length === 0) {
+      setIsWalkInConfirmationOpen(true);
+      return;
+    }
+
+    setIsWalkInModalOpen(true);
+  };
+  const confirmWalkInWithoutActiveTeam = () => {
+    setIsWalkInConfirmationOpen(false);
+    setIsWalkInModalOpen(true);
   };
 
   return (
@@ -84,8 +102,11 @@ export function DashboardView({
 
       <section className="grid flex-1 items-stretch gap-6 xl:grid-cols-[1.5fr_1fr]">
         <Card className="flex min-h-[28rem] h-[34rem] flex-col overflow-hidden p-0">
-          <div className="border-b border-subtle p-5">
+          <div className="flex flex-col gap-3 border-b border-subtle p-5 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-bold text-primary">{messages.home.todayAgenda}</h2>
+            <Button size="sm" icon={<FiPlusCircle />} onClick={openWalkInFlow}>
+              {messages.walkInAppointment.action}
+            </Button>
           </div>
           <DayAgenda
             appointments={dayAppointments}
@@ -148,6 +169,35 @@ export function DashboardView({
           )}
         </Card>
       </section>
+
+      <WalkInAppointmentModal
+        businessId={businessId}
+        employees={employees}
+        isOpen={isWalkInModalOpen}
+        messages={messages}
+        services={services}
+        onClose={() => setIsWalkInModalOpen(false)}
+        onCreateAppointment={onCreateAppointment}
+      />
+
+      <Modal isOpen={isWalkInConfirmationOpen}>
+        <div className="grid gap-5">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted">{messages.walkInAppointment.eyebrow}</p>
+            <h2 className="mt-1 text-2xl font-bold text-primary">{messages.walkInAppointment.noActiveTeamTitle}</h2>
+            <p className="mt-2 text-sm leading-6 text-muted">{messages.walkInAppointment.noActiveTeamDescription}</p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button variant="secondary" onClick={() => setIsWalkInConfirmationOpen(false)}>
+              {messages.actions.cancel}
+            </Button>
+            <Button icon={<FiPlusCircle />} onClick={confirmWalkInWithoutActiveTeam}>
+              {messages.walkInAppointment.createAnywayAction}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -296,21 +346,6 @@ function getCurrentTimeLabel() {
   const minutes = String(now.getMinutes()).padStart(2, "0");
 
   return `${hours}:${minutes}`;
-}
-
-function getDayKeyForDate(date: string) {
-  const weekday = new Date(`${date}T00:00:00`).getDay();
-  const dayByWeekday: Record<number, keyof Employee["schedule"]> = {
-    0: "sunday",
-    1: "monday",
-    2: "tuesday",
-    3: "wednesday",
-    4: "thursday",
-    5: "friday",
-    6: "saturday"
-  };
-
-  return dayByWeekday[weekday] ?? "monday";
 }
 
 function formatMetricTrend(metric: DashboardMetric, messages: Messages) {

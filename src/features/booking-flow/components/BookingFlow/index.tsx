@@ -18,6 +18,7 @@ import { DetailsStep } from "@/features/booking-flow/components/BookingFlow/step
 import { EmployeeStep } from "@/features/booking-flow/components/BookingFlow/steps/EmployeeStep";
 import { ServiceStep } from "@/features/booking-flow/components/BookingFlow/steps/ServiceStep";
 import { StateCard } from "@/features/booking-flow/components/BookingFlow/shared/bookingFlowPrimitives";
+import { BookingCustomerSuggestion } from "@/features/booking-flow/types";
 import {
   bookingLocaleMap,
   bookingStepOrder,
@@ -29,12 +30,13 @@ import { SuccessState } from "@/features/booking-flow/components/BookingFlow/sha
 import { SummaryStep } from "@/features/booking-flow/components/BookingFlow/steps/SummaryStep";
 import {
   getAvailablePaymentOptions,
-  getAvailableSlotsForEmployee,
+  getAvailableSlotsForEmployees,
   mapPaymentOptionToMethod
 } from "@/features/booking-flow/utils/booking";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
 import { messages as schedulingMessages } from "@/features/scheduling/i18n/messages";
 import { Appointment, Locale, ThemeId } from "@/features/scheduling/types";
+import { getCustomers } from "@/lib/networking/endpoints/customers";
 import {
   createPublicBooking,
   getPublicBookingPayload,
@@ -53,6 +55,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   const {
     appointments: previewAppointments,
     createAppointment: createPreviewAppointment,
+    businessId,
     employees: previewEmployees,
     locale: previewLocale,
     paymentSettings: previewPaymentSettings,
@@ -74,6 +77,9 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   const [validationMessage, setValidationMessage] = useState("");
   const [topToastMessage, setTopToastMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [customerLookupQuery, setCustomerLookupQuery] = useState("");
+  const [customerSuggestions, setCustomerSuggestions] = useState<BookingCustomerSuggestion[]>([]);
+  const [isLoadingCustomerSuggestions, setIsLoadingCustomerSuggestions] = useState(false);
   const topToastTimeoutRef = useRef<number | null>(null);
   const locale: Locale = isPreview ? previewLocale : publicPayload?.locale ?? unavailableDetails?.locale ?? "es";
   const messages = schedulingMessages[locale];
@@ -167,23 +173,79 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
   const assignedEmployees = service
     ? employees.filter((employee) => !employee.isArchived && employee.isVisible && service.employeeIds.includes(employee.id))
     : [];
-  const selectedEmployee = assignedEmployees.find((employee) => employee.id === draft.employeeId) ?? null;
-  const availablePaymentOptions = service ? getAvailablePaymentOptions(service, paymentSettings) : [];
-  const availableSlots = service && selectedEmployee
-    ? getAvailableSlotsForEmployee(service, selectedEmployee, appointments, monthDate, draft.partySize, new Date(), businessDayBlocks)
+  const availableSlots = service
+    ? getAvailableSlotsForEmployees(service, assignedEmployees, appointments, monthDate, draft.partySize, new Date(), businessDayBlocks)
     : [];
+  const selectedSlot = draft.selectedSlot
+    ? availableSlots.find((slot) => (
+        slot.date === draft.selectedSlot?.date &&
+        slot.startTime === draft.selectedSlot?.startTime &&
+        slot.endTime === draft.selectedSlot?.endTime
+      )) ?? null
+    : null;
+  const selectableEmployeeIds = new Set(
+    selectedSlot?.employeeAvailability
+      .filter((availability) => availability.remainingCapacity >= draft.partySize)
+      .map((availability) => availability.employeeId) ?? []
+  );
+  const selectableEmployees = selectedSlot
+    ? assignedEmployees.filter((employee) => selectableEmployeeIds.has(employee.id))
+    : [];
+  const selectedEmployee = selectableEmployees.find((employee) => employee.id === draft.employeeId) ?? null;
+  const availablePaymentOptions = service ? getAvailablePaymentOptions(service, paymentSettings) : [];
   const selectedPaymentOption = draft.paymentOption && availablePaymentOptions.includes(draft.paymentOption)
     ? draft.paymentOption
     : availablePaymentOptions.length === 1
       ? availablePaymentOptions[0]
       : null;
-  const selectedSlot = draft.selectedSlot && availableSlots.some((slot) => (
-    slot.date === draft.selectedSlot?.date &&
-    slot.startTime === draft.selectedSlot?.startTime
-  ))
-    ? draft.selectedSlot
-    : null;
   const wizardActionVisibility = useDualActionVisibility();
+  const currentStep = bookingSteps[currentStepIndex] ?? "service";
+  const actionButtonLabel = currentStep !== "summary" ? messages.actions.continue : messages.actions.confirmReservation;
+  const isDateTimeStep = currentStep === "datetime";
+
+  useEffect(() => {
+    const normalizedQuery = customerLookupQuery.trim();
+
+    if (!isPreview || currentStep !== "details" || !businessId || normalizedQuery.length < 1) {
+      setCustomerSuggestions([]);
+      setIsLoadingCustomerSuggestions(false);
+      return;
+    }
+
+    let isActive = true;
+    setIsLoadingCustomerSuggestions(true);
+
+    const timeoutId = window.setTimeout(() => {
+      void getCustomers(businessId, { page: 1, perPage: 5, search: normalizedQuery })
+        .then((response) => {
+          if (!isActive) {
+            return;
+          }
+
+          setCustomerSuggestions(response.data.map((customer) => ({
+            id: customer.id,
+            fullName: customer.fullName,
+            email: customer.email,
+            phone: customer.phone
+          })));
+        })
+        .catch(() => {
+          if (isActive) {
+            setCustomerSuggestions([]);
+          }
+        })
+        .finally(() => {
+          if (isActive) {
+            setIsLoadingCustomerSuggestions(false);
+          }
+        });
+    }, 1500);
+
+    return () => {
+      isActive = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [businessId, currentStep, customerLookupQuery, isPreview]);
 
   if (!isPreview && isPublicLoading) {
     return (
@@ -240,10 +302,6 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
     );
   }
 
-  const currentStep = bookingSteps[currentStepIndex] ?? "service";
-  const actionButtonLabel = currentStep !== "summary" ? messages.actions.continue : messages.actions.confirmReservation;
-  const isDateTimeStep = currentStep === "datetime";
-
   if (assignedEmployees.length === 0) {
     return (
       <BookingShell theme={theme} mode={mode}>
@@ -286,6 +344,8 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
     setValidationMessage("");
     setTopToastMessage("");
     setIsSubmitting(false);
+    setCustomerLookupQuery("");
+    setCustomerSuggestions([]);
   }
 
   function showTopToast(message: string) {
@@ -319,6 +379,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
           startTime: selectedSlot.startTime,
           endTime: selectedSlot.endTime,
           status: paymentMethod === "cash" ? "confirmed" : "pending",
+          source: "dashboard",
           revenue: bookingTotal,
           paymentMethod,
           partySize: draft.partySize
@@ -406,6 +467,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
                 <ServiceStep
                   messages={messages}
                   service={service}
+                  employees={assignedEmployees}
                   selectedPartySize={draft.partySize}
                   onPartySizeChange={(partySize) => setDraft((current) => ({ ...current, partySize }))}
                 />
@@ -429,14 +491,14 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
               {currentStep === "employee" ? (
                 <EmployeeStep
                   messages={messages}
-                  employees={assignedEmployees}
+                  employees={selectableEmployees}
+                  selectedSlot={selectedSlot}
+                  showRemainingCapacity={service.capacity > 1}
                   selectedEmployeeId={draft.employeeId}
                   onSelectEmployee={(employeeId) => {
-                    setSelectedDate(null);
                     setDraft((current) => ({
                       ...current,
-                      employeeId,
-                      selectedSlot: null
+                      employeeId
                     }));
                   }}
                 />
@@ -457,12 +519,12 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
                     setDraft((current) => (
                       current.selectedSlot?.date === date
                         ? current
-                        : { ...current, selectedSlot: null }
+                        : { ...current, employeeId: null, selectedSlot: null }
                     ));
                   }}
                   onSelectSlot={(slot) => {
                     setSelectedDate(slot.date);
-                    setDraft((current) => ({ ...current, selectedSlot: slot }));
+                    setDraft((current) => ({ ...current, employeeId: null, selectedSlot: slot }));
                   }}
                 />
               ) : null}
@@ -477,12 +539,33 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
                   customer={draft.customer}
                   draft={{ ...draft, paymentOption: selectedPaymentOption, selectedSlot }}
                   paymentSettingsText={paymentSettings.transfers}
+                  customerSuggestions={isPreview ? customerSuggestions : []}
+                  isLoadingCustomerSuggestions={isPreview && isLoadingCustomerSuggestions}
                   onPaymentOptionChange={(paymentOption) => setDraft((current) => ({ ...current, paymentOption }))}
                   onMissingCustomerName={() => showTopToast(messages.bookingFlow.validation.nameRequired)}
-                  onCustomerChange={(field, value) => setDraft((current) => ({
-                    ...current,
-                    customer: { ...current.customer, [field]: value }
-                  }))}
+                  onCustomerChange={(field, value) => {
+                    setDraft((current) => ({
+                      ...current,
+                      customer: { ...current.customer, [field]: value }
+                    }));
+
+                    if (field === "fullName" || field === "email") {
+                      setCustomerLookupQuery(value);
+                    }
+                  }}
+                  onCustomerLookupQueryChange={setCustomerLookupQuery}
+                  onCustomerSuggestionSelect={(customerSuggestion) => {
+                    setDraft((current) => ({
+                      ...current,
+                      customer: {
+                        fullName: customerSuggestion.fullName,
+                        email: customerSuggestion.email,
+                        phone: customerSuggestion.phone
+                      }
+                    }));
+                    setCustomerLookupQuery("");
+                    setCustomerSuggestions([]);
+                  }}
                 />
               ) : null}
 
@@ -513,7 +596,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
                   selectedStartTime={selectedSlot?.startTime ?? null}
                   onSelectSlot={(slot) => {
                     setSelectedDate(slot.date);
-                    setDraft((current) => ({ ...current, selectedSlot: slot }));
+                    setDraft((current) => ({ ...current, employeeId: null, selectedSlot: slot }));
                   }}
                 />
               </div>

@@ -31,7 +31,7 @@ export async function GET(_: NextRequest, context: RouteContext) {
   const supabase = getSupabaseAdminClient();
   const { data: service, error: serviceError } = await supabase
     .from("services")
-    .select("id, business_id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
+    .select("id, business_id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
     .eq("id", serviceId)
     .limit(1)
     .maybeSingle();
@@ -91,7 +91,7 @@ export async function GET(_: NextRequest, context: RouteContext) {
       .select("id, employee_id, weekday, start_time, end_time"),
     supabase
       .from("appointments")
-      .select("id, service_id, employee_id, starts_at, ends_at, status, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+      .select("id, service_id, employee_id, starts_at, ends_at, status, source, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
       .eq("business_id", businessId)
       .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[]),
     supabase
@@ -265,7 +265,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const endsAt = buildIsoInTimeZone(payload.slot.date, payload.slot.endTime, payload.timeZone);
     const { data: service, error: serviceError } = await supabase
       .from("services")
-      .select("id, business_id, name, description, image_url, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
+      .select("id, business_id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
       .eq("id", serviceId)
       .eq("is_active", true)
       .eq("is_public", true)
@@ -316,7 +316,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .eq("employee_id", payload.employeeId),
       supabase
         .from("appointments")
-        .select("id, service_id, employee_id, starts_at, ends_at, status, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+        .select("id, service_id, employee_id, starts_at, ends_at, status, source, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
         .eq("business_id", service.business_id)
         .eq("employee_id", payload.employeeId)
         .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[]),
@@ -413,7 +413,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     ));
 
     if (!selectedSlot) {
-      return NextResponse.json({ error: "The selected time is no longer available." }, { status: 409 });
+      return NextResponse.json({ error: "Ese horario ya fue reservado. Elegi otro." }, { status: 409 });
     }
 
     const bookingDateLimitResult = await enforceOneCustomerBookingForSelectedDate(

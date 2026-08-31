@@ -7,6 +7,12 @@ export type BookingSlot = {
   startTime: string;
   endTime: string;
   remainingCapacity: number;
+  employeeAvailability: BookingSlotEmployeeAvailability[];
+};
+
+export type BookingSlotEmployeeAvailability = {
+  employeeId: string;
+  remainingCapacity: number;
 };
 
 export type BookingDraft = {
@@ -16,6 +22,10 @@ export type BookingDraft = {
   paymentOption: BookingPaymentOption | null;
   customer: BookingCustomer;
   partySize: number;
+};
+
+export type BookingCustomerSuggestion = BookingCustomer & {
+  id: string;
 };
 
 export type BookingSummary = {

@@ -6,6 +6,8 @@ import { useScheduling } from "@/features/scheduling/components/SchedulingProvid
 export default function HomeSectionPage() {
   const {
     appointments,
+    businessId,
+    createAppointment,
     dashboardMetrics,
     deleteAppointment,
     employees,
@@ -23,8 +25,10 @@ export default function HomeSectionPage() {
       employees={employees}
       services={services}
       appointments={appointments}
+      businessId={businessId}
       referenceDate={focusedDate}
       onDeleteAppointment={deleteAppointment}
+      onCreateAppointment={createAppointment}
       onMarkAppointmentPaid={markAppointmentPaid}
       onRescheduleAppointment={rescheduleAppointment}
     />

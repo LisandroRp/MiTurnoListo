@@ -1,4 +1,4 @@
-import {
+import type {
   Appointment,
   BookingCustomer,
   BusinessDayBlock,
@@ -8,7 +8,7 @@ import {
   Service,
   TimeRange
 } from "@/features/scheduling/types";
-import { BookingPaymentOption, BookingSlot } from "@/features/booking-flow/types";
+import type { BookingPaymentOption, BookingSlot } from "@/features/booking-flow/types";
 
 const dayKeys = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
 
@@ -91,10 +91,9 @@ export function getAvailableSlotsForEmployee(
     const overlappingRanges = getOverlappingRanges(serviceRanges, employeeRanges);
 
     overlappingRanges.forEach((range) => {
-      const slotStarts = buildSlotStarts(range.start, range.end, service.durationMinutes);
+      const slotTimes = buildSlotTimes(range.start, range.end, service.durationMinutes);
 
-      slotStarts.forEach((startTime) => {
-        const endTime = addMinutes(startTime, service.durationMinutes);
+      slotTimes.forEach(({ startTime, endTime }) => {
         const slotDateTime = new Date(`${dateKey}T${startTime}:00`);
         const limitDate = new Date(now.getTime() + service.reservationLeadMinutes * 60 * 1000);
 
@@ -102,25 +101,88 @@ export function getAvailableSlotsForEmployee(
           return;
         }
 
-        const reserved = appointments
-          .filter((appointment) => (
+        const overlappingAppointments = appointments.filter((appointment) => (
             appointment.status !== "cancelled" &&
             appointment.employeeId === employee.id &&
             appointment.date === dateKey &&
             rangesOverlap(startTime, endTime, appointment.startTime, appointment.endTime)
-          ))
+          ));
+        const hasOtherServiceConflict = overlappingAppointments.some((appointment) => appointment.serviceId !== service.id);
+
+        if (hasOtherServiceConflict) {
+          return;
+        }
+
+        const reserved = overlappingAppointments
+          .filter((appointment) => appointment.serviceId === service.id)
           .reduce((total, appointment) => total + appointment.partySize, 0);
 
         const remainingCapacity = service.capacity - reserved;
 
         if (remainingCapacity >= partySize) {
-          slots.push({ date: dateKey, startTime, endTime, remainingCapacity });
+          slots.push({
+            date: dateKey,
+            startTime,
+            endTime,
+            remainingCapacity,
+            employeeAvailability: [{
+              employeeId: employee.id,
+              remainingCapacity
+            }]
+          });
         }
       });
     });
   }
 
   return dedupeSlots(slots);
+}
+
+export function getAvailableSlotsForEmployees(
+  service: Service,
+  employees: Employee[],
+  appointments: Appointment[],
+  monthDate: Date,
+  partySize: number,
+  now = new Date(),
+  dayBlocks: BusinessDayBlock[] = []
+): BookingSlot[] {
+  const slotByKey = new Map<string, BookingSlot>();
+
+  employees.forEach((employee) => {
+    const employeeSlots = getAvailableSlotsForEmployee(service, employee, appointments, monthDate, partySize, now, dayBlocks);
+
+    employeeSlots.forEach((employeeSlot) => {
+      const key = `${employeeSlot.date}-${employeeSlot.startTime}-${employeeSlot.endTime}`;
+      const currentSlot = slotByKey.get(key);
+      const nextEmployeeAvailability = {
+        employeeId: employee.id,
+        remainingCapacity: employeeSlot.remainingCapacity
+      };
+
+      if (!currentSlot) {
+        slotByKey.set(key, {
+          ...employeeSlot,
+          employeeAvailability: [nextEmployeeAvailability]
+        });
+        return;
+      }
+
+      slotByKey.set(key, {
+        ...currentSlot,
+        remainingCapacity: currentSlot.remainingCapacity + employeeSlot.remainingCapacity,
+        employeeAvailability: [...currentSlot.employeeAvailability, nextEmployeeAvailability]
+      });
+    });
+  });
+
+  return Array.from(slotByKey.values())
+    .filter((slot) => slot.remainingCapacity >= partySize)
+    .sort((left, right) => (
+      left.date.localeCompare(right.date) ||
+      left.startTime.localeCompare(right.startTime) ||
+      left.endTime.localeCompare(right.endTime)
+    ));
 }
 
 export function isDateBlocked(date: string, dayBlocks: BusinessDayBlock[]) {
@@ -191,16 +253,21 @@ function getOverlappingRanges(serviceRanges: TimeRange[], employeeRanges: TimeRa
   return overlaps;
 }
 
-function buildSlotStarts(start: string, end: string, durationMinutes: number) {
-  const starts: string[] = [];
+function buildSlotTimes(start: string, end: string, durationMinutes: number) {
+  if (durationMinutes <= 0) {
+    return [];
+  }
+
+  const slots: Array<{ startTime: string; endTime: string }> = [];
   const startMinutes = toMinutes(start);
   const endMinutes = toMinutes(end);
 
   for (let minutes = startMinutes; minutes + durationMinutes <= endMinutes; minutes += durationMinutes) {
-    starts.push(fromMinutes(minutes));
+    const startTime = fromMinutes(minutes);
+    slots.push({ startTime, endTime: addMinutes(startTime, durationMinutes) });
   }
 
-  return starts;
+  return slots;
 }
 
 function toMinutes(time: string) {

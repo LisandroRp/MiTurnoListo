@@ -31,6 +31,7 @@ export type Employee = {
 };
 
 export type AppointmentStatus = "confirmed" | "pending" | "cancelled";
+export type AppointmentSource = "public" | "dashboard" | "walk_in";
 
 export type Appointment = {
   id: string;
@@ -43,6 +44,7 @@ export type Appointment = {
   startTime: string;
   endTime: string;
   status: AppointmentStatus;
+  source: AppointmentSource;
   revenue: number;
   paymentMethod: PaymentMethod;
   partySize: number;
@@ -60,7 +62,6 @@ export type Service = {
   id: string;
   name: string;
   description: string;
-  imageUrl: string;
   price: number;
   capacity: number;
   deposit: number;

@@ -617,6 +617,7 @@ export function AppointmentCard({
   const [rescheduleSlotKey, setRescheduleSlotKey] = useState(`${appointment.startTime}-${appointment.endTime}`);
   const [loadingAction, setLoadingAction] = useState<"paid" | "cancel" | "noShow" | "reschedule" | null>(null);
   const appointmentToneClass = employee ? appointmentToneClasses[employee.color] : "border-brand bg-brand-soft";
+  const isHistoricalAppointment = appointment.appointmentStatus === "cancelled" || appointment.appointmentStatus === "rescheduled";
   const sourceLabel = messages.calendar.sources[getAppointmentSourceMessageKey(appointment.source)];
   const displayStatus = getAppointmentDisplayStatus(appointment, messages);
   const canCancelAppointment = canCancelAppointmentFromModal(appointment, service);
@@ -820,14 +821,17 @@ export function AppointmentCard({
     <button
       type="button"
       onClick={() => setIsOpen(true)}
-      className="grid w-full cursor-pointer grid-cols-[1.2fr_1fr_1fr_0.9fr_0.8fr] items-center gap-3 rounded-lg border border-subtle bg-surface px-3 py-1.5 text-left text-sm shadow-sm transition-colors hover:bg-brand-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+      className={cx(
+        "grid w-full cursor-pointer grid-cols-[1.2fr_1fr_1fr_0.9fr_0.8fr] items-center gap-3 rounded-lg border px-3 py-1.5 text-left text-sm shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+        isHistoricalAppointment ? "border-subtle bg-shell hover:bg-input" : "border-subtle bg-surface hover:bg-brand-soft"
+      )}
     >
       <span className="flex min-w-0 items-center gap-2">
-        <span className="truncate font-semibold text-primary">{appointment.customerName}</span>
+        <span className={cx("truncate font-semibold text-primary", isHistoricalAppointment ? "opacity-55 grayscale" : "")}>{appointment.customerName}</span>
       </span>
-      <span className="truncate text-muted">{serviceName}</span>
-      <span className="truncate text-muted">{employeeName}</span>
-      <span className="whitespace-nowrap text-muted">{appointment.startTime} - {appointment.endTime}</span>
+      <span className={cx("truncate text-muted", isHistoricalAppointment ? "opacity-55 grayscale" : "")}>{serviceName}</span>
+      <span className={cx("truncate text-muted", isHistoricalAppointment ? "opacity-55 grayscale" : "")}>{employeeName}</span>
+      <span className={cx("whitespace-nowrap text-muted", isHistoricalAppointment ? "opacity-55 grayscale" : "")}>{appointment.startTime} - {appointment.endTime}</span>
       <span>
         <Badge tone={displayStatus.tone}>
           {displayStatus.label}
@@ -840,17 +844,17 @@ export function AppointmentCard({
       onClick={() => setIsOpen(true)}
       className={cx(
         "w-full cursor-pointer rounded-lg border p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:bg-brand-soft hover:shadow-md",
-        appointmentToneClass
+        isHistoricalAppointment ? "border-subtle bg-shell hover:bg-input" : appointmentToneClass
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="truncate text-sm font-bold text-primary">{appointment.customerName}</p>
-        <Badge tone="neutral">{sourceLabel}</Badge>
+        <p className={cx("truncate text-sm font-bold text-primary", isHistoricalAppointment ? "opacity-55 grayscale" : "")}>{appointment.customerName}</p>
+        <span className="shrink-0 text-xs font-bold text-muted">{sourceLabel}</span>
       </div>
-      <p className="mt-1 text-xs text-muted">
+      <p className={cx("mt-1 text-xs text-muted", isHistoricalAppointment ? "opacity-55 grayscale" : "")}>
         {[serviceName, employeeName].filter(Boolean).join(" - ")}
       </p>
-      <p className="mt-3 text-xs font-semibold text-brand-strong">
+      <p className={cx("mt-3 text-xs font-semibold text-brand-strong", isHistoricalAppointment ? "opacity-55 grayscale" : "")}>
         {appointment.startTime} - {appointment.endTime}
       </p>
       <Badge tone={displayStatus.tone} className="mt-3">
@@ -871,7 +875,7 @@ export function AppointmentCard({
             <p className="mt-1 text-sm text-muted">
               {[serviceName, employeeName].filter(Boolean).join(" - ")}
             </p>
-            <Badge tone="neutral" className="mt-3">{sourceLabel}</Badge>
+            <p className="mt-3 text-sm font-bold text-muted">{sourceLabel}</p>
           </div>
           <Button
             size="icon"

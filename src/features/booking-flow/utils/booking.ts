@@ -102,7 +102,8 @@ export function getAvailableSlotsForEmployee(
         }
 
         const overlappingAppointments = appointments.filter((appointment) => (
-            appointment.status !== "cancelled" &&
+            appointment.appointmentStatus !== "cancelled" &&
+            appointment.appointmentStatus !== "rescheduled" &&
             appointment.employeeId === employee.id &&
             appointment.date === dateKey &&
             rangesOverlap(startTime, endTime, appointment.startTime, appointment.endTime)

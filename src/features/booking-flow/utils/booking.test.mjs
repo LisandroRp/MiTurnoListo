@@ -90,6 +90,9 @@ test("getAvailableSlotsForEmployees combines capacity across available professio
       startTime: "09:00",
       endTime: "09:30",
       status: "confirmed",
+      appointmentStatus: "scheduled",
+      paymentStatus: "paid",
+      source: "dashboard",
       revenue: 100,
       paymentMethod: "cash",
       partySize: 1
@@ -135,6 +138,9 @@ test("getAvailableSlotsForEmployees blocks a professional with overlapping appoi
       startTime: "09:00",
       endTime: "09:30",
       status: "confirmed",
+      appointmentStatus: "scheduled",
+      paymentStatus: "paid",
+      source: "dashboard",
       revenue: 100,
       paymentMethod: "cash",
       partySize: 1

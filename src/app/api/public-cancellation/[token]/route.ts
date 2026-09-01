@@ -17,6 +17,8 @@ type AppointmentCancellationRow = {
   service_id: string;
   starts_at: string;
   status: string;
+  appointment_status: string;
+  payment_status: string;
   total_amount: number;
   selected_payment_method: string | null;
   mercadopago_payment_id: string | null;
@@ -48,7 +50,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return details.response;
     }
 
-    if (details.payload.status === "cancelled") {
+    if (details.payload.appointmentStatus === "cancelled") {
       return NextResponse.json({ ok: true, wasRefunded: Boolean(details.payload.refundedAt) });
     }
 
@@ -80,6 +82,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .update({
         cancellation_reason: normalizedCancellationReason,
         status: "cancelled",
+        appointment_status: "cancelled",
+        ...(refundedAt ? { payment_status: "refunded" } : {}),
         ...(refundedAt ? { refunded_at: refundedAt } : {})
       })
       .eq("id", details.appointment.id);
@@ -112,7 +116,7 @@ async function getCancellationDetails(token: string) {
   const supabase = getSupabaseAdminClient();
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
-    .select("id, business_id, employee_id, service_id, starts_at, status, total_amount, selected_payment_method, mercadopago_payment_id, refunded_at, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+    .select("id, business_id, employee_id, service_id, starts_at, status, appointment_status, payment_status, total_amount, selected_payment_method, mercadopago_payment_id, refunded_at, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
     .eq("public_cancel_token", token)
     .limit(1)
     .maybeSingle<AppointmentCancellationRow>();
@@ -153,10 +157,13 @@ async function getCancellationDetails(token: string) {
   const cancellationLeadMinutes = serviceResult.data.cancellation_lead_minutes ?? 1440;
   const cancelUntil = new Date(new Date(appointment.starts_at).getTime() - cancellationLeadMinutes * 60 * 1000);
   const canCancelByTime = Date.now() <= cancelUntil.getTime();
-  const isCancelled = appointment.status === "cancelled";
-  const canCancel = !isCancelled && canCancelByTime;
+  const isCancelled = appointment.appointment_status === "cancelled" || appointment.status === "cancelled";
+  const isRescheduled = appointment.appointment_status === "rescheduled";
+  const canCancel = !isCancelled && !isRescheduled && canCancelByTime;
   const cannotCancelReason = isCancelled
     ? "Este turno ya fue cancelado."
+    : isRescheduled
+      ? "Este turno ya fue reprogramado."
     : `Este turno solo se podia cancelar hasta ${formatDateTime(cancelUntil.toISOString(), businessResult.data?.timezone ?? "America/Argentina/Buenos_Aires")}.`;
 
   return {
@@ -174,6 +181,8 @@ async function getCancellationDetails(token: string) {
       serviceName: serviceResult.data.name,
       startsAt: appointment.starts_at,
       status: appointment.status,
+      appointmentStatus: appointment.appointment_status,
+      paymentStatus: appointment.payment_status,
       timeZone: businessResult.data?.timezone ?? "America/Argentina/Buenos_Aires",
       totalAmount: appointment.total_amount,
       wasPaidWithMercadoPago: appointment.selected_payment_method === "card"

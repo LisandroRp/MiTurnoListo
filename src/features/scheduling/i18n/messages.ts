@@ -174,12 +174,15 @@ export const messages = {
       professional: "Profesional",
       dateAndTime: "Dia y horario",
       source: "Origen",
+      appointmentStatus: "Estado del turno",
       sources: {
         public: "Online",
         dashboard: "Manual",
         walkIn: "Sobreturno"
       },
       paymentStatus: "Estado de pago",
+      markNoShow: "No asistio",
+      noShowMarked: "No asistio",
       cancelAppointment: "Cancelar turno",
       cancelAppointmentTitle: "Desea cancelar el turno?",
       cancellationReason: "Motivo de cancelacion",
@@ -188,11 +191,13 @@ export const messages = {
       confirmCancellation: "Confirmar cancelacion",
       reschedule: "Reprogramar",
       rescheduleTitle: "Reprogramar turno",
-      rescheduleDescription: "Elegi el nuevo dia. Mantenemos el mismo horario y solo mostramos profesionales disponibles.",
+      rescheduleDescription: "Elegi el nuevo dia, horario y profesional disponible.",
       newDate: "Nuevo dia",
+      newTime: "Nuevo horario",
+      noTimeAvailable: "No hay horarios disponibles",
       chooseProfessional: "Profesional disponible",
       noProfessionalAvailable: "No hay profesionales disponibles",
-      confirmReschedule: "Confirmar reprogramacion",
+      confirmReschedule: "Confirmar",
       enabled: "Activo",
       disabled: "Oculto",
       freeLimitTitle: "Uso mensual del plan Free",
@@ -729,6 +734,7 @@ export const messages = {
       businessDayBlockSaved: "Dia bloqueado guardado",
       businessDayBlockDeleted: "Dia bloqueado eliminado",
       appointmentDeleted: "Turno cancelado",
+      appointmentNoShow: "Turno marcado como no asistio",
       appointmentPaid: "Turno marcado como pagado",
       appointmentRescheduled: "Turno reprogramado",
       employeeSaved: "Personal guardado",
@@ -750,6 +756,26 @@ export const messages = {
       confirmed: "Confirmado",
       pending: "Pendiente",
       cancelled: "Cancelado"
+    },
+    appointmentStatuses: {
+      scheduled: "Reservado",
+      cancelled: "Cancelado",
+      rescheduled: "Reprogramado",
+      no_show: "No asistio",
+      completed: "Atendido"
+    },
+    paymentStatuses: {
+      pending: "Pendiente de pago",
+      paid: "Pagado",
+      refunded: "Reembolsado"
+    },
+    appointmentDisplayStatuses: {
+      paymentPending: "Pendiente de pago",
+      confirmed: "Confirmado",
+      cancelled: "Cancelado",
+      rescheduled: "Reprogramado",
+      noShow: "No asistio",
+      completed: "Atendido"
     },
     paymentMethods: {
       cash: "Pago en el lugar",
@@ -945,12 +971,15 @@ export const messages = {
       professional: "Professional",
       dateAndTime: "Date and time",
       source: "Source",
+      appointmentStatus: "Appointment status",
       sources: {
         public: "Online",
         dashboard: "Manual",
         walkIn: "Walk-in"
       },
       paymentStatus: "Payment status",
+      markNoShow: "No-show",
+      noShowMarked: "No-show",
       cancelAppointment: "Cancel appointment",
       cancelAppointmentTitle: "Do you want to cancel this appointment?",
       cancellationReason: "Cancellation reason",
@@ -959,11 +988,13 @@ export const messages = {
       confirmCancellation: "Confirm cancellation",
       reschedule: "Reschedule",
       rescheduleTitle: "Reschedule appointment",
-      rescheduleDescription: "Choose the new day. We keep the same time and only show available professionals.",
+      rescheduleDescription: "Choose the new day, time and available professional.",
       newDate: "New date",
+      newTime: "New time",
+      noTimeAvailable: "No available times",
       chooseProfessional: "Available professional",
       noProfessionalAvailable: "No professionals available",
-      confirmReschedule: "Confirm reschedule",
+      confirmReschedule: "Confirm",
       enabled: "Enabled",
       disabled: "Hidden",
       freeLimitTitle: "Free plan monthly usage",
@@ -1500,6 +1531,7 @@ export const messages = {
       businessDayBlockSaved: "Blocked day saved",
       businessDayBlockDeleted: "Blocked day deleted",
       appointmentDeleted: "Appointment cancelled",
+      appointmentNoShow: "Appointment marked as no-show",
       appointmentPaid: "Appointment marked as paid",
       appointmentRescheduled: "Appointment rescheduled",
       employeeSaved: "Personnel saved",
@@ -1521,6 +1553,26 @@ export const messages = {
       confirmed: "Confirmed",
       pending: "Pending",
       cancelled: "Cancelled"
+    },
+    appointmentStatuses: {
+      scheduled: "Scheduled",
+      cancelled: "Cancelled",
+      rescheduled: "Rescheduled",
+      no_show: "No-show",
+      completed: "Completed"
+    },
+    paymentStatuses: {
+      pending: "Payment pending",
+      paid: "Paid",
+      refunded: "Refunded"
+    },
+    appointmentDisplayStatuses: {
+      paymentPending: "Payment pending",
+      confirmed: "Confirmed",
+      cancelled: "Cancelled",
+      rescheduled: "Rescheduled",
+      noShow: "No-show",
+      completed: "Completed"
     },
     paymentMethods: {
       cash: "Pay at venue",

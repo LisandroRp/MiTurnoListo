@@ -21,6 +21,8 @@ type CancellationDetails = {
   serviceName: string;
   startsAt: string;
   status: string;
+  appointmentStatus: string;
+  paymentStatus: string;
   timeZone: string;
   totalAmount: number;
   wasPaidWithMercadoPago: boolean;
@@ -97,7 +99,7 @@ export function PublicAppointmentCancellation({ token }: { token: string }) {
         throw new Error(payload?.error ?? "No pudimos cancelar el turno.");
       }
 
-      setDetails((current) => current ? { ...current, canCancel: false, status: "cancelled", refundedAt: payload?.wasRefunded ? new Date().toISOString() : current.refundedAt } : current);
+      setDetails((current) => current ? { ...current, appointmentStatus: "cancelled", canCancel: false, status: "cancelled", refundedAt: payload?.wasRefunded ? new Date().toISOString() : current.refundedAt } : current);
       setCancellationReason("");
       setSuccessMessage(payload?.wasRefunded ? "Turno cancelado. Solicitamos el reembolso en Mercado Pago." : "Turno cancelado correctamente.");
     } catch (error) {
@@ -147,7 +149,7 @@ export function PublicAppointmentCancellation({ token }: { token: string }) {
                     {details.wasPaidWithMercadoPago ? " Si fue pagado por Mercado Pago, vamos a solicitar el reembolso automaticamente." : ""}
                   </p>
                 ) : (
-                  <p>{details.status === "cancelled" ? "Este turno ya fue cancelado." : details.cannotCancelReason}</p>
+                  <p>{details.appointmentStatus === "cancelled" ? "Este turno ya fue cancelado." : details.cannotCancelReason}</p>
                 )}
               </div>
 
@@ -184,7 +186,7 @@ export function PublicAppointmentCancellation({ token }: { token: string }) {
                 disabled={!details.canCancel}
                 onClick={() => void cancelAppointment()}
               >
-                {details.status === "cancelled" ? "Turno cancelado" : "Cancelar turno"}
+                {details.appointmentStatus === "cancelled" ? "Turno cancelado" : "Cancelar turno"}
               </Button>
             </div>
           ) : null}

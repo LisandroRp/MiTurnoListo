@@ -1497,7 +1497,8 @@ function countServiceAppointmentsForMonth(
 ) {
   return appointments.filter((appointment) => (
     appointment.serviceId === serviceId &&
-    appointment.status !== "cancelled" &&
+    appointment.appointmentStatus !== "cancelled" &&
+    appointment.appointmentStatus !== "rescheduled" &&
     appointment.date >= monthRange.start &&
     appointment.date <= monthRange.end
   )).length;

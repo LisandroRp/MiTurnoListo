@@ -130,7 +130,7 @@ export async function confirmMercadoPagoAppointmentPayment({
   const supabase = getSupabaseAdminClient();
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
-    .select("id, business_id, mercadopago_payment_id, status")
+    .select("id, business_id, mercadopago_payment_id, status, payment_status")
     .eq("id", appointmentId)
     .limit(1)
     .maybeSingle();
@@ -190,15 +190,16 @@ export async function confirmMercadoPagoAppointmentPayment({
 
   let shouldSendConfirmationEmails = false;
 
-  if (appointment.status !== "confirmed") {
+  if (appointment.payment_status !== "paid" && appointment.status !== "confirmed") {
     const { data: confirmedAppointment, error: updateError } = await supabase
       .from("appointments")
       .update({
         mercadopago_payment_id: paymentId,
-        status: "confirmed"
+        status: "confirmed",
+        payment_status: "paid"
       })
       .eq("id", appointmentId)
-      .neq("status", "confirmed")
+      .neq("payment_status", "paid")
       .select("id")
       .maybeSingle();
 

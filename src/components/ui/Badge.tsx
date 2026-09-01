@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 
 import { cx } from "@/components/ui/utils";
 
-type BadgeTone = "neutral" | "success" | "warning" | "danger" | "brand";
+type BadgeTone = "neutral" | "success" | "warning" | "danger" | "brand" | "info";
 
 type BadgeProps = {
   children: ReactNode;
@@ -15,7 +15,8 @@ const toneClasses: Record<BadgeTone, string> = {
   success: "bg-success-soft text-success",
   warning: "bg-warning-soft text-warning",
   danger: "bg-danger-soft text-danger",
-  brand: "bg-brand-soft text-brand-strong"
+  brand: "bg-brand-soft text-brand-strong",
+  info: "bg-employee-blue/12 text-employee-blue"
 };
 
 export function Badge({ children, tone = "neutral", className }: BadgeProps) {

@@ -1,5 +1,7 @@
 import {
   Appointment,
+  AppointmentLifecycleStatus,
+  AppointmentPaymentStatus,
   AppointmentSource,
   AppointmentStatus,
   BusinessPaymentSettings,
@@ -76,9 +78,12 @@ type AppointmentRow = {
   starts_at: string;
   ends_at: string;
   status: AppointmentStatus;
+  appointment_status: string | null;
+  payment_status: string | null;
   source: string | null;
   total_amount: number;
   selected_payment_method: Exclude<PaymentMethod, "mixed"> | null;
+  refunded_at: string | null;
   party_size: number;
   customer_name_snapshot: string;
   customer_email_snapshot: string | null;
@@ -222,6 +227,8 @@ export function mapAppointments(appointmentRows: AppointmentRow[], timeZone: str
       startTime: formatTimeForTimeZone(appointment.starts_at, timeZone),
       endTime: formatTimeForTimeZone(appointment.ends_at, timeZone),
       status: appointment.status,
+      appointmentStatus: normalizeAppointmentLifecycleStatus(appointment.appointment_status, appointment.status),
+      paymentStatus: normalizeAppointmentPaymentStatus(appointment.payment_status, appointment.status, appointment.refunded_at),
       source: normalizeAppointmentSource(appointment.source),
       revenue: appointment.total_amount,
       paymentMethod: appointment.selected_payment_method ?? "cash",
@@ -232,6 +239,39 @@ export function mapAppointments(appointmentRows: AppointmentRow[], timeZone: str
       const rightKey = `${right.date}T${right.startTime}`;
       return leftKey.localeCompare(rightKey);
     });
+}
+
+function normalizeAppointmentLifecycleStatus(
+  appointmentStatus: string | null,
+  legacyStatus: AppointmentStatus
+): AppointmentLifecycleStatus {
+  if (
+    appointmentStatus === "scheduled" ||
+    appointmentStatus === "cancelled" ||
+    appointmentStatus === "rescheduled" ||
+    appointmentStatus === "no_show" ||
+    appointmentStatus === "completed"
+  ) {
+    return appointmentStatus;
+  }
+
+  return legacyStatus === "cancelled" ? "cancelled" : "scheduled";
+}
+
+function normalizeAppointmentPaymentStatus(
+  paymentStatus: string | null,
+  legacyStatus: AppointmentStatus,
+  refundedAt: string | null
+): AppointmentPaymentStatus {
+  if (paymentStatus === "pending" || paymentStatus === "paid" || paymentStatus === "refunded") {
+    return paymentStatus;
+  }
+
+  if (refundedAt) {
+    return "refunded";
+  }
+
+  return legacyStatus === "confirmed" ? "paid" : "pending";
 }
 
 function normalizeAppointmentSource(source: string | null): AppointmentSource {
@@ -291,10 +331,10 @@ export function mapBusinessDayBlocks(rows: BusinessDayBlockRow[]): BusinessDayBl
 export function buildDashboardMetrics(appointments: Appointment[], employees: Employee[], referenceDate: string): DashboardMetric[] {
   const currentMonthAppointments = appointments.filter((appointment) => matchesMonth(appointment.date, referenceDate, 0));
   const previousMonthAppointments = appointments.filter((appointment) => matchesMonth(appointment.date, referenceDate, -1));
-  const bookedAppointments = currentMonthAppointments.filter((appointment) => appointment.status !== "cancelled");
-  const previousBookedAppointments = previousMonthAppointments.filter((appointment) => appointment.status !== "cancelled");
-  const cancelledAppointments = currentMonthAppointments.filter((appointment) => appointment.status === "cancelled");
-  const previousCancelledAppointments = previousMonthAppointments.filter((appointment) => appointment.status === "cancelled");
+  const bookedAppointments = currentMonthAppointments.filter((appointment) => appointment.appointmentStatus !== "cancelled" && appointment.appointmentStatus !== "rescheduled");
+  const previousBookedAppointments = previousMonthAppointments.filter((appointment) => appointment.appointmentStatus !== "cancelled" && appointment.appointmentStatus !== "rescheduled");
+  const cancelledAppointments = currentMonthAppointments.filter((appointment) => appointment.appointmentStatus === "cancelled");
+  const previousCancelledAppointments = previousMonthAppointments.filter((appointment) => appointment.appointmentStatus === "cancelled");
   const estimatedRevenue = bookedAppointments.reduce((total, appointment) => total + appointment.revenue, 0);
   const previousEstimatedRevenue = previousBookedAppointments.reduce((total, appointment) => total + appointment.revenue, 0);
   const revenueDelta = estimatedRevenue - previousEstimatedRevenue;

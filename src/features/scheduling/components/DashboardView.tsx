@@ -28,8 +28,9 @@ type DashboardViewProps = {
   referenceDate: string;
   onCreateAppointment: (appointment: Appointment) => Promise<boolean> | void;
   onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
+  onMarkAppointmentNoShow: (appointmentId: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
-  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
+  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean> | void;
 };
 
 export function DashboardView({
@@ -42,6 +43,7 @@ export function DashboardView({
   referenceDate,
   onCreateAppointment,
   onDeleteAppointment,
+  onMarkAppointmentNoShow,
   onMarkAppointmentPaid,
   onRescheduleAppointment
 }: DashboardViewProps) {
@@ -50,7 +52,7 @@ export function DashboardView({
   const [isWalkInConfirmationOpen, setIsWalkInConfirmationOpen] = useState(false);
   const activeServiceIds = new Set(services.filter((service) => !service.isArchived).map((service) => service.id));
   const todaysAppointments = appointments.filter((appointment) => appointment.date === referenceDate && activeServiceIds.has(appointment.serviceId));
-  const activeTodaysAppointments = todaysAppointments.filter((appointment) => appointment.status !== "cancelled");
+  const activeTodaysAppointments = todaysAppointments.filter((appointment) => appointment.appointmentStatus !== "cancelled");
   const todayKey = getDayKeyForDate(referenceDate);
   const employeesWorkingToday = getEmployeesWorkingOnDate(employees, services, appointments, referenceDate);
   const dayAppointments = todaysAppointments
@@ -115,6 +117,7 @@ export function DashboardView({
             messages={messages}
             services={services}
             onDeleteAppointment={onDeleteAppointment}
+            onMarkAppointmentNoShow={onMarkAppointmentNoShow}
             onMarkAppointmentPaid={onMarkAppointmentPaid}
             onRescheduleAppointment={onRescheduleAppointment}
           />
@@ -230,6 +233,7 @@ function DayAgenda({
   messages,
   services,
   onDeleteAppointment,
+  onMarkAppointmentNoShow,
   onMarkAppointmentPaid,
   onRescheduleAppointment
 }: {
@@ -239,8 +243,9 @@ function DayAgenda({
   messages: Messages;
   services: Service[];
   onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
+  onMarkAppointmentNoShow: (appointmentId: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
-  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
+  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean> | void;
 }) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const currentTimeLabel = currentTimePosition !== null ? getCurrentTimeLabel() : "";
@@ -305,6 +310,7 @@ function DayAgenda({
                         serviceName={service?.name ?? "-"}
                         variant="dashboardRow"
                         onDeleteAppointment={onDeleteAppointment}
+                        onMarkAppointmentNoShow={onMarkAppointmentNoShow}
                         onMarkAppointmentPaid={onMarkAppointmentPaid}
                         onRescheduleAppointment={onRescheduleAppointment}
                       />

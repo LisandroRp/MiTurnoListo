@@ -22,6 +22,7 @@ export default function CalendarSectionPage() {
     saveBusinessDayBlock,
     deleteBusinessDayBlock,
     deleteAppointment,
+    markAppointmentNoShow,
     markAppointmentPaid,
     rescheduleAppointment
   } = useScheduling();
@@ -45,6 +46,7 @@ export default function CalendarSectionPage() {
       onSaveBusinessDayBlock={saveBusinessDayBlock}
       onDeleteBusinessDayBlock={deleteBusinessDayBlock}
       onDeleteAppointment={deleteAppointment}
+      onMarkAppointmentNoShow={markAppointmentNoShow}
       onMarkAppointmentPaid={markAppointmentPaid}
       onRescheduleAppointment={rescheduleAppointment}
     />

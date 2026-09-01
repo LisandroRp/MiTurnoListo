@@ -35,6 +35,7 @@ import {
   getSchedulingSnapshotScopeConfig,
   loadSchedulingSnapshot,
   SchedulingSnapshotScope,
+  markAppointmentNoShow as markAppointmentNoShowRequest,
   markAppointmentPaid as markAppointmentPaidRequest,
   rescheduleAppointment as rescheduleAppointmentRequest,
   refreshWorkspaceSubscription as refreshWorkspaceSubscriptionRequest,
@@ -101,8 +102,9 @@ type SchedulingContextValue = {
   toasts: ToastMessage[];
   createAppointment: (appointment: Appointment, addonIds?: string[]) => Promise<boolean>;
   deleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean>;
+  markAppointmentNoShow: (appointmentId: string) => Promise<boolean>;
   markAppointmentPaid: (appointmentId: string) => Promise<boolean>;
-  rescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean>;
+  rescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean>;
   archiveEmployee: (employeeId: string) => Promise<boolean>;
   archiveService: (serviceId: string) => Promise<boolean>;
   deleteEmployee: (employeeId: string) => Promise<boolean>;
@@ -236,7 +238,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     }
   }, [snapshotScope]);
 
-  const hydrateWorkspace = useCallback(async () => {
+  const hydrateWorkspace = useCallback(async (options: { preserveFocusedDate?: boolean } = {}) => {
     try {
       const [snapshot, superAdminStatus] = await Promise.all([
         loadSchedulingSnapshotWithRepair(),
@@ -247,7 +249,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       setLocaleState(snapshot.locale);
       setThemeState(snapshot.theme);
       setThemeOptions(snapshot.themeOptions);
-      setFocusedDate(snapshot.focusedDate);
+      if (!options.preserveFocusedDate) {
+        setFocusedDate(snapshot.focusedDate);
+      }
       setProfileState(snapshot.profile);
 
       if (scopeConfig.includeEmployees) {
@@ -599,7 +603,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
     try {
       await deleteProSubscriptionRequest(businessId);
-      const didRefresh = await hydrateWorkspace();
+      const didRefresh = await hydrateWorkspace({ preserveFocusedDate: true });
 
       if (!didRefresh) {
         showToast({
@@ -668,7 +672,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     return runMutation(
       () => createDashboardAppointment({ addonIds, appointment, businessId, service }),
       copy.bookingFlow.reservationCreated,
-      "Unable to create the appointment."
+      "No se puede crear en este momento."
     );
   }
 
@@ -684,13 +688,25 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  async function rescheduleAppointment(appointmentId: string, date: string, employeeId: string) {
+  async function markAppointmentNoShow(appointmentId: string) {
     if (!businessId) {
       return false;
     }
 
     return runMutation(
-      () => rescheduleAppointmentRequest({ appointmentId, businessId, date, employeeId }),
+      () => markAppointmentNoShowRequest(businessId, appointmentId),
+      copy.toast.appointmentNoShow,
+      "Unable to mark the appointment as no-show."
+    );
+  }
+
+  async function rescheduleAppointment(appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) {
+    if (!businessId) {
+      return false;
+    }
+
+    return runMutation(
+      () => rescheduleAppointmentRequest({ appointmentId, businessId, date, employeeId, endTime, startTime }),
       copy.toast.appointmentRescheduled,
       "Unable to reschedule the appointment."
     );
@@ -816,6 +832,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         archiveService,
         deleteAppointment,
         deleteBusinessDayBlock,
+        markAppointmentNoShow,
         markAppointmentPaid,
         rescheduleAppointment,
         deleteEmployee,

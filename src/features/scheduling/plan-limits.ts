@@ -18,12 +18,16 @@ export function getCurrentMonthRange(referenceDate = new Date()) {
   };
 }
 
-export function getMonthlyAppointmentUsage(appointments: { date: string; status?: string }[], referenceDate = new Date()) {
+export function getMonthlyAppointmentUsage(appointments: { appointmentStatus?: string; date: string; status?: string }[], referenceDate = new Date()) {
   const currentYear = referenceDate.getFullYear();
   const currentMonth = referenceDate.getMonth();
 
   return appointments.filter((appointment) => {
-    if (appointment.status === "cancelled") {
+    if (
+      appointment.appointmentStatus === "cancelled" ||
+      appointment.appointmentStatus === "rescheduled" ||
+      appointment.status === "cancelled"
+    ) {
       return false;
     }
 

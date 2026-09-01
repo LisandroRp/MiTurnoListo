@@ -138,6 +138,8 @@ export function WalkInAppointmentModal({
         startTime: formatTimeInputValue(start),
         endTime: formatTimeInputValue(end),
         status: "confirmed",
+        appointmentStatus: "scheduled",
+        paymentStatus: "paid",
         source: "walk_in",
         revenue: selectedService.price,
         paymentMethod: normalizeWalkInPaymentMethod(selectedService.paymentMethod),

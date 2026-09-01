@@ -75,11 +75,18 @@ type SchedulingMutationPayload =
       businessId: string;
     }
   | {
+      action: "markAppointmentNoShow";
+      appointmentId: string;
+      businessId: string;
+    }
+  | {
       action: "rescheduleAppointment";
       appointmentId: string;
       businessId: string;
       date: string;
       employeeId: string;
+      endTime: string;
+      startTime: string;
     };
 
 type BusinessContext = {
@@ -170,6 +177,10 @@ export async function POST(request: NextRequest) {
       await markAppointmentPaid(supabase, payload.businessId, payload.appointmentId);
     }
 
+    if (payload.action === "markAppointmentNoShow") {
+      await markAppointmentNoShow(supabase, payload.businessId, payload.appointmentId);
+    }
+
     if (payload.action === "rescheduleAppointment") {
       await rescheduleAppointment(
         supabase,
@@ -177,12 +188,24 @@ export async function POST(request: NextRequest) {
         payload.appointmentId,
         payload.date,
         payload.employeeId,
+        payload.startTime,
+        payload.endTime,
         contextResult.context.timeZone
       );
     }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (payload.action === "createAppointment") {
+      const technicalDetails = error instanceof Error && error.cause ? error.cause : error;
+
+      return createApiErrorResponse(new Error("No se puede crear en este momento.", { cause: technicalDetails }), {
+        code: "SCHEDULING_MUTATION_FAILED",
+        fallbackMessage: "No se puede crear en este momento.",
+        status: 500
+      });
+    }
+
     const message = getSafeErrorMessage(error, "Unable to save changes.");
     const status = message.startsWith("PLAN_LIMIT:") ? 402 : message.startsWith("PAYMENT_CONFIG:") || message.startsWith("ARCHIVE_RULE:") || message.startsWith("DAY_BLOCK_CONFIG:") ? 409 : 500;
 
@@ -327,7 +350,8 @@ async function enforceMonthlyAppointmentLimit(
     .from("appointments")
     .select("id", { count: "exact", head: true })
     .eq("business_id", businessId)
-    .neq("status", "cancelled")
+    .neq("appointment_status", "cancelled")
+    .neq("appointment_status", "rescheduled")
     .gte("starts_at", start)
     .lt("starts_at", end);
 
@@ -494,7 +518,8 @@ async function enforceNoAppointmentsInDateRange(
     .from("appointments")
     .select("id", { count: "exact", head: true })
     .eq("business_id", businessId)
-    .neq("status", "cancelled")
+    .neq("appointment_status", "cancelled")
+    .neq("appointment_status", "rescheduled")
     .gte("starts_at", startsAt)
     .lt("starts_at", endsAt);
 
@@ -612,7 +637,8 @@ async function enforceNoFutureAppointments(
     .select("id", { count: "exact", head: true })
     .eq("business_id", businessId)
     .eq(foreignKey, entityId)
-    .neq("status", "cancelled")
+    .neq("appointment_status", "cancelled")
+    .neq("appointment_status", "rescheduled")
     .gte("starts_at", new Date().toISOString());
 
   if (error) {
@@ -822,6 +848,8 @@ async function createAppointment(
       employee_id: appointment.employeeId,
       source: appointment.source ?? "dashboard",
       status: appointment.status,
+      appointment_status: appointment.appointmentStatus,
+      payment_status: appointment.paymentStatus,
       starts_at: startsAt,
       ends_at: endsAt,
       party_size: appointment.partySize,
@@ -835,7 +863,7 @@ async function createAppointment(
     });
 
   if (error) {
-    throw new Error("Unable to create the appointment.");
+    throw new Error("Unable to create the appointment.", { cause: error });
   }
 
   if (selectedAddons.length > 0) {
@@ -868,7 +896,7 @@ async function cancelAppointment(
 
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
-    .select("id, business_id, mercadopago_payment_id, refunded_at, selected_payment_method, status")
+    .select("id, business_id, service_id, source, starts_at, mercadopago_payment_id, refunded_at, selected_payment_method, status, appointment_status")
     .eq("id", appointmentId)
     .limit(1)
     .maybeSingle();
@@ -877,8 +905,33 @@ async function cancelAppointment(
     throw new Error("Unable to find the appointment.");
   }
 
-  if (appointment.status === "cancelled") {
+  if (appointment.appointment_status === "cancelled" || appointment.status === "cancelled") {
     return;
+  }
+
+  if (appointment.appointment_status !== "scheduled") {
+    throw new Error("Unable to cancel this appointment.");
+  }
+
+  if (appointment.source !== "walk_in") {
+    const { data: service, error: serviceError } = await supabase
+      .from("services")
+      .select("cancellation_lead_minutes")
+      .eq("id", appointment.service_id)
+      .eq("business_id", businessId)
+      .limit(1)
+      .maybeSingle();
+
+    if (serviceError || !service) {
+      throw new Error("Unable to validate the cancellation policy.");
+    }
+
+    const cancellationLeadMinutes = service.cancellation_lead_minutes ?? 1440;
+    const cancelUntil = new Date(new Date(appointment.starts_at).getTime() - cancellationLeadMinutes * 60 * 1000);
+
+    if (Date.now() > cancelUntil.getTime()) {
+      throw new Error("Ya no se puede cancelar este turno.");
+    }
   }
 
   const shouldRefundMercadoPago = Boolean(
@@ -900,6 +953,8 @@ async function cancelAppointment(
     .update({
       cancellation_reason: normalizedCancellationReason,
       status: "cancelled",
+      appointment_status: "cancelled",
+      ...(refundedAt ? { payment_status: "refunded" } : {}),
       ...(refundedAt ? { refunded_at: refundedAt } : {})
     })
     .eq("id", appointmentId);
@@ -918,7 +973,7 @@ async function cancelAppointment(
 async function markAppointmentPaid(supabase: SupabaseClient, businessId: string, appointmentId: string) {
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
-    .select("id, business_id, status")
+    .select("id, business_id, status, appointment_status, payment_status")
     .eq("id", appointmentId)
     .limit(1)
     .maybeSingle();
@@ -927,21 +982,74 @@ async function markAppointmentPaid(supabase: SupabaseClient, businessId: string,
     throw new Error("Unable to find the appointment.");
   }
 
-  if (appointment.status === "cancelled") {
+  if (appointment.appointment_status === "cancelled" || appointment.status === "cancelled") {
     throw new Error("Unable to mark a cancelled appointment as paid.");
   }
 
-  if (appointment.status === "confirmed") {
+  if (appointment.appointment_status !== "scheduled") {
+    throw new Error("Unable to mark this appointment as paid.");
+  }
+
+  if (appointment.payment_status === "paid" || appointment.status === "confirmed") {
     return;
   }
 
   const { error: updateError } = await supabase
     .from("appointments")
-    .update({ status: "confirmed" })
+    .update({
+      status: "confirmed",
+      payment_status: "paid"
+    })
     .eq("id", appointmentId);
 
   if (updateError) {
     throw new Error("Unable to mark the appointment as paid.");
+  }
+}
+
+async function markAppointmentNoShow(supabase: SupabaseClient, businessId: string, appointmentId: string) {
+  const { data: appointment, error: appointmentError } = await supabase
+    .from("appointments")
+    .select("id, business_id, source, starts_at, status, appointment_status, payment_status")
+    .eq("id", appointmentId)
+    .limit(1)
+    .maybeSingle();
+
+  if (appointmentError || !appointment || appointment.business_id !== businessId) {
+    throw new Error("Unable to find the appointment.");
+  }
+
+  if (appointment.source === "walk_in") {
+    throw new Error("Los sobreturnos no se marcan como no asistio.");
+  }
+
+  if (appointment.appointment_status === "no_show") {
+    return;
+  }
+
+  if (appointment.appointment_status === "cancelled" || appointment.status === "cancelled") {
+    throw new Error("Unable to mark a cancelled appointment as no-show.");
+  }
+
+  if (appointment.appointment_status !== "scheduled") {
+    throw new Error("Unable to mark this appointment as no-show.");
+  }
+
+  if (appointment.payment_status === "paid" || appointment.status === "confirmed") {
+    return;
+  }
+
+  if (Date.now() < new Date(appointment.starts_at).getTime()) {
+    throw new Error("Unable to mark a future appointment as no-show.");
+  }
+
+  const { error: updateError } = await supabase
+    .from("appointments")
+    .update({ appointment_status: "no_show" })
+    .eq("id", appointmentId);
+
+  if (updateError) {
+    throw new Error("Unable to mark the appointment as no-show.");
   }
 }
 
@@ -951,13 +1059,15 @@ async function rescheduleAppointment(
   appointmentId: string,
   date: string,
   employeeId: string,
+  startTime: string,
+  endTime: string,
   timeZone: string
 ) {
   await enforceDateIsNotBlocked(supabase, businessId, date);
 
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
-    .select("id, service_id, employee_id, starts_at, ends_at, status, source, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+    .select("id, business_id, customer_id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, unit_price_amount, deposit_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
     .eq("id", appointmentId)
     .eq("business_id", businessId)
     .limit(1)
@@ -967,8 +1077,16 @@ async function rescheduleAppointment(
     throw new Error("Unable to find the appointment.");
   }
 
-  if (appointment.status === "cancelled") {
-    throw new Error("Unable to reschedule a cancelled appointment.");
+  if (appointment.appointment_status === "cancelled" || appointment.status === "cancelled") {
+    throw new Error("Unable to reschedule this appointment.");
+  }
+
+  if (appointment.appointment_status !== "scheduled") {
+    throw new Error("Unable to reschedule this appointment.");
+  }
+
+  if (!isValidTimeValue(startTime) || !isValidTimeValue(endTime) || endTime <= startTime) {
+    throw new Error("The selected time is invalid.");
   }
 
   const [
@@ -1008,7 +1126,7 @@ async function rescheduleAppointment(
       .eq("employee_id", employeeId),
     supabase
       .from("appointments")
-      .select("id, service_id, employee_id, starts_at, ends_at, status, source, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+      .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
       .eq("business_id", businessId)
   ]);
 
@@ -1051,20 +1169,76 @@ async function rescheduleAppointment(
   );
   const selectedSlot = availableSlots.find((slot) => (
     slot.date === date &&
-    slot.startTime === currentAppointment.startTime &&
-    slot.endTime === currentAppointment.endTime
+    slot.startTime === startTime &&
+    slot.endTime === endTime
   ));
 
   if (!selectedSlot) {
     throw new Error("The selected professional is not available at that time.");
   }
 
+  const nextAppointmentId = crypto.randomUUID();
+  const nextStartsAt = buildIsoInTimeZone(date, startTime, timeZone);
+  const nextEndsAt = buildIsoInTimeZone(date, endTime, timeZone);
+  const { error: insertError } = await supabase
+    .from("appointments")
+    .insert({
+      id: nextAppointmentId,
+      business_id: businessId,
+      customer_id: appointment.customer_id,
+      service_id: appointment.service_id,
+      employee_id: employeeId,
+      source: appointment.source,
+      status: appointment.payment_status === "paid" ? "confirmed" : "pending",
+      appointment_status: "scheduled",
+      payment_status: appointment.payment_status,
+      starts_at: nextStartsAt,
+      ends_at: nextEndsAt,
+      party_size: appointment.party_size,
+      unit_price_amount: appointment.unit_price_amount,
+      total_amount: appointment.total_amount,
+      deposit_amount: appointment.deposit_amount,
+      selected_payment_method: appointment.selected_payment_method,
+      customer_name_snapshot: appointment.customer_name_snapshot,
+      customer_email_snapshot: appointment.customer_email_snapshot,
+      customer_phone_snapshot: appointment.customer_phone_snapshot,
+      notes: "",
+      rescheduled_from_appointment_id: appointmentId
+    });
+
+  if (insertError) {
+    throw new Error("Unable to create the rescheduled appointment.", { cause: insertError });
+  }
+
+  const { data: addonRows, error: addonsLoadError } = await supabase
+    .from("appointment_addons")
+    .select("service_addon_id, name_snapshot, price_amount_snapshot")
+    .eq("appointment_id", appointmentId);
+
+  if (addonsLoadError) {
+    throw new Error("Unable to load appointment add-ons.", { cause: addonsLoadError });
+  }
+
+  if ((addonRows ?? []).length > 0) {
+    const { error: addonsInsertError } = await supabase
+      .from("appointment_addons")
+      .insert((addonRows ?? []).map((addon) => ({
+        appointment_id: nextAppointmentId,
+        service_addon_id: addon.service_addon_id,
+        name_snapshot: addon.name_snapshot,
+        price_amount_snapshot: addon.price_amount_snapshot
+      })));
+
+    if (addonsInsertError) {
+      throw new Error("Unable to copy appointment add-ons.", { cause: addonsInsertError });
+    }
+  }
+
   const { error: updateError } = await supabase
     .from("appointments")
     .update({
-      employee_id: employeeId,
-      starts_at: buildIsoInTimeZone(date, currentAppointment.startTime, timeZone),
-      ends_at: buildIsoInTimeZone(date, currentAppointment.endTime, timeZone)
+      appointment_status: "rescheduled",
+      rescheduled_to_appointment_id: nextAppointmentId
     })
     .eq("id", appointmentId)
     .eq("business_id", businessId);
@@ -1183,4 +1357,8 @@ function isValidDateValue(value: string) {
 
   const date = new Date(`${value}T12:00:00`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function isValidTimeValue(value: string) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }

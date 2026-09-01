@@ -195,7 +195,7 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
     scopeConfig.includeAppointments
       ? supabase
         .from("appointments")
-        .select("id, service_id, employee_id, starts_at, ends_at, status, source, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+        .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
         .eq("business_id", businessId)
         .order("starts_at", { ascending: true })
       : createSkippedQueryResult([]),
@@ -416,23 +416,37 @@ export async function markAppointmentPaid(businessId: string, appointmentId: str
   });
 }
 
+export async function markAppointmentNoShow(businessId: string, appointmentId: string) {
+  await runSchedulingMutation({
+    action: "markAppointmentNoShow",
+    appointmentId,
+    businessId
+  });
+}
+
 export async function rescheduleAppointment({
   appointmentId,
   businessId,
   date,
-  employeeId
+  employeeId,
+  endTime,
+  startTime
 }: {
   appointmentId: string;
   businessId: string;
   date: string;
   employeeId: string;
+  endTime: string;
+  startTime: string;
 }) {
   await runSchedulingMutation({
     action: "rescheduleAppointment",
     appointmentId,
     businessId,
     date,
-    employeeId
+    employeeId,
+    endTime,
+    startTime
   });
 }
 

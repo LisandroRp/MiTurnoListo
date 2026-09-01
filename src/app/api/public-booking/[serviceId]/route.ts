@@ -91,7 +91,7 @@ export async function GET(_: NextRequest, context: RouteContext) {
       .select("id, employee_id, weekday, start_time, end_time"),
     supabase
       .from("appointments")
-      .select("id, service_id, employee_id, starts_at, ends_at, status, source, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+      .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
       .eq("business_id", businessId)
       .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[]),
     supabase
@@ -316,7 +316,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .eq("employee_id", payload.employeeId),
       supabase
         .from("appointments")
-        .select("id, service_id, employee_id, starts_at, ends_at, status, source, total_amount, selected_payment_method, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+        .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
         .eq("business_id", service.business_id)
         .eq("employee_id", payload.employeeId)
         .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[]),
@@ -478,6 +478,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
           employee_id: payload.employeeId,
           source: "public",
           status: "pending",
+          appointment_status: "scheduled",
+          payment_status: "pending",
           starts_at: startsAt,
           ends_at: endsAt,
           party_size: payload.partySize,
@@ -519,6 +521,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         employee_id: payload.employeeId,
         source: "public",
         status: "pending",
+        appointment_status: "scheduled",
+        payment_status: "pending",
         starts_at: startsAt,
         ends_at: endsAt,
         party_size: payload.partySize,
@@ -655,7 +659,8 @@ async function getMonthlyAppointmentLimitStatus(
     .from("appointments")
     .select("id", { count: "exact", head: true })
     .eq("business_id", businessId)
-    .neq("status", "cancelled")
+    .neq("appointment_status", "cancelled")
+    .neq("appointment_status", "rescheduled")
     .gte("starts_at", start)
     .lt("starts_at", end);
 
@@ -693,7 +698,8 @@ async function enforceOneCustomerBookingForSelectedDate(
     .select("id", { count: "exact", head: true })
     .eq("business_id", businessId)
     .ilike("customer_email_snapshot", customerEmail)
-    .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[])
+    .neq("appointment_status", "cancelled")
+    .neq("appointment_status", "rescheduled")
     .gte("starts_at", dayStart)
     .lt("starts_at", dayEnd);
 
@@ -729,7 +735,8 @@ async function enforceOneCustomerBookingSubmissionPerDay(
     .select("id", { count: "exact", head: true })
     .eq("business_id", businessId)
     .ilike("customer_email_snapshot", customerEmail)
-    .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[])
+    .neq("appointment_status", "cancelled")
+    .neq("appointment_status", "rescheduled")
     .gte("created_at", dayStart)
     .lt("created_at", dayEnd);
 

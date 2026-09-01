@@ -437,7 +437,7 @@ export function PersonnelView({
           const todayAppointments = appointments.filter((appointment) => (
             appointment.employeeId === employee.id &&
             appointment.date === referenceDate &&
-            appointment.status !== "cancelled"
+            appointment.appointmentStatus !== "cancelled"
           ));
           const weeklyOccupation = getWeeklyOccupation(employee, employeeServices, appointments, referenceDate);
 

@@ -10,6 +10,7 @@ import {
   FiSearch,
   FiTrash2,
   FiUser,
+  FiUserX,
   FiX
 } from "react-icons/fi";
 
@@ -22,7 +23,7 @@ import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
 import { SectionHeader } from "@/components/composed/SectionHeader";
-import { getAvailableSlotsForEmployee, isDateBlocked } from "@/features/booking-flow/utils/booking";
+import { getAvailableSlotsForEmployees, isDateBlocked } from "@/features/booking-flow/utils/booking";
 import { BusinessDayBlocksModal } from "@/features/scheduling/components/CalendarView/BusinessDayBlocksModal";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, getMonthlyAppointmentUsage, isFreePlan } from "@/features/scheduling/plan-limits";
@@ -53,8 +54,9 @@ type CalendarViewProps = {
   onToggleEmployee: (employeeId: string) => void;
   onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
   onDeleteBusinessDayBlock: (dayBlockId: string) => Promise<boolean> | void;
+  onMarkAppointmentNoShow: (appointmentId: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
-  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
+  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean> | void;
   onSaveBusinessDayBlock: (dayBlock: BusinessDayBlock) => Promise<boolean> | void;
 };
 
@@ -77,6 +79,7 @@ export function CalendarView({
   onToggleEmployee,
   onDeleteAppointment,
   onDeleteBusinessDayBlock,
+  onMarkAppointmentNoShow,
   onMarkAppointmentPaid,
   onRescheduleAppointment,
   onSaveBusinessDayBlock
@@ -89,9 +92,8 @@ export function CalendarView({
     employee.name.toLowerCase().includes(employeeQuery.toLowerCase())
   );
   const safeFocusedDate = getSafeFocusedDate(focusedDate);
-  const activeAppointments = appointments.filter((appointment) => appointment.status !== "cancelled");
+  const activeAppointments = appointments.filter((appointment) => appointment.appointmentStatus !== "cancelled");
   const visibleAppointments = appointments.filter((appointment) => (
-    appointment.status !== "cancelled" &&
     selectableEmployeeIds.has(appointment.employeeId) &&
     selectedEmployeeIds.includes(appointment.employeeId)
   ));
@@ -242,6 +244,7 @@ export function CalendarView({
               allAppointments={activeAppointments}
               appointments={visibleAppointments.filter((appointment) => appointment.date === safeFocusedDate)}
               onDeleteAppointment={onDeleteAppointment}
+              onMarkAppointmentNoShow={onMarkAppointmentNoShow}
               onMarkAppointmentPaid={onMarkAppointmentPaid}
               onRescheduleAppointment={onRescheduleAppointment}
             />
@@ -262,6 +265,7 @@ export function CalendarView({
                 onModeChange("day");
               }}
               onDeleteAppointment={onDeleteAppointment}
+              onMarkAppointmentNoShow={onMarkAppointmentNoShow}
               onMarkAppointmentPaid={onMarkAppointmentPaid}
               onRescheduleAppointment={onRescheduleAppointment}
             />
@@ -374,8 +378,9 @@ type CalendarContentProps = {
   allAppointments: Appointment[];
   appointments: Appointment[];
   onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
+  onMarkAppointmentNoShow: (appointmentId: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
-  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
+  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean> | void;
 };
 
 function DayCalendar({
@@ -388,6 +393,7 @@ function DayCalendar({
   allAppointments,
   appointments,
   onDeleteAppointment,
+  onMarkAppointmentNoShow,
   onMarkAppointmentPaid,
   onRescheduleAppointment
 }: CalendarContentProps) {
@@ -441,6 +447,7 @@ function DayCalendar({
                       appointments={allAppointments}
                       businessDayBlocks={businessDayBlocks}
                       onDeleteAppointment={onDeleteAppointment}
+                      onMarkAppointmentNoShow={onMarkAppointmentNoShow}
                       onMarkAppointmentPaid={onMarkAppointmentPaid}
                       onRescheduleAppointment={onRescheduleAppointment}
                     />
@@ -466,8 +473,9 @@ type DateGroupedCalendarProps = {
   appointments: Appointment[];
   onDateClick: (date: string) => void;
   onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
+  onMarkAppointmentNoShow: (appointmentId: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
-  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
+  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean> | void;
 };
 
 function DateGroupedCalendar({
@@ -481,6 +489,7 @@ function DateGroupedCalendar({
   appointments,
   onDateClick,
   onDeleteAppointment,
+  onMarkAppointmentNoShow,
   onMarkAppointmentPaid,
   onRescheduleAppointment
 }: DateGroupedCalendarProps) {
@@ -549,6 +558,7 @@ function DateGroupedCalendar({
                       appointments={allAppointments}
                       businessDayBlocks={businessDayBlocks}
                       onDeleteAppointment={onDeleteAppointment}
+                      onMarkAppointmentNoShow={onMarkAppointmentNoShow}
                       onMarkAppointmentPaid={onMarkAppointmentPaid}
                       onRescheduleAppointment={onRescheduleAppointment}
                     />
@@ -575,8 +585,9 @@ type AppointmentCardProps = {
   appointments: Appointment[];
   businessDayBlocks?: BusinessDayBlock[];
   onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
+  onMarkAppointmentNoShow: (appointmentId: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
-  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string) => Promise<boolean> | void;
+  onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean> | void;
 };
 
 export function AppointmentCard({
@@ -591,6 +602,7 @@ export function AppointmentCard({
   appointments,
   businessDayBlocks = [],
   onDeleteAppointment,
+  onMarkAppointmentNoShow,
   onMarkAppointmentPaid,
   onRescheduleAppointment
 }: AppointmentCardProps) {
@@ -600,15 +612,39 @@ export function AppointmentCard({
   const [cancellationReason, setCancellationReason] = useState("");
   const [cancellationError, setCancellationError] = useState("");
   const [rescheduleDate, setRescheduleDate] = useState(appointment.date);
+  const [rescheduleMonthDate, setRescheduleMonthDate] = useState(getMonthDateKey(appointment.date));
   const [rescheduleEmployeeId, setRescheduleEmployeeId] = useState(appointment.employeeId);
-  const [loadingAction, setLoadingAction] = useState<"paid" | "cancel" | "reschedule" | null>(null);
+  const [rescheduleSlotKey, setRescheduleSlotKey] = useState(`${appointment.startTime}-${appointment.endTime}`);
+  const [loadingAction, setLoadingAction] = useState<"paid" | "cancel" | "noShow" | "reschedule" | null>(null);
   const appointmentToneClass = employee ? appointmentToneClasses[employee.color] : "border-brand bg-brand-soft";
-  const paymentState = getPaymentState(appointment.status);
   const sourceLabel = messages.calendar.sources[getAppointmentSourceMessageKey(appointment.source)];
-  const availableRescheduleEmployees = service
-    ? getRescheduleEmployees(service, employees, appointments, appointment, rescheduleDate, businessDayBlocks)
+  const displayStatus = getAppointmentDisplayStatus(appointment, messages);
+  const canCancelAppointment = canCancelAppointmentFromModal(appointment, service);
+  const canMarkPaid = appointment.appointmentStatus === "scheduled" && appointment.paymentStatus === "pending";
+  const canOpenReschedule = appointment.appointmentStatus === "scheduled";
+  const canMarkNoShow = (
+    appointment.source !== "walk_in" &&
+    appointment.paymentStatus !== "paid" &&
+    appointment.appointmentStatus === "scheduled" &&
+    hasAppointmentStarted(appointment)
+  );
+  const availableRescheduleMonthSlots = service
+    ? getRescheduleSlotsForMonth(service, employees, appointments, appointment, rescheduleMonthDate, businessDayBlocks)
     : [];
-  const canReschedule = Boolean(service && rescheduleDate && rescheduleEmployeeId && availableRescheduleEmployees.some((item) => item.id === rescheduleEmployeeId));
+  const availableRescheduleSlots = service
+    ? availableRescheduleMonthSlots.filter((slot) => slot.date === rescheduleDate)
+    : [];
+  const selectedRescheduleSlot = availableRescheduleSlots.find((slot) => getSlotKey(slot) === rescheduleSlotKey) ?? null;
+  const availableRescheduleEmployees = service
+    ? getRescheduleEmployeesForSlot(service, employees, selectedRescheduleSlot)
+    : [];
+  const canReschedule = Boolean(
+    service &&
+    rescheduleDate &&
+    rescheduleEmployeeId &&
+    selectedRescheduleSlot &&
+    availableRescheduleEmployees.some((item) => item.id === rescheduleEmployeeId)
+  );
 
   useEffect(() => {
     if (!isOpen) {
@@ -632,9 +668,11 @@ export function AppointmentCard({
     if (!isOpen) {
       setIsRescheduling(false);
       setRescheduleDate(appointment.date);
+      setRescheduleMonthDate(getMonthDateKey(appointment.date));
       setRescheduleEmployeeId(appointment.employeeId);
+      setRescheduleSlotKey(`${appointment.startTime}-${appointment.endTime}`);
     }
-  }, [appointment.date, appointment.employeeId, isOpen]);
+  }, [appointment.date, appointment.employeeId, appointment.endTime, appointment.startTime, isOpen]);
 
   async function deleteAppointment() {
     const trimmedReason = cancellationReason.trim();
@@ -688,10 +726,33 @@ export function AppointmentCard({
     }
   }
 
+  async function markAppointmentNoShow() {
+    setLoadingAction("noShow");
+    try {
+      const didMarkNoShow = await onMarkAppointmentNoShow(appointment.id);
+
+      if (didMarkNoShow !== false) {
+        setIsOpen(false);
+      }
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
   async function rescheduleAppointment() {
+    if (!selectedRescheduleSlot) {
+      return;
+    }
+
     setLoadingAction("reschedule");
     try {
-      const didReschedule = await onRescheduleAppointment(appointment.id, rescheduleDate, rescheduleEmployeeId);
+      const didReschedule = await onRescheduleAppointment(
+        appointment.id,
+        rescheduleDate,
+        rescheduleEmployeeId,
+        selectedRescheduleSlot.startTime,
+        selectedRescheduleSlot.endTime
+      );
 
       if (didReschedule !== false) {
         setIsOpen(false);
@@ -703,15 +764,56 @@ export function AppointmentCard({
 
   function updateRescheduleDate(date: string) {
     setRescheduleDate(date);
+    setRescheduleMonthDate(getMonthDateKey(date));
+
+    if (!service) {
+      setRescheduleSlotKey("");
+      setRescheduleEmployeeId("");
+      return;
+    }
+
+    const nextSlots = getRescheduleSlotsForMonth(
+      service,
+      employees,
+      appointments,
+      appointment,
+      getMonthDateKey(date),
+      businessDayBlocks
+    ).filter((slot) => slot.date === date);
+    const nextSlotKey = nextSlots.some((slot) => getSlotKey(slot) === rescheduleSlotKey)
+      ? rescheduleSlotKey
+      : getSlotKey(nextSlots[0]);
+    const nextSlot = nextSlots.find((slot) => getSlotKey(slot) === nextSlotKey) ?? null;
+    const nextEmployees = getRescheduleEmployeesForSlot(service, employees, nextSlot);
+    const nextEmployeeId = nextEmployees.some((item) => item.id === rescheduleEmployeeId)
+      ? rescheduleEmployeeId
+      : nextEmployees[0]?.id ?? "";
+
+    setRescheduleSlotKey(nextSlotKey);
+    setRescheduleEmployeeId(nextEmployeeId);
+  }
+
+  function moveRescheduleMonth(direction: "previous" | "next") {
+    const currentDate = new Date(`${rescheduleMonthDate}T12:00:00`);
+    currentDate.setMonth(currentDate.getMonth() + (direction === "next" ? 1 : -1), 1);
+    setRescheduleMonthDate(currentDate.toISOString().slice(0, 10));
+  }
+
+  function updateRescheduleSlot(slotKey: string) {
+    setRescheduleSlotKey(slotKey);
 
     if (!service) {
       setRescheduleEmployeeId("");
       return;
     }
 
-    const nextEmployees = getRescheduleEmployees(service, employees, appointments, appointment, date, businessDayBlocks);
-    const currentEmployeeIsAvailable = nextEmployees.some((item) => item.id === rescheduleEmployeeId);
-    setRescheduleEmployeeId(currentEmployeeIsAvailable ? rescheduleEmployeeId : nextEmployees[0]?.id ?? "");
+    const nextSlot = availableRescheduleSlots.find((slot) => getSlotKey(slot) === slotKey) ?? null;
+    const nextEmployees = getRescheduleEmployeesForSlot(service, employees, nextSlot);
+    const nextEmployeeId = nextEmployees.some((item) => item.id === rescheduleEmployeeId)
+      ? rescheduleEmployeeId
+      : nextEmployees[0]?.id ?? "";
+
+    setRescheduleEmployeeId(nextEmployeeId);
   }
 
   const trigger = variant === "dashboardRow" ? (
@@ -722,14 +824,13 @@ export function AppointmentCard({
     >
       <span className="flex min-w-0 items-center gap-2">
         <span className="truncate font-semibold text-primary">{appointment.customerName}</span>
-        <Badge tone="neutral">{sourceLabel}</Badge>
       </span>
       <span className="truncate text-muted">{serviceName}</span>
       <span className="truncate text-muted">{employeeName}</span>
       <span className="whitespace-nowrap text-muted">{appointment.startTime} - {appointment.endTime}</span>
       <span>
-        <Badge tone={appointment.status === "confirmed" ? "success" : appointment.status === "pending" ? "warning" : "danger"}>
-          {messages.statuses[appointment.status]}
+        <Badge tone={displayStatus.tone}>
+          {displayStatus.label}
         </Badge>
       </span>
     </button>
@@ -752,12 +853,9 @@ export function AppointmentCard({
       <p className="mt-3 text-xs font-semibold text-brand-strong">
         {appointment.startTime} - {appointment.endTime}
       </p>
-      <span className={cx(
-        "mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-bold",
-        paymentState === "paid" ? "bg-success-soft text-success" : "bg-warning-soft text-warning"
-      )}>
-        {paymentState === "paid" ? messages.calendar.paymentPaid : messages.calendar.paymentPending}
-      </span>
+      <Badge tone={displayStatus.tone} className="mt-3">
+        {displayStatus.label}
+      </Badge>
     </button>
   );
 
@@ -792,8 +890,13 @@ export function AppointmentCard({
           <AppointmentDetail icon={<FiCalendar />} label={messages.calendar.dateAndTime} value={`${getDateLabel(appointment.date)} · ${appointment.startTime} - ${appointment.endTime}`} />
           <AppointmentDetail
             icon={<FiCheck />}
+            label={messages.calendar.appointmentStatus}
+            value={messages.appointmentStatuses[appointment.appointmentStatus]}
+          />
+          <AppointmentDetail
+            icon={<FiCheck />}
             label={messages.calendar.paymentStatus}
-            value={paymentState === "paid" ? messages.calendar.paymentPaid : messages.calendar.paymentPending}
+            value={messages.paymentStatuses[appointment.paymentStatus]}
           />
         </div>
 
@@ -803,20 +906,36 @@ export function AppointmentCard({
               <h3 className="text-sm font-bold text-brand-strong">{messages.calendar.rescheduleTitle}</h3>
               <p className="mt-1 text-sm text-muted">{messages.calendar.rescheduleDescription}</p>
             </div>
-            <TextField
-              label={messages.calendar.newDate}
-              name={`reschedule-date-${appointment.id}`}
-              type="date"
-              min={getTodayDateValue()}
-              value={rescheduleDate}
+            <RescheduleDatePicker
+              availableSlots={availableRescheduleMonthSlots}
+              businessDayBlocks={businessDayBlocks}
+              messages={messages}
+              monthDate={rescheduleMonthDate}
+              selectedDate={rescheduleDate}
+              onMonthChange={moveRescheduleMonth}
+              onSelectDate={updateRescheduleDate}
+            />
+            <SelectField
+              label={messages.calendar.newTime}
+              name={`reschedule-time-${appointment.id}`}
+              value={rescheduleSlotKey}
+              disabled={availableRescheduleSlots.length === 0}
               required
-              onChange={(event) => updateRescheduleDate(event.target.value)}
+              options={
+                availableRescheduleSlots.length > 0
+                  ? availableRescheduleSlots.map((slot) => ({
+                    value: getSlotKey(slot),
+                    label: `${slot.startTime} - ${slot.endTime}`
+                  }))
+                  : [{ value: "", label: messages.calendar.noTimeAvailable, disabled: true }]
+              }
+              onChange={(event) => updateRescheduleSlot(event.target.value)}
             />
             <SelectField
               label={messages.calendar.chooseProfessional}
               name={`reschedule-employee-${appointment.id}`}
               value={rescheduleEmployeeId}
-              disabled={availableRescheduleEmployees.length === 0}
+              disabled={!selectedRescheduleSlot || availableRescheduleEmployees.length === 0}
               required
               options={
                 availableRescheduleEmployees.length > 0
@@ -843,7 +962,7 @@ export function AppointmentCard({
                 icon={<FiCalendar />}
                 isLoading={loadingAction === "reschedule"}
                 disabled={loadingAction !== null || !canReschedule}
-                className="w-full"
+                className="w-full whitespace-nowrap"
                 onClick={() => void rescheduleAppointment()}
               >
                 {messages.calendar.confirmReschedule}
@@ -851,12 +970,12 @@ export function AppointmentCard({
             </>
           ) : (
             <>
-              {paymentState === "pending" ? (
+              {appointment.paymentStatus === "pending" ? (
                 <Button
                   variant="secondary"
                   icon={<FiCheck />}
                   isLoading={loadingAction === "paid"}
-                  disabled={loadingAction !== null}
+                  disabled={loadingAction !== null || !canMarkPaid}
                   className="w-full whitespace-nowrap !border-success !bg-success px-3 !text-white hover:!bg-success-soft hover:!text-success"
                   onClick={() => void markAppointmentPaid()}
                 >
@@ -870,7 +989,7 @@ export function AppointmentCard({
               <Button
                 variant="secondary"
                 icon={<FiCalendar />}
-                disabled={loadingAction !== null}
+                disabled={loadingAction !== null || !canOpenReschedule}
                 className="w-full"
                 onClick={() => setIsRescheduling(true)}
               >
@@ -879,12 +998,24 @@ export function AppointmentCard({
               <Button
                 variant="danger"
                 icon={<FiTrash2 />}
-                disabled={loadingAction !== null}
+                disabled={loadingAction !== null || !canCancelAppointment}
                 className="w-full sm:col-span-2"
                 onClick={openCancellationModal}
               >
                 {messages.calendar.cancelAppointment}
               </Button>
+              {appointment.source !== "walk_in" ? (
+                <Button
+                  variant="secondary"
+                  icon={<FiUserX />}
+                  isLoading={loadingAction === "noShow"}
+                  disabled={loadingAction !== null || !canMarkNoShow}
+                  className="w-full sm:col-span-2"
+                  onClick={() => void markAppointmentNoShow()}
+                >
+                  {appointment.appointmentStatus === "no_show" ? messages.calendar.noShowMarked : messages.calendar.markNoShow}
+                </Button>
+              ) : null}
             </>
           )}
         </div>
@@ -957,49 +1088,185 @@ function AppointmentDetail({ icon, label, value }: { icon: ReactNode; label: str
   );
 }
 
-function getRescheduleEmployees(
+function RescheduleDatePicker({
+  availableSlots,
+  businessDayBlocks,
+  messages,
+  monthDate,
+  selectedDate,
+  onMonthChange,
+  onSelectDate
+}: {
+  availableSlots: { date: string }[];
+  businessDayBlocks: BusinessDayBlock[];
+  messages: Messages;
+  monthDate: string;
+  selectedDate: string;
+  onMonthChange: (direction: "previous" | "next") => void;
+  onSelectDate: (date: string) => void;
+}) {
+  const todayDate = getTodayDateValue();
+  const availableDates = new Set(availableSlots.map((slot) => slot.date));
+  const monthDays = getMonthGridDates(monthDate);
+  const monthLabel = capitalizeFirstLetter(new Intl.DateTimeFormat("es-AR", {
+    month: "long",
+    year: "numeric"
+  }).format(new Date(`${monthDate}T12:00:00`)));
+  const weekdayLabels = ["D", "L", "M", "M", "J", "V", "S"];
+
+  return (
+    <div className="rounded-xl border border-subtle bg-surface p-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-bold text-primary">{messages.calendar.newDate}</p>
+        <div className="flex items-center gap-2">
+          <Button
+            aria-label={messages.calendar.previousPeriod}
+            icon={<FiChevronLeft />}
+            size="icon"
+            variant="ghost"
+            onClick={() => onMonthChange("previous")}
+          />
+          <p className="min-w-36 text-center text-sm font-semibold capitalize text-primary">{monthLabel}</p>
+          <Button
+            aria-label={messages.calendar.nextPeriod}
+            icon={<FiChevronRight />}
+            size="icon"
+            variant="ghost"
+            onClick={() => onMonthChange("next")}
+          />
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs font-bold uppercase text-muted">
+        {weekdayLabels.map((label, index) => (
+          <span key={`${label}-${index}`}>{label}</span>
+        ))}
+      </div>
+      <div className="mt-2 grid grid-cols-7 gap-1">
+        {monthDays.map((date, index) => {
+          if (!date) {
+            return <span key={`empty-${index}`} className="aspect-square" />;
+          }
+
+          const isBlocked = isDateBlocked(date, businessDayBlocks);
+          const isAvailable = availableDates.has(date);
+          const isDisabled = date < todayDate || isBlocked || !isAvailable;
+          const isSelected = selectedDate === date;
+
+          return (
+            <button
+              key={date}
+              type="button"
+              disabled={isDisabled}
+              title={isBlocked ? messages.calendar.closedDay : isAvailable ? messages.calendar.newDate : messages.calendar.noTimeAvailable}
+              className={cx(
+                "aspect-square rounded-lg border text-sm font-bold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+                isSelected ? "border-brand bg-brand-soft text-brand-strong" : "border-subtle bg-input text-primary",
+                isDisabled ? "cursor-not-allowed opacity-35" : "cursor-pointer hover:border-brand hover:bg-brand-soft hover:text-brand-strong",
+                isBlocked ? "bg-warning-soft text-warning" : ""
+              )}
+              onClick={() => onSelectDate(date)}
+            >
+              {Number(date.slice(-2))}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function getRescheduleSlotsForMonth(
   service: Service,
   employees: Employee[],
   appointments: Appointment[],
   appointment: Appointment,
-  date: string,
+  monthDate: string,
   businessDayBlocks: BusinessDayBlock[]
 ) {
-  if (isDateBlocked(date, businessDayBlocks)) {
+  return getAvailableSlotsForEmployees(
+    service,
+    employees.filter((employee) => !employee.isArchived && employee.isVisible && service.employeeIds.includes(employee.id)),
+    appointments.filter((item) => item.id !== appointment.id),
+    new Date(`${monthDate}T12:00:00`),
+    appointment.partySize,
+    new Date(),
+    businessDayBlocks
+  );
+}
+
+function getRescheduleEmployeesForSlot(
+  service: Service,
+  employees: Employee[],
+  slot: { employeeAvailability: { employeeId: string }[] } | null
+) {
+  if (!slot) {
     return [];
   }
 
-  const activeAppointments = appointments.filter((item) => item.id !== appointment.id);
+  const availableEmployeeIds = new Set(slot.employeeAvailability.map((item) => item.employeeId));
 
-  return employees.filter((employee) => {
-    if (employee.isArchived || !employee.isVisible || !service.employeeIds.includes(employee.id)) {
-      return false;
-    }
-
-    const slots = getAvailableSlotsForEmployee(
-      service,
-      employee,
-      activeAppointments,
-      new Date(`${date}T12:00:00`),
-      appointment.partySize,
-      new Date(),
-      businessDayBlocks
-    );
-
-    return slots.some((slot) => (
-      slot.date === date &&
-      slot.startTime === appointment.startTime &&
-      slot.endTime === appointment.endTime
-    ));
-  });
+  return employees.filter((employee) => (
+    !employee.isArchived &&
+    employee.isVisible &&
+    service.employeeIds.includes(employee.id) &&
+    availableEmployeeIds.has(employee.id)
+  ));
 }
 
-function getPaymentState(status: Appointment["status"]) {
-  return status === "confirmed" ? "paid" : "pending";
+function getSlotKey(slot?: { endTime: string; startTime: string }) {
+  return slot ? `${slot.startTime}-${slot.endTime}` : "";
 }
 
 function getAppointmentSourceMessageKey(source: Appointment["source"]) {
   return source === "walk_in" ? "walkIn" : source;
+}
+
+function getAppointmentDisplayStatus(appointment: Appointment, messages: Messages) {
+  if (appointment.appointmentStatus === "cancelled") {
+    return { label: messages.appointmentDisplayStatuses.cancelled, tone: "danger" as const };
+  }
+
+  if (appointment.appointmentStatus === "rescheduled") {
+    return { label: messages.appointmentDisplayStatuses.rescheduled, tone: "info" as const };
+  }
+
+  if (appointment.appointmentStatus === "no_show") {
+    return { label: messages.appointmentDisplayStatuses.noShow, tone: "neutral" as const };
+  }
+
+  if (appointment.appointmentStatus === "completed") {
+    return { label: messages.appointmentDisplayStatuses.completed, tone: "success" as const };
+  }
+
+  if (appointment.paymentStatus === "paid") {
+    return { label: messages.appointmentDisplayStatuses.confirmed, tone: "success" as const };
+  }
+
+  return { label: messages.appointmentDisplayStatuses.paymentPending, tone: "warning" as const };
+}
+
+function canCancelAppointmentFromModal(appointment: Appointment, service?: Service) {
+  if (appointment.appointmentStatus === "cancelled" || appointment.appointmentStatus === "rescheduled") {
+    return false;
+  }
+
+  if (appointment.source === "walk_in") {
+    return true;
+  }
+
+  if (!service) {
+    return false;
+  }
+
+  const startsAt = new Date(`${appointment.date}T${appointment.startTime}:00`);
+  const cancelUntil = new Date(startsAt.getTime() - service.cancellationLeadMinutes * 60 * 1000);
+
+  return Date.now() <= startsAt.getTime() && Date.now() <= cancelUntil.getTime();
+}
+
+function hasAppointmentStarted(appointment: Appointment) {
+  return Date.now() >= new Date(`${appointment.date}T${appointment.startTime}:00`).getTime();
 }
 
 function MonthCalendar({
@@ -1119,6 +1386,21 @@ function getMonthDates(focusedDate: string) {
     const day = String(index + 1).padStart(2, "0");
     return `${year}-${String(month + 1).padStart(2, "0")}-${day}`;
   });
+}
+
+function getMonthGridDates(monthDate: string) {
+  const monthDates = getMonthDates(monthDate);
+  const firstDate = new Date(`${monthDates[0]}T12:00:00`);
+  const leadingEmptyDays = firstDate.getDay();
+
+  return [
+    ...Array.from<string | null>({ length: leadingEmptyDays }).fill(null),
+    ...monthDates
+  ];
+}
+
+function getMonthDateKey(date: string) {
+  return `${date.slice(0, 7)}-01`;
 }
 
 function getPeriodLabel(focusedDate: string, mode: CalendarMode) {

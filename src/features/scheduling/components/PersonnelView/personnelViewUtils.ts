@@ -42,7 +42,7 @@ export function getWeeklyOccupation(
   const weekDates = Array.from({ length: 7 }, (_, index) => addDays(referenceDate, index));
   const weeklyAppointments = appointments.filter((appointment) => (
     appointment.employeeId === employee.id &&
-    appointment.status !== "cancelled" &&
+    appointment.appointmentStatus !== "cancelled" &&
     weekDates.includes(appointment.date)
   ));
   const estimatedCapacity = weekDates.reduce((total, date) => {

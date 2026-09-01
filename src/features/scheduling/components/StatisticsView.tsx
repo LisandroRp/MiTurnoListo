@@ -8,7 +8,7 @@ import { PremiumFeatureCard } from "@/components/composed/PremiumFeatureCard";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
-import { Appointment, AppointmentStatus, Employee, Service } from "@/features/scheduling/types";
+import { Appointment, AppointmentLifecycleStatus, Employee, Service } from "@/features/scheduling/types";
 import { cx } from "@/components/ui/utils";
 
 type StatisticsViewProps = {
@@ -31,10 +31,12 @@ type StatCard = {
   icon: ReactNode;
 };
 
-const statusToneMap: Record<AppointmentStatus, "success" | "warning" | "danger"> = {
-  confirmed: "success",
-  pending: "warning",
-  cancelled: "danger"
+const statusToneMap: Record<AppointmentLifecycleStatus, "success" | "warning" | "danger" | "neutral" | "info"> = {
+  scheduled: "warning",
+  cancelled: "danger",
+  rescheduled: "info",
+  no_show: "neutral",
+  completed: "success"
 };
 
 const periodIds: PeriodId[] = ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "allTime"];
@@ -50,16 +52,19 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
     matchesPeriod(appointment.date, selectedPeriod, referenceDate) &&
     (selectedEmployeeId === "all" || appointment.employeeId === selectedEmployeeId)
   ));
-  const activeServiceAppointments = filteredAppointments.filter((appointment) => activeServiceIds.has(appointment.serviceId));
+  const activeServiceAppointments = filteredAppointments.filter((appointment) => (
+    activeServiceIds.has(appointment.serviceId) &&
+    appointment.appointmentStatus !== "rescheduled"
+  ));
   const latestAppointments = filteredAppointments
     .filter((appointment) => activeServiceIds.has(appointment.serviceId))
     .slice()
     .sort((left, right) => `${right.date}${right.startTime}`.localeCompare(`${left.date}${left.startTime}`));
-  const confirmedAppointments = filteredAppointments.filter((appointment) => appointment.status === "confirmed");
-  const pendingAppointments = filteredAppointments.filter((appointment) => appointment.status === "pending");
-  const cancelledAppointments = filteredAppointments.filter((appointment) => appointment.status === "cancelled");
+  const confirmedAppointments = filteredAppointments.filter((appointment) => appointment.paymentStatus === "paid");
+  const pendingAppointments = filteredAppointments.filter((appointment) => appointment.paymentStatus === "pending");
+  const cancelledAppointments = filteredAppointments.filter((appointment) => appointment.appointmentStatus === "cancelled");
   const estimatedRevenue = filteredAppointments
-    .filter((appointment) => appointment.status !== "cancelled")
+    .filter((appointment) => appointment.appointmentStatus !== "cancelled" && appointment.appointmentStatus !== "rescheduled")
     .reduce((total, appointment) => total + appointment.revenue, 0);
   const capturedRevenue = confirmedAppointments.reduce((total, appointment) => total + appointment.revenue, 0);
   const pendingRevenue = pendingAppointments.reduce((total, appointment) => total + appointment.revenue, 0);
@@ -123,7 +128,7 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
       const serviceAppointments = activeServiceAppointments.filter((appointment) => appointment.serviceId === service.id);
       const bookings = serviceAppointments.length;
       const revenue = serviceAppointments
-        .filter((appointment) => appointment.status !== "cancelled")
+        .filter((appointment) => appointment.appointmentStatus !== "cancelled" && appointment.appointmentStatus !== "rescheduled")
         .reduce((total, appointment) => total + appointment.revenue, 0);
 
       return {
@@ -142,7 +147,7 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
       const employeeAppointments = filteredAppointments.filter((appointment) => appointment.employeeId === employee.id);
       const bookings = employeeAppointments.length;
       const revenue = employeeAppointments
-        .filter((appointment) => appointment.status !== "cancelled")
+        .filter((appointment) => appointment.appointmentStatus !== "cancelled" && appointment.appointmentStatus !== "rescheduled")
         .reduce((total, appointment) => total + appointment.revenue, 0);
 
       return {
@@ -403,7 +408,9 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
                         <p className="font-semibold text-primary">{appointment.customerName}</p>
                         <p className="mt-1 text-sm text-muted">{service?.name ?? "-"}</p>
                       </div>
-                      <Badge tone={statusToneMap[appointment.status]}>{messages.statuses[appointment.status]}</Badge>
+                    <Badge tone={statusToneMap[appointment.appointmentStatus]}>
+                      {messages.appointmentDisplayStatuses[getAppointmentDisplayStatusKey(appointment)]}
+                    </Badge>
                     </div>
 
                     <div className="mt-4 grid gap-3">
@@ -448,7 +455,9 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
                           {appointment.date} · {appointment.startTime} - {appointment.endTime}
                         </td>
                         <td className="px-4 py-4">
-                          <Badge tone={statusToneMap[appointment.status]}>{messages.statuses[appointment.status]}</Badge>
+                          <Badge tone={statusToneMap[appointment.appointmentStatus]}>
+                            {messages.appointmentDisplayStatuses[getAppointmentDisplayStatusKey(appointment)]}
+                          </Badge>
                         </td>
                         <td className="px-4 py-4 text-muted">{formatCurrency(appointment.revenue)}</td>
                       </tr>
@@ -551,6 +560,26 @@ function buildHourlyDistribution(appointments: Appointment[]) {
   });
 
   return buckets.filter((bucket) => bucket.count > 0).sort((left, right) => right.count - left.count);
+}
+
+function getAppointmentDisplayStatusKey(appointment: Appointment) {
+  if (appointment.appointmentStatus === "cancelled") {
+    return "cancelled";
+  }
+
+  if (appointment.appointmentStatus === "rescheduled") {
+    return "rescheduled";
+  }
+
+  if (appointment.appointmentStatus === "no_show") {
+    return "noShow";
+  }
+
+  if (appointment.appointmentStatus === "completed") {
+    return "completed";
+  }
+
+  return appointment.paymentStatus === "paid" ? "confirmed" : "paymentPending";
 }
 
 function matchesPeriod(date: string, period: PeriodId, referenceDate: string) {

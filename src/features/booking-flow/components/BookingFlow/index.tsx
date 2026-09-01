@@ -379,6 +379,8 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
           startTime: selectedSlot.startTime,
           endTime: selectedSlot.endTime,
           status: paymentMethod === "cash" ? "confirmed" : "pending",
+          appointmentStatus: "scheduled",
+          paymentStatus: paymentMethod === "cash" ? "paid" : "pending",
           source: "dashboard",
           revenue: bookingTotal,
           paymentMethod,

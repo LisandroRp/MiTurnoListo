@@ -31,6 +31,8 @@ export type Employee = {
 };
 
 export type AppointmentStatus = "confirmed" | "pending" | "cancelled";
+export type AppointmentLifecycleStatus = "scheduled" | "cancelled" | "rescheduled" | "no_show" | "completed";
+export type AppointmentPaymentStatus = "pending" | "paid" | "refunded";
 export type AppointmentSource = "public" | "dashboard" | "walk_in";
 
 export type Appointment = {
@@ -44,6 +46,8 @@ export type Appointment = {
   startTime: string;
   endTime: string;
   status: AppointmentStatus;
+  appointmentStatus: AppointmentLifecycleStatus;
+  paymentStatus: AppointmentPaymentStatus;
   source: AppointmentSource;
   revenue: number;
   paymentMethod: PaymentMethod;

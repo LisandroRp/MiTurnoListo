@@ -9,7 +9,7 @@ export function getEmployeesWorkingOnDate(
   const activeServiceIds = new Set(services.filter((service) => !service.isArchived).map((service) => service.id));
   const activeAppointments = appointments.filter((appointment) => (
     appointment.date === date &&
-    appointment.status !== "cancelled" &&
+    appointment.appointmentStatus !== "cancelled" &&
     activeServiceIds.has(appointment.serviceId)
   ));
   const appointmentEmployeeIds = new Set(activeAppointments.map((appointment) => appointment.employeeId));

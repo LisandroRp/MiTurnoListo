@@ -12,6 +12,7 @@ export default function HomeSectionPage() {
     deleteAppointment,
     employees,
     focusedDate,
+    markAppointmentNoShow,
     markAppointmentPaid,
     messages,
     rescheduleAppointment,
@@ -29,6 +30,7 @@ export default function HomeSectionPage() {
       referenceDate={focusedDate}
       onDeleteAppointment={deleteAppointment}
       onCreateAppointment={createAppointment}
+      onMarkAppointmentNoShow={markAppointmentNoShow}
       onMarkAppointmentPaid={markAppointmentPaid}
       onRescheduleAppointment={rescheduleAppointment}
     />

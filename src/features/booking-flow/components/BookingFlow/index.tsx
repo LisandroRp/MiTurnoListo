@@ -258,8 +258,8 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
 
   if (!isPreview && publicError) {
     return (
-      <BookingShell theme={theme} mode={mode}>
-        <StateCard title={copy.loadErrorTitle} description={publicError} />
+      <BookingShell className="place-items-center" theme={theme} mode={mode}>
+        <StateCard title={copy.loadErrorTitle} />
       </BookingShell>
     );
   }

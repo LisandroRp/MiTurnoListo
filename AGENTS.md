@@ -155,6 +155,7 @@ If `docs/rules/` exists in the target project, those rules become mandatory for 
 Project-specific mandatory rule:
 
 - `docs/rules/exercise-catalog-governance.md` (exercise catalog normalization, dedupe protocol, routine SQL safety, muscle-group mapping)
+- Public business slugs must stay aligned with application routes: whenever a public route is added, renamed, or removed, update the reserved slug list in `src/lib/slugs.ts` so business URLs cannot collide with app-owned paths.
 
 Violation of any applicable rule is a framework breach even if the code compiles.
 

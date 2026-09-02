@@ -79,22 +79,22 @@ export function PublicServicesCatalog({ businessId }: PublicServicesCatalogProps
       <div className="mx-auto grid max-w-7xl gap-8">
         {isLoading ? (
           <div className="relative min-h-screen">
-            <div className="hidden absolute left-0 top-0 md:block">
+            <Link href="/" className="hidden absolute left-0 top-0 md:block" aria-label="Ir al inicio">
               <BrandMark variant="full" size="md" />
-            </div>
-            <div className="absolute left-0 top-0 md:hidden">
+            </Link>
+            <Link href="/" className="absolute left-0 top-0 md:hidden" aria-label="Ir al inicio">
               <BrandMark variant="compact" size="md" />
-            </div>
+            </Link>
             <LoadingState title={messages.publicServices.loadingTitle} dotCount={loadingDotCount} />
           </div>
         ) : (
           <header className="relative grid justify-items-center gap-4 pt-8 text-center md:pt-0">
-            <div className="hidden absolute left-0 top-0 md:block">
+            <Link href="/" className="hidden absolute left-0 top-0 md:block" aria-label="Ir al inicio">
               <BrandMark variant="full" size="md" />
-            </div>
-            <div className="absolute left-0 top-0 md:hidden">
+            </Link>
+            <Link href="/" className="absolute left-0 top-0 md:hidden" aria-label="Ir al inicio">
               <BrandMark variant="compact" size="md" />
-            </div>
+            </Link>
             <div>
               {payload?.publicLogoUrl ? (
                 <div
@@ -193,7 +193,7 @@ function PublicServiceCard({
   service: PublicServiceSummary;
 }) {
   return (
-    <Link href={service.publicSlug ? `/${businessSlug}/${service.publicSlug}` : `/reservar/${service.id}`} className="group block h-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus">
+    <Link href={`/${businessSlug}/${service.publicSlug || service.id}`} className="group block h-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus">
       <Card className="flex h-full flex-col gap-5 transition-all duration-200 group-hover:-translate-y-1 group-hover:border-brand group-hover:shadow-lg group-focus-visible:border-brand group-focus-visible:shadow-lg">
         <div className="flex flex-1 flex-col gap-5">
           <div>

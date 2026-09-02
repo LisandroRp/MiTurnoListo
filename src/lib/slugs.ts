@@ -20,7 +20,7 @@ const reservedPublicSlugs = new Set([
   "api",
   "calendario",
   "cancelar-turno",
-  "catalogo",
+  "checkout",
   "clientes",
   "estadisticas",
   "favicon-ico",
@@ -32,7 +32,6 @@ const reservedPublicSlugs = new Set([
   "pagos",
   "perfil",
   "personal",
-  "reservar",
   "robots-txt",
   "servicios",
   "sitemap-xml"

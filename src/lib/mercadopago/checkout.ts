@@ -51,7 +51,7 @@ export async function createMercadoPagoPreference({
   origin,
   serviceName
 }: CreateMercadoPagoPreferenceInput) {
-  const resultUrl = `${origin}/reservar/resultado?appointmentId=${encodeURIComponent(appointmentId)}`;
+  const resultUrl = `${origin}/checkout/resultado?appointmentId=${encodeURIComponent(appointmentId)}`;
   const notificationUrl = buildMercadoPagoPaymentNotificationUrl(origin, appointmentId);
   const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
     method: "POST",

@@ -266,7 +266,7 @@ export function ServicesView({
     }
 
     try {
-      await navigator.clipboard.writeText(getPublicServiceUrl(service, businessSlug));
+      await navigator.clipboard.writeText(getPublicServiceUrl(service, businessSlug || businessId));
       onShareSuccess();
     } catch {
       onShareError();
@@ -767,7 +767,7 @@ export function ServicesView({
           key={sharingService.id}
           messages={messages}
           service={sharingService}
-          serviceUrl={getPublicServiceUrl(sharingService, businessSlug)}
+          serviceUrl={getPublicServiceUrl(sharingService, businessSlug || businessId)}
           onClose={() => setSharingService(null)}
           onCopy={() => void copyServiceLink(sharingService)}
         />
@@ -794,12 +794,12 @@ export function ServicesView({
   );
 }
 
-function getPublicServiceUrl(service: Service, businessSlug: string) {
-  if (businessSlug && service.publicSlug) {
-    return `${window.location.origin}/${businessSlug}/${service.publicSlug}`;
+function getPublicServiceUrl(service: Service, businessKey: string | null) {
+  if (businessKey) {
+    return `${window.location.origin}/${businessKey}/${service.publicSlug || service.id}`;
   }
 
-  return `${window.location.origin}/reservar/${service.id}`;
+  return window.location.origin;
 }
 
 function getPublicCatalogUrl(businessKey: string) {

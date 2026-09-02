@@ -1,8 +1,8 @@
 const activeSubscriptionStatus = "authorized";
 const externalReferencePrefix = "mtl";
 
-export function buildSubscriptionExternalReference(businessId: string, userId: string, intentId: string) {
-  return `${externalReferencePrefix}_b_${businessId}_u_${userId}_i_${intentId}`;
+export function buildSubscriptionExternalReference(businessKey: string, userId: string, intentId: string) {
+  return `${externalReferencePrefix}|b:${businessKey}|u:${userId}|i:${intentId}`;
 }
 
 export function extractBusinessIdFromExternalReference(externalReference?: string | null) {

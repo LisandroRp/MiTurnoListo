@@ -10,8 +10,8 @@ import {
 
 test("buildSubscriptionExternalReference joins business and user ids", () => {
   assert.equal(
-    buildSubscriptionExternalReference("business-123", "user-456", "intent-789"),
-    "mtl_b_business-123_u_user-456_i_intent-789"
+    buildSubscriptionExternalReference("mi-negocio", "user-456", "intent-789"),
+    "mtl|b:mi-negocio|u:user-456|i:intent-789"
   );
 });
 

@@ -10,6 +10,7 @@ import {
 } from "@/lib/mercadopago/subscription-status";
 import { getMercadoPagoPublicOrigin } from "@/lib/mercadopago/checkout";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
+import { isUuid } from "@/lib/slugs";
 
 const mercadoPagoSubscriptionApiBaseUrl = "https://api.mercadopago.com/preapproval";
 const mercadoPagoPaymentApiBaseUrl = "https://api.mercadopago.com/v1/payments";
@@ -85,13 +86,15 @@ export async function createProSubscriptionCheckout({
   userId: string;
 }) {
   const config = getSubscriptionConfig();
+  const supabase = getSupabaseAdminClient();
   const intentId = await createPendingBusinessSubscriptionAttempt({
     businessId,
     planId: config.planCode,
     userId
   });
   const origin = getMercadoPagoPublicOrigin(requestOrigin);
-  const externalReference = buildSubscriptionExternalReference(businessId, userId, intentId);
+  const businessReferenceKey = await getBusinessSubscriptionReferenceKey(supabase, businessId);
+  const externalReference = buildSubscriptionExternalReference(businessReferenceKey, userId, intentId);
   const response = await fetch(mercadoPagoSubscriptionApiBaseUrl, {
     method: "POST",
     headers: {
@@ -395,6 +398,8 @@ async function findLatestBusinessSubscription({
   payerEmail: string;
 }) {
   const config = getSubscriptionConfig();
+  const supabase = getSupabaseAdminClient();
+  const businessReferenceKey = await getBusinessSubscriptionReferenceKey(supabase, businessId);
   const subscriptions = await searchSubscriptions({ payerEmail });
 
   return subscriptions
@@ -402,7 +407,7 @@ async function findLatestBusinessSubscription({
       const externalBusinessId = extractBusinessIdFromExternalReference(subscription.external_reference);
 
       if (externalBusinessId) {
-        return externalBusinessId === businessId;
+        return externalBusinessId === businessId || externalBusinessId === businessReferenceKey;
       }
 
       return subscription.preapproval_plan_id === config.planCode;
@@ -714,7 +719,7 @@ async function invalidateStoredBusinessSubscription(subscriptionId: string, busi
 }
 
 async function resolveBusinessIdForSubscription(supabase: SupabaseClient, subscription: MercadoPagoSubscription) {
-  const externalBusinessId = extractBusinessIdFromExternalReference(subscription.external_reference);
+  const externalBusinessId = await resolveBusinessIdFromExternalReference(supabase, subscription.external_reference);
 
   if (externalBusinessId) {
     return externalBusinessId;
@@ -794,7 +799,7 @@ async function resolveBusinessIdForSubscriptionPayment({
     return metadataBusinessId;
   }
 
-  const externalBusinessId = extractBusinessIdFromExternalReference(payment.external_reference);
+  const externalBusinessId = await resolveBusinessIdFromExternalReference(supabase, payment.external_reference);
 
   if (externalBusinessId) {
     return externalBusinessId;
@@ -807,6 +812,42 @@ async function resolveBusinessIdForSubscriptionPayment({
   const storedSubscription = await findStoredBusinessSubscriptionByProviderId(supabase, providerSubscriptionId);
 
   return storedSubscription?.business_id ?? null;
+}
+
+async function getBusinessSubscriptionReferenceKey(supabase: SupabaseClient, businessId: string) {
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("public_slug")
+    .eq("id", businessId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    return businessId;
+  }
+
+  return data?.public_slug?.trim() || businessId;
+}
+
+async function resolveBusinessIdFromExternalReference(supabase: SupabaseClient, externalReference?: string | null) {
+  const businessKey = extractBusinessIdFromExternalReference(externalReference);
+
+  if (!businessKey || isUuid(businessKey)) {
+    return businessKey;
+  }
+
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("id")
+    .eq("public_slug", businessKey)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error("No pudimos encontrar el negocio asociado a la suscripción.");
+  }
+
+  return data?.id as string | null ?? null;
 }
 
 async function persistBusinessSubscriptionPayment({

@@ -31,3 +31,9 @@ export function extractBusinessIdFromExternalReference(externalReference?: strin
 export function mapMercadoPagoStatusToTier(status?: string) {
   return status === activeSubscriptionStatus ? "pro" : "free";
 }
+
+export function isInvalidCallerPreapprovalError(message: string) {
+  const normalizedMessage = message.toLowerCase();
+
+  return normalizedMessage.includes("preapprovalid") && normalizedMessage.includes("callerid");
+}

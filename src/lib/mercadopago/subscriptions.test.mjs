@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildSubscriptionExternalReference,
   extractBusinessIdFromExternalReference,
+  isInvalidCallerPreapprovalError,
   mapMercadoPagoStatusToTier
 } from "./subscription-status.ts";
 
@@ -34,4 +35,9 @@ test("mapMercadoPagoStatusToTier only enables pro for authorized subscriptions",
   assert.equal(mapMercadoPagoStatusToTier("authorized"), "pro");
   assert.equal(mapMercadoPagoStatusToTier("pending"), "free");
   assert.equal(mapMercadoPagoStatusToTier("canceled"), "free");
+});
+
+test("isInvalidCallerPreapprovalError detects Mercado Pago caller mismatch", () => {
+  assert.equal(isInvalidCallerPreapprovalError("the preapprovalId is not valid for callerId"), true);
+  assert.equal(isInvalidCallerPreapprovalError("No pudimos verificar la suscripción en Mercado Pago."), false);
 });

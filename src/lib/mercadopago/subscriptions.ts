@@ -5,6 +5,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import {
   buildSubscriptionExternalReference,
   extractBusinessIdFromExternalReference,
+  isInvalidCallerPreapprovalError,
   mapMercadoPagoStatusToTier
 } from "@/lib/mercadopago/subscription-status";
 import { getMercadoPagoPublicOrigin } from "@/lib/mercadopago/checkout";
@@ -51,6 +52,19 @@ type StoredBusinessSubscription = {
   provider_status: string;
   provider_subscription_id: string | null;
 };
+
+class InvalidMercadoPagoPreapprovalError extends Error {
+  preapprovalId: string;
+
+  constructor(
+    preapprovalId: string,
+    message = "La suscripción guardada ya no pertenece a esta integración de Mercado Pago."
+  ) {
+    super(message);
+    this.name = "InvalidMercadoPagoPreapprovalError";
+    this.preapprovalId = preapprovalId;
+  }
+}
 
 export type SubscriptionStatusResult = {
   businessId: string | null;
@@ -187,7 +201,31 @@ export async function syncBusinessSubscriptionByPreapprovalId({
   businessId: string;
   preapprovalId: string;
 }) {
-  const subscription = await getSubscriptionById(preapprovalId);
+  const subscription = await getSubscriptionById(preapprovalId).catch(async (error) => {
+    if (error instanceof InvalidMercadoPagoPreapprovalError) {
+      const supabase = getSupabaseAdminClient();
+      const storedSubscription = await findStoredBusinessSubscriptionByProviderId(supabase, preapprovalId);
+
+      if (storedSubscription?.id) {
+        await invalidateStoredBusinessSubscription(storedSubscription.id, businessId);
+      } else {
+        await updateBusinessSubscriptionTier(businessId, "free");
+      }
+
+      return null;
+    }
+
+    throw error;
+  });
+
+  if (!subscription) {
+    return {
+      businessId,
+      preapprovalId,
+      status: "invalid",
+      subscriptionTier: "free"
+    } satisfies SubscriptionStatusResult;
+  }
 
   await persistBusinessSubscriptionState({
     businessId,
@@ -216,9 +254,16 @@ export async function syncLatestBusinessSubscription({
     const status = await syncBusinessSubscriptionByPreapprovalId({
       businessId,
       preapprovalId: storedSubscription.provider_subscription_id
+    }).catch(async (error) => {
+      if (error instanceof InvalidMercadoPagoPreapprovalError) {
+        await invalidateStoredBusinessSubscription(storedSubscription.id, businessId);
+        return null;
+      }
+
+      throw error;
     });
 
-    if (status.subscriptionTier === "pro" || !isCancelledSubscriptionStatus(status.status)) {
+    if (status && (status.subscriptionTier === "pro" || !isCancelledSubscriptionStatus(status.status))) {
       return status;
     }
   }
@@ -265,7 +310,14 @@ export async function cancelLatestBusinessSubscription({
 }) {
   const storedSubscription = await findLatestStoredBusinessSubscription(businessId);
   const subscription = storedSubscription?.provider_subscription_id
-    ? await getSubscriptionById(storedSubscription.provider_subscription_id)
+    ? await getSubscriptionById(storedSubscription.provider_subscription_id).catch(async (error) => {
+        if (error instanceof InvalidMercadoPagoPreapprovalError) {
+          await invalidateStoredBusinessSubscription(storedSubscription.id, businessId);
+          return null;
+        }
+
+        throw error;
+      })
     : await findLatestBusinessSubscription({
         businessId,
         payerEmail
@@ -399,7 +451,13 @@ async function getSubscriptionById(preapprovalId: string) {
   }) | null;
 
   if (!response.ok || !payload?.id) {
-    throw new Error(payload?.message ?? "No pudimos verificar la suscripción en Mercado Pago.");
+    const message = payload?.message ?? "No pudimos verificar la suscripción en Mercado Pago.";
+
+    if (isInvalidCallerPreapprovalError(message)) {
+      throw new InvalidMercadoPagoPreapprovalError(preapprovalId, message);
+    }
+
+    throw new Error(message);
   }
 
   return payload;
@@ -626,6 +684,32 @@ async function updateBusinessSubscriptionTier(businessId: string, mercadoPagoSta
 
   if (error) {
     throw new Error("No pudimos actualizar el plan del negocio.");
+  }
+}
+
+async function invalidateStoredBusinessSubscription(subscriptionId: string, businessId: string) {
+  const supabase = getSupabaseAdminClient();
+  const now = new Date().toISOString();
+  const [{ error: subscriptionError }, { error: businessError }] = await Promise.all([
+    supabase
+      .from("business_subscriptions")
+      .update({
+        provider_status: "invalid",
+        provider_subscription_id: null,
+        subscription_tier: "free",
+        updated_at: now
+      })
+      .eq("id", subscriptionId),
+    supabase
+      .from("businesses")
+      .update({
+        subscription_tier: "free"
+      })
+      .eq("id", businessId)
+  ]);
+
+  if (subscriptionError || businessError) {
+    throw new Error("No pudimos limpiar la suscripción anterior del negocio.");
   }
 }
 

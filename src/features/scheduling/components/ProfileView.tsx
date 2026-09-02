@@ -776,6 +776,7 @@ function PlanCard({
 function createBusinessDraft(profile: Profile): BusinessProfile {
   return {
     name: profile.businessName,
+    publicSlug: profile.businessSlug,
     address: profile.address,
     publicDescription: profile.publicDescription,
     publicLogoUrl: profile.publicLogoUrl,

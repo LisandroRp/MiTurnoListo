@@ -190,7 +190,7 @@ function PublicServiceCard({
   service: PublicServiceSummary;
 }) {
   return (
-    <Link href={`/reservar/${service.id}`} className="group block h-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus">
+    <Link href={`/reservar/${service.publicSlug || service.id}`} className="group block h-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus">
       <Card className="flex h-full flex-col gap-5 transition-all duration-200 group-hover:-translate-y-1 group-hover:border-brand group-hover:shadow-lg group-focus-visible:border-brand group-focus-visible:shadow-lg">
         <div className="flex flex-1 flex-col gap-5">
           <div>

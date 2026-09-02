@@ -97,7 +97,7 @@ test("public service catalog can be searched by service or professional", () => 
 test("public service catalog cards are clickable", () => {
   const publicCatalog = readProjectFile("src/features/booking-flow/components/PublicServicesCatalog.tsx");
 
-  assert.equal(publicCatalog.includes('href={`/reservar/${service.id}`}'), true);
+  assert.equal(publicCatalog.includes('href={`/reservar/${service.publicSlug || service.id}`}'), true);
   assert.equal(publicCatalog.includes("group-hover:-translate-y-1"), true);
   assert.equal(publicCatalog.includes("group-hover:border-brand"), true);
 });

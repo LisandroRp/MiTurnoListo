@@ -123,6 +123,7 @@ const emptyProfile: Profile = {
   email: "",
   subscriptionTier: "free",
   businessName: "",
+  businessSlug: "",
   address: "",
   publicDescription: "",
   publicLogoUrl: "",
@@ -526,6 +527,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       setProfileState((current) => ({
         ...current,
         businessName: savedProfile.name,
+        businessSlug: savedProfile.publicSlug,
         address: savedProfile.address,
         publicDescription: savedProfile.publicDescription,
         publicLogoUrl: savedProfile.publicLogoUrl,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
+import { normalizeSlug } from "@/lib/slugs";
 
 type BootstrapPayload = {
   timeZone?: string;
@@ -103,12 +104,15 @@ export async function POST(request: NextRequest) {
   }
 
   if (!business) {
+    const businessIdentity = await resolveUniqueBusinessIdentity(supabase, seed.businessName);
+
     const { error: insertBusinessError } = await supabase
       .from("businesses")
       .insert({
         id: businessId,
-        slug: buildBusinessSlug(seed.businessName, businessId),
-        name: seed.businessName,
+        slug: buildBusinessSlug(businessIdentity.name, businessId),
+        public_slug: businessIdentity.publicSlug,
+        name: businessIdentity.name,
         address: null,
         subscription_tier: defaultSubscriptionTier,
         timezone: timeZone
@@ -208,16 +212,51 @@ function toTitleCase(value: string) {
 }
 
 function buildBusinessSlug(name: string, businessId: string) {
-  const normalizedName = name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
+  const normalizedName = normalizeSlug(name, "negocio").slice(0, 48);
   const suffix = businessId.replace(/-/g, "").slice(0, 8);
 
   return `${normalizedName || "negocio"}-${suffix}`;
+}
+
+async function resolveUniqueBusinessIdentity(supabase: SupabaseAdminClient, baseName: string) {
+  for (let index = 0; index < 50; index += 1) {
+    const suffix = index === 0 ? "" : `-${index}`;
+    const candidateName = `${baseName}${suffix}`;
+    const candidateSlug = normalizeSlug(candidateName, "negocio");
+    const [{ data: existingName, error: nameError }, { data: existingSlug, error: slugError }] = await Promise.all([
+      supabase
+        .from("businesses")
+        .select("id")
+        .ilike("name", candidateName)
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("businesses")
+        .select("id")
+        .eq("public_slug", candidateSlug)
+        .limit(1)
+        .maybeSingle()
+    ]);
+
+    if (nameError || slugError) {
+      throw nameError ?? slugError;
+    }
+
+    if (!existingName && !existingSlug) {
+      return {
+        name: candidateName,
+        publicSlug: candidateSlug
+      };
+    }
+  }
+
+  const fallbackSuffix = crypto.randomUUID().slice(0, 8);
+  const fallbackName = `${baseName}-${fallbackSuffix}`;
+
+  return {
+    name: fallbackName,
+    publicSlug: normalizeSlug(fallbackName, "negocio")
+  };
 }
 
 function loadBusinessMembership(supabase: SupabaseAdminClient, userId: string) {

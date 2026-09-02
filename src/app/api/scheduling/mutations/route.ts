@@ -17,6 +17,7 @@ import { getAvailableSlotsForEmployee } from "@/features/booking-flow/utils/book
 import { sendBookingCancelledEmails } from "@/lib/email/booking-emails";
 import { refundMercadoPagoPayment } from "@/lib/mercadopago/checkout";
 import { notifyPlanLimitReached } from "@/lib/notifications/plan-limits";
+import { normalizeSlug } from "@/lib/slugs";
 
 type SchedulingMutationPayload =
   | {
@@ -714,12 +715,14 @@ async function saveEmployee(supabase: SupabaseClient, businessId: string, employ
 }
 
 async function saveService(supabase: SupabaseClient, businessId: string, service: Service) {
+  const publicSlug = await resolveUniqueServiceSlug(supabase, businessId, service.name, service.id);
   const { error: serviceError } = await supabase
     .from("services")
     .upsert({
       id: service.id,
       business_id: businessId,
       slug: buildSlug(service.name, service.id),
+      public_slug: publicSlug,
       name: service.name,
       description: service.description,
       price_amount: service.price,
@@ -1099,7 +1102,7 @@ async function rescheduleAppointment(
   ] = await Promise.all([
     supabase
       .from("services")
-      .select("id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
+      .select("id, public_slug, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
       .eq("id", appointment.service_id)
       .eq("business_id", businessId)
       .limit(1)
@@ -1339,15 +1342,50 @@ async function upsertCustomer(
 }
 
 function buildSlug(name: string, fallbackId: string) {
-  const normalized = name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return normalizeSlug(name, fallbackId);
+}
 
-  return normalized || fallbackId;
+async function resolveUniqueServiceSlug(
+  supabase: SupabaseClient,
+  businessId: string,
+  serviceName: string,
+  serviceId: string
+) {
+  const { data: business, error: businessError } = await supabase
+    .from("businesses")
+    .select("name, public_slug")
+    .eq("id", businessId)
+    .limit(1)
+    .maybeSingle();
+
+  if (businessError) {
+    throw new Error("Unable to save the service.");
+  }
+
+  const businessSlug = normalizeSlug(business?.public_slug || business?.name || "negocio", "negocio");
+  const serviceSlug = normalizeSlug(serviceName, serviceId);
+  const baseSlug = `${businessSlug}-${serviceSlug}`.slice(0, 90).replace(/-+$/g, "");
+
+  for (let index = 0; index < 50; index += 1) {
+    const candidate = index === 0 ? baseSlug : `${baseSlug}-${index}`;
+    const { data, error } = await supabase
+      .from("services")
+      .select("id")
+      .eq("public_slug", candidate)
+      .neq("id", serviceId)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error("Unable to save the service.");
+    }
+
+    if (!data) {
+      return candidate;
+    }
+  }
+
+  return `${baseSlug}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
 function isValidDateValue(value: string) {

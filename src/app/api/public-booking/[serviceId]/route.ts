@@ -19,6 +19,7 @@ import {
 } from "@/lib/networking/mappers/scheduling";
 import { buildIsoInTimeZone, formatDateForTimeZone } from "@/lib/networking/utils/date-time";
 import { notifyPlanLimitReached } from "@/lib/notifications/plan-limits";
+import { isUuid } from "@/lib/slugs";
 
 type RouteContext = {
   params: Promise<{
@@ -27,12 +28,12 @@ type RouteContext = {
 };
 
 export async function GET(_: NextRequest, context: RouteContext) {
-  const { serviceId } = await context.params;
+  const { serviceId: serviceKey } = await context.params;
   const supabase = getSupabaseAdminClient();
   const { data: service, error: serviceError } = await supabase
     .from("services")
-    .select("id, business_id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
-    .eq("id", serviceId)
+    .select("id, public_slug, business_id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
+    .eq(isUuid(serviceKey) ? "id" : "public_slug", serviceKey)
     .limit(1)
     .maybeSingle();
 
@@ -219,7 +220,7 @@ async function getUnavailableBookingResponse(
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const { serviceId } = await context.params;
+  const { serviceId: serviceKey } = await context.params;
   const payload = await request.json() as {
     customer?: {
       email?: string;
@@ -265,8 +266,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const endsAt = buildIsoInTimeZone(payload.slot.date, payload.slot.endTime, payload.timeZone);
     const { data: service, error: serviceError } = await supabase
       .from("services")
-      .select("id, business_id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
-      .eq("id", serviceId)
+      .select("id, public_slug, business_id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
+      .eq(isUuid(serviceKey) ? "id" : "public_slug", serviceKey)
       .eq("is_active", true)
       .eq("is_public", true)
       .limit(1)
@@ -474,7 +475,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           id: appointmentId,
           business_id: service.business_id,
           customer_id: customerId,
-          service_id: serviceId,
+          service_id: service.id,
           employee_id: payload.employeeId,
           source: "public",
           status: "pending",
@@ -517,7 +518,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         id: appointmentId,
         business_id: service.business_id,
         customer_id: customerId,
-        service_id: serviceId,
+        service_id: service.id,
         employee_id: payload.employeeId,
         source: "public",
         status: "pending",

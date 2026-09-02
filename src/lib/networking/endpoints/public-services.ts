@@ -13,6 +13,7 @@ export type PublicServiceSummary = {
   name: string;
   paymentMethod: PaymentMethod;
   price: number;
+  publicSlug: string;
 };
 
 export type PublicServicesPayload = {
@@ -26,8 +27,8 @@ export type PublicServicesPayload = {
   theme: ThemeId;
 };
 
-export async function getPublicServicesPayload(businessId: string) {
-  const response = await fetch(`/api/public-services/${businessId}`, {
+export async function getPublicServicesPayload(businessKey: string) {
+  const response = await fetch(`/api/public-services/${businessKey}`, {
     cache: "no-store"
   });
 

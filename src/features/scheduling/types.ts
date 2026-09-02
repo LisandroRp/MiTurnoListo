@@ -64,6 +64,7 @@ export type ServiceSchedule = Record<string, TimeRange[]>;
 
 export type Service = {
   id: string;
+  publicSlug: string;
   name: string;
   description: string;
   price: number;
@@ -94,6 +95,7 @@ export type Profile = {
   email: string;
   subscriptionTier: SubscriptionTier;
   businessName: string;
+  businessSlug: string;
   address: string;
   publicDescription: string;
   publicLogoUrl: string;
@@ -103,6 +105,7 @@ export type Profile = {
 
 export type BusinessProfile = {
   name: string;
+  publicSlug: string;
   address: string;
   publicDescription: string;
   publicLogoUrl: string;

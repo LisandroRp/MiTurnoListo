@@ -37,6 +37,7 @@ type ServicesViewProps = {
   employees: Employee[];
   appointments: Appointment[];
   businessId: string | null;
+  businessSlug: string;
   subscriptionTier: SubscriptionTier;
   isMercadoPagoConfigured: boolean;
   isTransferConfigured: boolean;
@@ -64,6 +65,7 @@ export function ServicesView({
   employees,
   appointments,
   businessId,
+  businessSlug,
   subscriptionTier,
   isMercadoPagoConfigured,
   isTransferConfigured,
@@ -264,7 +266,7 @@ export function ServicesView({
     }
 
     try {
-      await navigator.clipboard.writeText(getPublicServiceUrl(service.id));
+      await navigator.clipboard.writeText(getPublicServiceUrl(service));
       onShareSuccess();
     } catch {
       onShareError();
@@ -278,7 +280,7 @@ export function ServicesView({
     }
 
     try {
-      await navigator.clipboard.writeText(getPublicCatalogUrl(businessId));
+      await navigator.clipboard.writeText(getPublicCatalogUrl(businessSlug || businessId));
       onShareSuccess();
     } catch {
       onShareError();
@@ -765,7 +767,7 @@ export function ServicesView({
           key={sharingService.id}
           messages={messages}
           service={sharingService}
-          serviceUrl={getPublicServiceUrl(sharingService.id)}
+          serviceUrl={getPublicServiceUrl(sharingService)}
           onClose={() => setSharingService(null)}
           onCopy={() => void copyServiceLink(sharingService)}
         />
@@ -774,7 +776,7 @@ export function ServicesView({
       {isSharingCatalog && businessId ? (
         <ShareCatalogModal
           messages={messages}
-          catalogUrl={getPublicCatalogUrl(businessId)}
+          catalogUrl={getPublicCatalogUrl(businessSlug || businessId)}
           onClose={() => setIsSharingCatalog(false)}
           onCopy={() => void copyCatalogLink()}
         />
@@ -792,12 +794,12 @@ export function ServicesView({
   );
 }
 
-function getPublicServiceUrl(serviceId: string) {
-  return `${window.location.origin}/reservar/${serviceId}`;
+function getPublicServiceUrl(service: Service) {
+  return `${window.location.origin}/reservar/${service.publicSlug || service.id}`;
 }
 
-function getPublicCatalogUrl(businessId: string) {
-  return `${window.location.origin}/catalogo/${businessId}`;
+function getPublicCatalogUrl(businessKey: string) {
+  return `${window.location.origin}/catalogo/${businessKey}`;
 }
 
 function ServiceFilters({

@@ -4,6 +4,7 @@ import { Locale, PaymentMethod, ThemeId } from "@/features/scheduling/types";
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 import { normalizeStoredImageUrl } from "@/lib/networking/utils/assets";
+import { isUuid } from "@/lib/slugs";
 
 type RouteContext = {
   params: Promise<{
@@ -12,15 +13,21 @@ type RouteContext = {
 };
 
 export async function GET(_: Request, context: RouteContext) {
-  const { businessId } = await context.params;
+  const { businessId: businessKey } = await context.params;
   const supabase = getSupabaseAdminClient();
-  const [businessResult, membershipResult, servicesResult] = await Promise.all([
-    supabase
-      .from("businesses")
-      .select("id, name, address, public_description, public_logo_url, public_opening_hours")
-      .eq("id", businessId)
-      .limit(1)
-      .maybeSingle(),
+  const businessResult = await supabase
+    .from("businesses")
+    .select("id, name, public_slug, address, public_description, public_logo_url, public_opening_hours")
+    .eq(isUuid(businessKey) ? "id" : "public_slug", businessKey)
+    .limit(1)
+    .maybeSingle();
+
+  if (businessResult.error || !businessResult.data) {
+    return NextResponse.json({ error: "Business not found." }, { status: 404 });
+  }
+
+  const businessId = businessResult.data.id;
+  const [membershipResult, servicesResult] = await Promise.all([
     supabase
       .from("business_memberships")
       .select("locale, theme")
@@ -30,16 +37,12 @@ export async function GET(_: Request, context: RouteContext) {
       .maybeSingle(),
     supabase
       .from("services")
-      .select("id, name, description, price_amount, deposit_amount, duration_minutes, capacity, payment_mode")
+      .select("id, public_slug, name, description, price_amount, deposit_amount, duration_minutes, capacity, payment_mode")
       .eq("business_id", businessId)
       .eq("is_active", true)
       .eq("is_public", true)
       .order("name", { ascending: true })
   ]);
-
-  if (businessResult.error || !businessResult.data) {
-    return NextResponse.json({ error: "Business not found." }, { status: 404 });
-  }
 
   if (membershipResult.error || servicesResult.error) {
     return createApiErrorResponse(membershipResult.error ?? servicesResult.error, {
@@ -126,7 +129,8 @@ export async function GET(_: Request, context: RouteContext) {
       id: service.id,
       name: service.name,
       paymentMethod: service.payment_mode as PaymentMethod,
-      price: service.price_amount
+      price: service.price_amount,
+      publicSlug: service.public_slug ?? ""
     })),
     theme: (membershipResult.data?.theme ?? "coral") as ThemeId
   });

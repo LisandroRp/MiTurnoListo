@@ -19,6 +19,7 @@ export default function ServicesSectionPage() {
       employees={employees}
       appointments={appointments}
       businessId={businessId}
+      businessSlug={profile.businessSlug}
       subscriptionTier={profile.subscriptionTier}
       isMercadoPagoConfigured={paymentSettings.mercadoPago.isConfigured}
       isTransferConfigured={isTransferConfigured}

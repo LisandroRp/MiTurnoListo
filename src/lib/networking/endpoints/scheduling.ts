@@ -152,7 +152,7 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
       .single(),
     supabase
       .from("businesses")
-      .select("name, address, public_description, public_logo_url, public_opening_hours, subscription_tier, timezone")
+      .select("name, public_slug, address, public_description, public_logo_url, public_opening_hours, subscription_tier, timezone")
       .eq("id", businessId)
       .limit(1)
       .single(),
@@ -172,7 +172,7 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
     scopeConfig.includeServices
       ? supabase
         .from("services")
-        .select("id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
+        .select("id, public_slug, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
         .eq("business_id", businessId)
         .order("is_active", { ascending: false })
         .order("name", { ascending: true })
@@ -575,6 +575,7 @@ export function createNewEmployeeDraft() {
 export function createNewServiceDraft() {
   return {
     id: globalThis.crypto.randomUUID(),
+    publicSlug: "",
     name: "",
     description: "",
     price: 0,

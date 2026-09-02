@@ -44,6 +44,7 @@ type EmployeeRow = {
 
 type ServiceRow = {
   id: string;
+  public_slug: string | null;
   name: string;
   description: string;
   price_amount: number;
@@ -98,6 +99,7 @@ type UserProfileRow = {
 
 type BusinessRow = {
   name: string;
+  public_slug: string | null;
   address: string | null;
   public_description: string | null;
   public_logo_url: string | null;
@@ -181,6 +183,7 @@ export function mapServices(
 ): Service[] {
   return serviceRows.map((service) => ({
     id: service.id,
+    publicSlug: service.public_slug ?? "",
     name: service.name,
     description: service.description,
     price: service.price_amount,
@@ -293,6 +296,7 @@ export function mapProfile(
     email: userEmail,
     subscriptionTier: business.subscription_tier,
     businessName: business.name,
+    businessSlug: business.public_slug ?? "",
     address: business.address ?? "",
     publicDescription: business.public_description ?? "",
     publicLogoUrl: normalizeStoredImageUrl(business.public_logo_url),

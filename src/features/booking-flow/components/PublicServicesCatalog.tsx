@@ -32,6 +32,7 @@ export function PublicServicesCatalog({ businessId }: PublicServicesCatalogProps
   const theme = payload?.theme ?? "coral";
   const normalizedSearchQuery = normalizeCatalogSearch(searchQuery);
   const filteredServices = payload?.services.filter((service) => matchesCatalogSearch(service, normalizedSearchQuery)) ?? [];
+  const businessSlug = payload?.businessSlug || businessId;
 
   useEffect(() => {
     if (!isLoading) {
@@ -136,7 +137,7 @@ export function PublicServicesCatalog({ businessId }: PublicServicesCatalogProps
             {filteredServices.length > 0 ? (
               <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
                 {filteredServices.map((service) => (
-                  <PublicServiceCard key={service.id} messages={messages} service={service} />
+                  <PublicServiceCard key={service.id} businessSlug={businessSlug} messages={messages} service={service} />
                 ))}
               </section>
             ) : (
@@ -183,14 +184,16 @@ function LoadingState({ title, dotCount }: { title: string; dotCount: number }) 
 }
 
 function PublicServiceCard({
+  businessSlug,
   messages,
   service
 }: {
+  businessSlug: string;
   messages: Messages;
   service: PublicServiceSummary;
 }) {
   return (
-    <Link href={`/reservar/${service.publicSlug || service.id}`} className="group block h-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus">
+    <Link href={service.publicSlug ? `/${businessSlug}/${service.publicSlug}` : `/reservar/${service.id}`} className="group block h-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus">
       <Card className="flex h-full flex-col gap-5 transition-all duration-200 group-hover:-translate-y-1 group-hover:border-brand group-hover:shadow-lg group-focus-visible:border-brand group-focus-visible:shadow-lg">
         <div className="flex flex-1 flex-col gap-5">
           <div>

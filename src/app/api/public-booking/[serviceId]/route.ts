@@ -27,15 +27,16 @@ type RouteContext = {
   }>;
 };
 
-export async function GET(_: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
   const { serviceId: serviceKey } = await context.params;
+  const businessKey = request.nextUrl.searchParams.get("business")?.trim() || "";
   const supabase = getSupabaseAdminClient();
-  const { data: service, error: serviceError } = await supabase
-    .from("services")
-    .select("id, public_slug, business_id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
-    .eq(isUuid(serviceKey) ? "id" : "public_slug", serviceKey)
-    .limit(1)
-    .maybeSingle();
+  const { data: service, error: serviceError } = await resolvePublicBookingService({
+    businessKey,
+    requirePublic: false,
+    serviceKey,
+    supabase
+  });
 
   if (serviceError || !service) {
     return NextResponse.json({ error: "Service not found." }, { status: 404 });
@@ -221,6 +222,7 @@ async function getUnavailableBookingResponse(
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const { serviceId: serviceKey } = await context.params;
+  const businessKey = request.nextUrl.searchParams.get("business")?.trim() || "";
   const payload = await request.json() as {
     customer?: {
       email?: string;
@@ -264,14 +266,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     };
     const startsAt = buildIsoInTimeZone(payload.slot.date, payload.slot.startTime, payload.timeZone);
     const endsAt = buildIsoInTimeZone(payload.slot.date, payload.slot.endTime, payload.timeZone);
-    const { data: service, error: serviceError } = await supabase
-      .from("services")
-      .select("id, public_slug, business_id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
-      .eq(isUuid(serviceKey) ? "id" : "public_slug", serviceKey)
-      .eq("is_active", true)
-      .eq("is_public", true)
-      .limit(1)
-      .maybeSingle();
+    const { data: service, error: serviceError } = await resolvePublicBookingService({
+      businessKey,
+      requirePublic: true,
+      serviceKey,
+      supabase
+    });
 
     if (serviceError || !service) {
       return NextResponse.json({ error: "Service not found." }, { status: 404 });
@@ -556,6 +556,60 @@ export async function POST(request: NextRequest, context: RouteContext) {
       status: 500
     });
   }
+}
+
+async function resolvePublicBookingService({
+  businessKey,
+  requirePublic,
+  serviceKey,
+  supabase
+}: {
+  businessKey: string;
+  requirePublic: boolean;
+  serviceKey: string;
+  supabase: ReturnType<typeof getSupabaseAdminClient>;
+}) {
+  const selectColumns = "id, public_slug, business_id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active";
+
+  if (businessKey) {
+    const { data: business, error: businessError } = await supabase
+      .from("businesses")
+      .select("id")
+      .eq(isUuid(businessKey) ? "id" : "public_slug", businessKey)
+      .limit(1)
+      .maybeSingle();
+
+    if (businessError || !business) {
+      return { data: null, error: businessError };
+    }
+
+    let query = supabase
+      .from("services")
+      .select(selectColumns)
+      .eq("business_id", business.id)
+      .eq(isUuid(serviceKey) ? "id" : "public_slug", serviceKey);
+
+    if (requirePublic) {
+      query = query.eq("is_active", true).eq("is_public", true);
+    }
+
+    return query.limit(1).maybeSingle();
+  }
+
+  if (!isUuid(serviceKey)) {
+    return { data: null, error: null };
+  }
+
+  let query = supabase
+    .from("services")
+    .select(selectColumns)
+    .eq("id", serviceKey);
+
+  if (requirePublic) {
+    query = query.eq("is_active", true).eq("is_public", true);
+  }
+
+  return query.limit(1).maybeSingle();
 }
 
 async function upsertCustomer(

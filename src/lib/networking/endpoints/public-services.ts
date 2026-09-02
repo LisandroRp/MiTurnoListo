@@ -19,6 +19,7 @@ export type PublicServiceSummary = {
 export type PublicServicesPayload = {
   address: string;
   businessName: string;
+  businessSlug: string;
   locale: Locale;
   publicDescription: string;
   publicLogoUrl: string;

@@ -62,8 +62,14 @@ export type CreatePublicBookingInput = {
   };
 };
 
-export async function getPublicBookingPayload(serviceId: string) {
-  const response = await fetch(`/api/public-booking/${serviceId}`, {
+export async function getPublicBookingPayload(serviceId: string, businessKey?: string) {
+  const searchParams = new URLSearchParams();
+
+  if (businessKey) {
+    searchParams.set("business", businessKey);
+  }
+
+  const response = await fetch(`/api/public-booking/${serviceId}${searchParams.size ? `?${searchParams.toString()}` : ""}`, {
     cache: "no-store"
   });
 

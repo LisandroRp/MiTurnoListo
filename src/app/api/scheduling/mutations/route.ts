@@ -1351,20 +1351,7 @@ async function resolveUniqueServiceSlug(
   serviceName: string,
   serviceId: string
 ) {
-  const { data: business, error: businessError } = await supabase
-    .from("businesses")
-    .select("name, public_slug")
-    .eq("id", businessId)
-    .limit(1)
-    .maybeSingle();
-
-  if (businessError) {
-    throw new Error("Unable to save the service.");
-  }
-
-  const businessSlug = normalizeSlug(business?.public_slug || business?.name || "negocio", "negocio");
-  const serviceSlug = normalizeSlug(serviceName, serviceId);
-  const baseSlug = `${businessSlug}-${serviceSlug}`.slice(0, 90).replace(/-+$/g, "");
+  const baseSlug = normalizeSlug(serviceName, serviceId);
 
   for (let index = 0; index < 50; index += 1) {
     const candidate = index === 0 ? baseSlug : `${baseSlug}-${index}`;
@@ -1372,6 +1359,7 @@ async function resolveUniqueServiceSlug(
       .from("services")
       .select("id")
       .eq("public_slug", candidate)
+      .eq("business_id", businessId)
       .neq("id", serviceId)
       .limit(1)
       .maybeSingle();

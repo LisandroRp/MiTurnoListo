@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { BusinessProfile } from "@/features/scheduling/types";
 import { createApiErrorResponse, getSafeErrorMessage } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
-import { normalizeSlug } from "@/lib/slugs";
+import { getSafePublicSlug } from "@/lib/slugs";
 
 type BusinessProfilePayload = {
   businessId?: string;
@@ -111,7 +111,7 @@ async function resolveUniqueBusinessSlug(
   name: string,
   businessId: string
 ) {
-  const baseSlug = normalizeSlug(name, "negocio");
+  const baseSlug = getSafePublicSlug(name, "negocio");
 
   for (let index = 0; index < 50; index += 1) {
     const candidate = index === 0 ? baseSlug : `${baseSlug}-${index}`;

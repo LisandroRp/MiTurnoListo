@@ -47,11 +47,12 @@ import {
 import { getBrowserTimeZone } from "@/lib/networking/utils/date-time";
 
 type BookingFlowProps = {
+  businessKey?: string;
   serviceId: string;
   mode?: "public" | "preview";
 };
 
-export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
+export function BookingFlow({ businessKey, serviceId, mode = "public" }: BookingFlowProps) {
   const {
     appointments: previewAppointments,
     createAppointment: createPreviewAppointment,
@@ -133,7 +134,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
     setUnavailableDetails(null);
     setIsPublicLoading(true);
 
-    void getPublicBookingPayload(serviceId)
+    void getPublicBookingPayload(serviceId, businessKey)
       .then((payload) => {
         if (!isActive) {
           return;
@@ -168,7 +169,7 @@ export function BookingFlow({ serviceId, mode = "public" }: BookingFlowProps) {
     return () => {
       isActive = false;
     };
-  }, [isPreview, serviceId]);
+  }, [businessKey, isPreview, serviceId]);
 
   const assignedEmployees = service
     ? employees.filter((employee) => !employee.isArchived && employee.isVisible && service.employeeIds.includes(employee.id))

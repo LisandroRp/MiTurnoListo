@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
-import { normalizeSlug } from "@/lib/slugs";
+import { getSafePublicSlug, normalizeSlug } from "@/lib/slugs";
 
 type BootstrapPayload = {
   timeZone?: string;
@@ -222,7 +222,7 @@ async function resolveUniqueBusinessIdentity(supabase: SupabaseAdminClient, base
   for (let index = 0; index < 50; index += 1) {
     const suffix = index === 0 ? "" : `-${index}`;
     const candidateName = `${baseName}${suffix}`;
-    const candidateSlug = normalizeSlug(candidateName, "negocio");
+    const candidateSlug = getSafePublicSlug(candidateName, "negocio");
     const [{ data: existingName, error: nameError }, { data: existingSlug, error: slugError }] = await Promise.all([
       supabase
         .from("businesses")
@@ -255,7 +255,7 @@ async function resolveUniqueBusinessIdentity(supabase: SupabaseAdminClient, base
 
   return {
     name: fallbackName,
-    publicSlug: normalizeSlug(fallbackName, "negocio")
+    publicSlug: getSafePublicSlug(fallbackName, "negocio")
   };
 }
 

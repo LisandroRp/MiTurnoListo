@@ -116,6 +116,7 @@ export async function GET(_: Request, context: RouteContext) {
   return NextResponse.json({
     address: businessResult.data.address ?? "",
     businessName: businessResult.data.name,
+    businessSlug: businessResult.data.public_slug ?? "",
     locale: (membershipResult.data?.locale ?? "es") as Locale,
     publicDescription: businessResult.data.public_description ?? "",
     publicLogoUrl: normalizeStoredImageUrl(businessResult.data.public_logo_url),

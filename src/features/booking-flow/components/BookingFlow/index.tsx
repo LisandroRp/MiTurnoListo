@@ -259,7 +259,12 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
   if (!isPreview && publicError) {
     return (
       <BookingShell className="place-items-center" theme={theme} mode={mode}>
-        <StateCard title={copy.loadErrorTitle} />
+        <div className="grid justify-items-center gap-6 text-center">
+          <Link href="/" aria-label="Ir al inicio">
+            <BrandMark variant="full" size="xl" align="center" priority />
+          </Link>
+          <StateCard title={copy.loadErrorTitle} />
+        </div>
       </BookingShell>
     );
   }

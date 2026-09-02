@@ -413,7 +413,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     ));
 
     if (!selectedSlot) {
-      return NextResponse.json({ error: "Ese horario ya fue reservado. Elegi otro." }, { status: 409 });
+      return NextResponse.json({ error: "Ese horario ya fue reservado. Elegí otro." }, { status: 409 });
     }
 
     const bookingDateLimitResult = await enforceOneCustomerBookingForSelectedDate(
@@ -675,7 +675,7 @@ async function getMonthlyAppointmentLimitStatus(
 
     return {
       response: NextResponse.json(
-        { error: `Este negocio alcanzo el limite de ${freePlanLimits.monthlyAppointments} turnos mensuales.` },
+        { error: `Este negocio alcanzó el límite de ${freePlanLimits.monthlyAppointments} turnos mensuales.` },
         { status: 402 }
       )
     };
@@ -712,7 +712,7 @@ async function enforceOneCustomerBookingForSelectedDate(
   if ((count ?? 0) > 0) {
     return {
       response: NextResponse.json(
-        { error: "Ya tenes una reserva para este dia. Elegi otra fecha para sacar un nuevo turno." },
+        { error: "Ya tenés una reserva para este día. Elegí otra fecha para sacar un nuevo turno." },
         { status: 409 }
       )
     };
@@ -749,7 +749,7 @@ async function enforceOneCustomerBookingSubmissionPerDay(
   if ((count ?? 0) > 0) {
     return {
       response: NextResponse.json(
-        { error: "Ya hiciste una reserva hoy. Podes volver a reservar mañana." },
+        { error: "Ya hiciste una reserva hoy. Podés volver a reservar mañana." },
         { status: 409 }
       )
     };

@@ -34,7 +34,7 @@ export function Modal({ children, className, isOpen }: ModalProps) {
       <Card
         role="dialog"
         aria-modal="true"
-        className={cx("max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto shadow-xl", className)}
+        className={cx("pb-safe-6 max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto shadow-xl", className)}
       >
         {children}
       </Card>

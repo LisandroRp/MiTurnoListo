@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { AppointmentCard } from "@/features/scheduling/components/CalendarView";
-import { getDayKeyForDate, getEmployeesWorkingOnDate } from "@/features/scheduling/components/dashboardTeamUtils";
+import { getDayKeyForDate, getEmployeesWorkingNowOnDate } from "@/features/scheduling/components/dashboardTeamUtils";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { WalkInAppointmentModal } from "@/features/scheduling/components/WalkInAppointmentModal";
 import { Appointment, DashboardMetric, Employee, Service } from "@/features/scheduling/types";
@@ -54,7 +54,7 @@ export function DashboardView({
   const todaysAppointments = appointments.filter((appointment) => appointment.date === referenceDate && activeServiceIds.has(appointment.serviceId));
   const activeTodaysAppointments = todaysAppointments.filter((appointment) => appointment.appointmentStatus !== "cancelled");
   const todayKey = getDayKeyForDate(referenceDate);
-  const employeesWorkingToday = getEmployeesWorkingOnDate(employees, services, appointments, referenceDate);
+  const employeesWorkingToday = getEmployeesWorkingNowOnDate(employees, referenceDate);
   const dayAppointments = todaysAppointments
     .slice()
     .sort((left, right) => left.startTime.localeCompare(right.startTime));

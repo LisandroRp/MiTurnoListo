@@ -74,7 +74,7 @@ function formatLeadTime(minutes: number) {
   if (minutes % 1440 === 0) {
     const days = minutes / 1440;
 
-    return `${days} ${days === 1 ? "dia" : "dias"}`;
+    return `${days} ${days === 1 ? "día" : "días"}`;
   }
 
   if (minutes % 60 === 0) {

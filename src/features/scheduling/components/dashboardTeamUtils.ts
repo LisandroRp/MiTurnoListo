@@ -1,23 +1,21 @@
-import { Appointment, Employee, Service } from "@/features/scheduling/types";
+import type { Employee } from "@/features/scheduling/types";
 
-export function getEmployeesWorkingOnDate(
+export function getEmployeesWorkingNowOnDate(
   employees: Employee[],
-  services: Service[],
-  appointments: Appointment[],
-  date: string
+  date: string,
+  now = new Date()
 ) {
-  const activeServiceIds = new Set(services.filter((service) => !service.isArchived).map((service) => service.id));
-  const activeAppointments = appointments.filter((appointment) => (
-    appointment.date === date &&
-    appointment.appointmentStatus !== "cancelled" &&
-    activeServiceIds.has(appointment.serviceId)
-  ));
-  const appointmentEmployeeIds = new Set(activeAppointments.map((appointment) => appointment.employeeId));
+  if (date !== formatDateInputValue(now)) {
+    return [];
+  }
+
   const dayKey = getDayKeyForDate(date);
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
   return employees.filter((employee) => (
     !employee.isArchived &&
-    (appointmentEmployeeIds.has(employee.id) || (employee.isVisible && (employee.schedule[dayKey] ?? []).length > 0))
+    employee.isVisible &&
+    (employee.schedule[dayKey] ?? []).some((range) => isTimeInRange(currentMinutes, range.start, range.end))
   ));
 }
 
@@ -34,4 +32,29 @@ export function getDayKeyForDate(date: string) {
   };
 
   return dayByWeekday[weekday] ?? "monday";
+}
+
+function isTimeInRange(currentMinutes: number, start: string, end: string) {
+  const startMinutes = getTimeMinutes(start);
+  const endMinutes = getTimeMinutes(end);
+
+  if (endMinutes <= startMinutes) {
+    return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+  }
+
+  return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+}
+
+function getTimeMinutes(value: string) {
+  const [hours = "0", minutes = "0"] = value.split(":");
+
+  return Number(hours) * 60 + Number(minutes);
+}
+
+function formatDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }

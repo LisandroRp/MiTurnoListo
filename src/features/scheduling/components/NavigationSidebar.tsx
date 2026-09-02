@@ -118,7 +118,7 @@ export function NavigationSidebar({
         })}
       </nav>
 
-      <div className="shrink-0 border-t border-subtle p-3">
+      <div className={cx("shrink-0 border-t border-subtle p-3", isMobile ? "pb-safe-6" : "")}>
         <Button
           size={shouldCollapse ? "icon" : "md"}
           variant="ghost"

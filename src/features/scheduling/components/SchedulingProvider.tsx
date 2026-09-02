@@ -231,7 +231,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       try {
         await bootstrapWorkspace();
       } catch {
-        throw new Error("No pudimos cargar tu espacio. Refresca la pagina o vuelve a iniciar sesion.");
+        throw new Error("No pudimos cargar tu espacio. Refrescá la página o volvé a iniciar sesión.");
       }
 
       return loadSchedulingSnapshot({ scope: snapshotScope });
@@ -609,7 +609,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         showToast({
           tone: "warning",
           title: copy.profile.unsubscribedToast,
-          description: "La suscripcion se cancelo, pero la vista necesita refrescarse."
+          description: "La suscripción se canceló, pero la vista necesita refrescarse."
         });
         return true;
       }
@@ -867,10 +867,10 @@ function getErrorMessage(error: unknown, fallbackMessage: string) {
 
 function getWorkspaceLoadErrorMessage(error: unknown) {
   if (isRecoverableWorkspaceLoadError(error)) {
-    return "No pudimos cargar tu espacio. Refresca la pagina o vuelve a iniciar sesion.";
+    return "No pudimos cargar tu espacio. Refrescá la página o volvé a iniciar sesión.";
   }
 
-  return getErrorMessage(error, "No pudimos cargar tu espacio. Intenta refrescar la pagina.");
+  return getErrorMessage(error, "No pudimos cargar tu espacio. Intentá refrescar la página.");
 }
 
 async function loadSuperAdminStatus() {

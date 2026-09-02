@@ -69,13 +69,13 @@ const templates: EmailTemplatePreview[] = [
     name: "Nueva reserva para negocio"
   },
   {
-    description: "Negocio. Preparado para avisar una cancelacion.",
+    description: "Negocio. Preparado para avisar una cancelación.",
     html: businessBookingCancellationEmail({
       ...sampleAppointment,
       wasRefunded: true
     }),
     id: "business-booking-cancellation",
-    name: "Cancelacion para negocio"
+    name: "Cancelación para negocio"
   },
   {
     description: "Negocio. Preparado para avisar pago confirmado por Mercado Pago.",
@@ -84,10 +84,10 @@ const templates: EmailTemplatePreview[] = [
     name: "Pago confirmado"
   },
   {
-    description: "Negocio. Se usa cuando llega al limite mensual del plan Free.",
+    description: "Negocio. Se usa cuando llega al límite mensual del plan Free.",
     html: planLimitReachedEmail({ businessName: sampleAppointment.businessName }),
     id: "plan-limit-reached",
-    name: "Limite plan Free"
+    name: "Límite plan Free"
   }
 ];
 

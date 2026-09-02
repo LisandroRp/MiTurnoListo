@@ -130,8 +130,8 @@ export async function sendPlanLimitReachedEmail({ businessId }: { businessId: st
 
   const result = await sendEmail({
     html: planLimitReachedEmail({ businessName: context.businessName }),
-    subject: "Llegaste al limite mensual del plan Free",
-    text: `Hola, ${context.businessName} llego al limite mensual de turnos del plan Free. Activa Premium para seguir recibiendo reservas online este mes.`,
+    subject: "Llegaste al límite mensual del plan Free",
+    text: `Hola, ${context.businessName} llegó al límite mensual de turnos del plan Free. Activa Premium para seguir recibiendo reservas online este mes.`,
     to: context.ownerEmail
   });
   logSkippedEmailResults([result]);
@@ -351,7 +351,7 @@ function buildBookingCreatedCustomerText(context: AppointmentEmailContext) {
 }
 
 function buildBookingConfirmedText(context: AppointmentEmailContext) {
-  return `Hola ${context.customerName}, tu turno en ${context.businessName} quedo confirmado. Servicio: ${context.serviceName}. Fecha: ${formatAppointmentDate(context.startsAt)}. ${buildCancellationText(context)}`;
+  return `Hola ${context.customerName}, tu turno en ${context.businessName} quedó confirmado. Servicio: ${context.serviceName}. Fecha: ${formatAppointmentDate(context.startsAt)}. ${buildCancellationText(context)}`;
 }
 
 function buildBookingCancelledCustomerText(context: AppointmentEmailContext, cancellationReason: string, wasRefunded: boolean) {
@@ -359,14 +359,14 @@ function buildBookingCancelledCustomerText(context: AppointmentEmailContext, can
     ? " Si habias pagado con Mercado Pago, el reembolso fue solicitado correctamente."
     : "";
   const reasonText = cancellationReason.trim()
-    ? ` Motivo de cancelacion: ${cancellationReason.trim()}.`
+    ? ` Motivo de cancelación: ${cancellationReason.trim()}.`
     : "";
 
   return `Hola ${context.customerName}, tu turno en ${context.businessName} fue cancelado. Servicio: ${context.serviceName}. Fecha: ${formatAppointmentDate(context.startsAt)}.${reasonText}${refundText}`;
 }
 
 function buildBusinessNotificationText(context: AppointmentEmailContext) {
-  return `Nueva reserva para ${context.serviceName}. Cliente: ${context.customerName}. Fecha: ${formatAppointmentDate(context.startsAt)}. Telefono: ${context.customerPhone}.${buildTransferReceiptText(context)}`;
+  return `Nueva reserva para ${context.serviceName}. Cliente: ${context.customerName}. Fecha: ${formatAppointmentDate(context.startsAt)}. Teléfono: ${context.customerPhone}.${buildTransferReceiptText(context)}`;
 }
 
 function buildBusinessPaymentConfirmedText(context: AppointmentEmailContext) {
@@ -388,7 +388,7 @@ function buildTransferReceiptText(context: AppointmentEmailContext) {
 }
 
 function buildCancellationText(context: AppointmentEmailContext) {
-  return `Si necesitas cancelar, podes hacerlo hasta ${formatLeadTime(context.cancellationLeadMinutes)} antes desde ${buildCancellationUrl(context.publicCancelToken)}.`;
+  return `Si necesitas cancelar, podés hacerlo hasta ${formatLeadTime(context.cancellationLeadMinutes)} antes desde ${buildCancellationUrl(context.publicCancelToken)}.`;
 }
 
 function buildCancellationUrl(token: string) {
@@ -415,7 +415,7 @@ function formatLeadTime(minutes: number) {
   if (minutes % 1440 === 0) {
     const days = minutes / 1440;
 
-    return `${days} ${days === 1 ? "dia" : "dias"}`;
+    return `${days} ${days === 1 ? "día" : "días"}`;
   }
 
   if (minutes % 60 === 0) {

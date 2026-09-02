@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return createApiErrorResponse(error, {
       code: "SUBSCRIPTION_STATUS_FAILED",
-      fallbackMessage: "No pudimos verificar el estado de la suscripcion.",
+      fallbackMessage: "No pudimos verificar el estado de la suscripción.",
       status: 502
     });
   }

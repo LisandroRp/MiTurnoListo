@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return createApiErrorResponse(error, {
       code: "SUBSCRIPTION_CANCEL_FAILED",
-      fallbackMessage: "No pudimos cancelar la suscripcion.",
+      fallbackMessage: "No pudimos cancelar la suscripción.",
       status: 502
     });
   }

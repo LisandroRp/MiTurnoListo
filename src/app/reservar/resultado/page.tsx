@@ -49,7 +49,7 @@ function getResultView(status: string) {
   if (status === "approved") {
     return {
       badge: "Pago aprobado",
-      description: "Confirmamos el pago en Mercado Pago y tu turno quedo confirmado.",
+      description: "Confirmamos el pago en Mercado Pago y tu turno quedó confirmado.",
       title: "Turno confirmado",
       tone: "success" as const
     };
@@ -58,7 +58,7 @@ function getResultView(status: string) {
   if (status === "pending" || status === "in_process") {
     return {
       badge: "Pago pendiente",
-      description: "Mercado Pago todavia esta procesando el pago. El turno queda pendiente hasta que se apruebe.",
+      description: "Mercado Pago todavía está procesando el pago. El turno queda pendiente hasta que se apruebe.",
       title: "Tu pago esta pendiente",
       tone: "warning" as const
     };
@@ -67,7 +67,7 @@ function getResultView(status: string) {
   if (status === "rejected" || status === "failure") {
     return {
       badge: "Pago rechazado",
-      description: "No pudimos confirmar el pago. Puedes intentar reservar nuevamente o elegir otro metodo de pago.",
+      description: "No pudimos confirmar el pago. Podés intentar reservar nuevamente o elegir otro método de pago.",
       title: "El pago no fue aprobado",
       tone: "danger" as const
     };

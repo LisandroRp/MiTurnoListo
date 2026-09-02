@@ -32,7 +32,7 @@ export async function uploadBusinessImageAsset({
   const payload = await response.json().catch(() => null) as { error?: string; publicUrl?: string } | null;
 
   if (!response.ok || !payload?.publicUrl) {
-    throw new Error(payload?.error ?? "No pudimos subir la imagen. Revisa la configuracion de Storage.");
+    throw new Error(payload?.error ?? "No pudimos subir la imagen. Revisá la configuración de Storage.");
   }
 
   return payload.publicUrl;
@@ -60,7 +60,7 @@ async function compressImageToWebp(file: File) {
     }
   }
 
-  throw new Error("La imagen es demasiado grande. Proba con otra imagen.");
+  throw new Error("La imagen es demasiado grande. Probá con otra imagen.");
 }
 
 function loadImage(file: File) {

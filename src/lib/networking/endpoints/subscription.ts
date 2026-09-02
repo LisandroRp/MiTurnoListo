@@ -32,7 +32,7 @@ export async function createProSubscriptionCheckout(businessId: string) {
   } | null;
 
   if (!response.ok || !payload?.checkoutUrl || !payload.subscriptionTier || !payload.status) {
-    throw new Error(payload?.error ?? "No pudimos iniciar la suscripcion al plan Pro.");
+    throw new Error(payload?.error ?? "No pudimos iniciar la suscripción al plan Pro.");
   }
 
   return {
@@ -66,7 +66,7 @@ export async function syncProSubscriptionStatus(businessId: string, preapprovalI
   } | null;
 
   if (!response.ok || !payload?.subscriptionTier || !payload.status) {
-    throw new Error(payload?.error ?? "No pudimos verificar el estado de la suscripcion.");
+    throw new Error(payload?.error ?? "No pudimos verificar el estado de la suscripción.");
   }
 
   return {
@@ -93,7 +93,7 @@ export async function cancelProSubscription(businessId: string) {
   } | null;
 
   if (!response.ok || !payload?.subscriptionTier || !payload.status) {
-    throw new Error(payload?.error ?? "No pudimos cancelar la suscripcion.");
+    throw new Error(payload?.error ?? "No pudimos cancelar la suscripción.");
   }
 
   return {

@@ -37,7 +37,7 @@ const mercadoPagoPlaceholderValues = new Set([
 const transferPlaceholderValues = new Set([
   "Nombre del Titular",
   "Account holder name",
-  "Introducir CBU (22 digitos)",
+  "Introducir CBU (22 dígitos)",
   "Enter CBU (22 digits)",
   "Introducir alias de la cuenta",
   "Enter account alias",

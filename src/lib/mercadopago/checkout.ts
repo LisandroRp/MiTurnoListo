@@ -37,7 +37,7 @@ export function getMercadoPagoPublicOrigin(requestOrigin: string) {
   const origin = publicUrl || requestOrigin;
 
   if (!origin.startsWith("https://")) {
-    throw new Error("Mercado Pago necesita una URL publica HTTPS para redirigir. Configura NEXT_PUBLIC_SITE_URL con tu tunel o dominio de produccion.");
+    throw new Error("Mercado Pago necesita una URL pública HTTPS para redirigir. Configura NEXT_PUBLIC_SITE_URL con tu túnel o dominio de producción.");
   }
 
   return origin;

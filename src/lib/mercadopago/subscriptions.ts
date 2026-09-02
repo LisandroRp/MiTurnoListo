@@ -104,11 +104,11 @@ export async function createProSubscriptionCheckout({
   }) | null;
 
   if (!response.ok) {
-    throw new Error(payload?.message ?? "No pudimos iniciar la suscripcion en Mercado Pago.");
+    throw new Error(payload?.message ?? "No pudimos iniciar la suscripción en Mercado Pago.");
   }
 
   if (!payload?.id || !payload.init_point) {
-    throw new Error("Mercado Pago no devolvio una URL de checkout para la suscripcion.");
+    throw new Error("Mercado Pago no devolvió una URL de checkout para la suscripción.");
   }
 
   await persistBusinessSubscriptionState({
@@ -315,7 +315,7 @@ export async function cancelLatestBusinessSubscription({
   } | null;
 
   if (!response.ok) {
-    throw new Error(payload?.message ?? "No pudimos cancelar la suscripcion en Mercado Pago.");
+    throw new Error(payload?.message ?? "No pudimos cancelar la suscripción en Mercado Pago.");
   }
 
   await persistBusinessSubscriptionState({
@@ -399,7 +399,7 @@ async function getSubscriptionById(preapprovalId: string) {
   }) | null;
 
   if (!response.ok || !payload?.id) {
-    throw new Error(payload?.message ?? "No pudimos verificar la suscripcion en Mercado Pago.");
+    throw new Error(payload?.message ?? "No pudimos verificar la suscripción en Mercado Pago.");
   }
 
   return payload;
@@ -419,7 +419,7 @@ async function getSubscriptionPaymentById(paymentId: string) {
   }) | null;
 
   if (!response.ok || !payload?.id) {
-    throw new Error(payload?.message ?? "No pudimos verificar el pago de la suscripcion en Mercado Pago.");
+    throw new Error(payload?.message ?? "No pudimos verificar el pago de la suscripción en Mercado Pago.");
   }
 
   return payload;
@@ -452,7 +452,7 @@ async function createPendingBusinessSubscriptionAttempt({
       .eq("id", pendingAttempt.id);
 
     if (error) {
-      throw new Error("No pudimos preparar la suscripcion del negocio.");
+      throw new Error("No pudimos preparar la suscripción del negocio.");
     }
 
     return pendingAttempt.id;
@@ -473,7 +473,7 @@ async function createPendingBusinessSubscriptionAttempt({
     .single();
 
   if (error || !data?.id) {
-    throw new Error("No pudimos preparar la suscripcion del negocio.");
+    throw new Error("No pudimos preparar la suscripción del negocio.");
   }
 
   return data.id as string;
@@ -494,7 +494,7 @@ async function findLatestStoredBusinessSubscription(businessId: string) {
     .maybeSingle();
 
   if (error) {
-    throw new Error("No pudimos consultar la suscripcion guardada.");
+    throw new Error("No pudimos consultar la suscripción guardada.");
   }
 
   return data as StoredBusinessSubscription | null;
@@ -536,7 +536,7 @@ async function persistBusinessSubscriptionState({
       .eq("id", existingRecord.id);
 
     if (error) {
-      throw new Error("No pudimos guardar el estado de la suscripcion.");
+      throw new Error("No pudimos guardar el estado de la suscripción.");
     }
 
     return;
@@ -554,7 +554,7 @@ async function persistBusinessSubscriptionState({
       .eq("id", pendingAttempt.id);
 
     if (error) {
-      throw new Error("No pudimos guardar el estado de la suscripcion.");
+      throw new Error("No pudimos guardar el estado de la suscripción.");
     }
 
     return;
@@ -568,7 +568,7 @@ async function persistBusinessSubscriptionState({
     });
 
   if (error) {
-    throw new Error("No pudimos guardar el estado de la suscripcion.");
+    throw new Error("No pudimos guardar el estado de la suscripción.");
   }
 }
 
@@ -582,7 +582,7 @@ async function findStoredBusinessSubscriptionByProviderId(supabase: SupabaseClie
     .maybeSingle();
 
   if (error) {
-    throw new Error("No pudimos consultar la suscripcion guardada.");
+    throw new Error("No pudimos consultar la suscripción guardada.");
   }
 
   return data as StoredBusinessSubscription | null;
@@ -609,7 +609,7 @@ async function findLatestPendingBusinessSubscriptionAttempt({
     .maybeSingle();
 
   if (error) {
-    throw new Error("No pudimos consultar el intento de suscripcion.");
+    throw new Error("No pudimos consultar el intento de suscripción.");
   }
 
   return data as StoredBusinessSubscription | null;
@@ -674,7 +674,7 @@ async function resolveBusinessIdForSubscription(supabase: SupabaseClient, subscr
     .maybeSingle();
 
   if (ownerMembershipError) {
-    throw new Error("No pudimos encontrar el negocio asociado a la suscripcion.");
+    throw new Error("No pudimos encontrar el negocio asociado a la suscripción.");
   }
 
   if (ownerMembership?.business_id) {
@@ -689,7 +689,7 @@ async function resolveBusinessIdForSubscription(supabase: SupabaseClient, subscr
     .maybeSingle();
 
   if (membershipError) {
-    throw new Error("No pudimos encontrar el negocio asociado a la suscripcion.");
+    throw new Error("No pudimos encontrar el negocio asociado a la suscripción.");
   }
 
   return membership?.business_id as string | null ?? null;
@@ -758,7 +758,7 @@ async function persistBusinessSubscriptionPayment({
     });
 
   if (error) {
-    throw new Error("No pudimos guardar el pago de la suscripcion.");
+    throw new Error("No pudimos guardar el pago de la suscripción.");
   }
 }
 
@@ -804,7 +804,7 @@ async function resolveUniqueRecentPendingBusinessId(planId: string) {
     .limit(2);
 
   if (error) {
-    throw new Error("No pudimos resolver el intento pendiente de suscripcion.");
+    throw new Error("No pudimos resolver el intento pendiente de suscripción.");
   }
 
   if (data.length !== 1) {
@@ -842,7 +842,7 @@ async function findUserByEmail(supabase: SupabaseClient, email: string) {
     });
 
     if (error) {
-      throw new Error("No pudimos validar el usuario asociado a la suscripcion.");
+      throw new Error("No pudimos validar el usuario asociado a la suscripción.");
     }
 
     const user = data.users.find((candidate: User) => candidate.email?.trim().toLowerCase() === normalizedEmail);
@@ -879,7 +879,7 @@ function getSubscriptionConfig() {
   const testPayerEmail = process.env.MERCADO_PAGO_TEST_PAYER_EMAIL?.trim() || "";
 
   if (!Number.isFinite(transactionAmount) || transactionAmount <= 0) {
-    throw new Error("Configura un precio valido en MERCADO_PAGO_PRO_PRICE_ARS para crear suscripciones.");
+    throw new Error("Configura un precio válido en MERCADO_PAGO_PRO_PRICE_ARS para crear suscripciones.");
   }
 
   return {

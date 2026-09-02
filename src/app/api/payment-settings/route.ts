@@ -65,7 +65,7 @@ export async function PUT(request: NextRequest) {
 
   if (isFreePlan(tierResult.subscriptionTier)) {
     return NextResponse.json(
-      { error: "El plan Free no permite configurar metodos de pago." },
+      { error: "El plan Free no permite configurar métodos de pago." },
       { status: 402 }
     );
   }
@@ -155,7 +155,7 @@ function normalizeTransferValue(value: string) {
   if (
     trimmedValue === "Nombre del Titular" ||
     trimmedValue === "Account holder name" ||
-    trimmedValue === "Introducir CBU (22 digitos)" ||
+    trimmedValue === "Introducir CBU (22 dígitos)" ||
     trimmedValue === "Enter CBU (22 digits)" ||
     trimmedValue === "Introducir alias de la cuenta" ||
     trimmedValue === "Enter account alias" ||

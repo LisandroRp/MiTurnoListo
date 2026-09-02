@@ -138,7 +138,7 @@ export function AppShell({ children }: AppShellProps) {
               className="!text-brand-strong hover:bg-brand-soft hover:!text-brand-strong"
               onClick={() => void logout()}
             >
-              Cerrar sesion
+              Cerrar sesión
             </Button>
           </div>
         </Card>

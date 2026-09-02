@@ -77,7 +77,7 @@ export function PublicAppointmentCancellation({ token }: { token: string }) {
     const trimmedReason = cancellationReason.trim();
 
     if (!trimmedReason) {
-      setErrorMessage("Agrega el motivo de cancelacion para continuar.");
+      setErrorMessage("Agregá el motivo de cancelación para continuar.");
       return;
     }
 
@@ -130,7 +130,7 @@ export function PublicAppointmentCancellation({ token }: { token: string }) {
                 <p className="text-xs mt-3 font-bold uppercase tracking-[0.24em] text-muted">{details.businessName}</p>
                 <h1 className="mt-3 text-3xl font-bold text-primary">Cancelar turno</h1>
                 <p className="mt-2 text-sm leading-6 text-muted">
-                  Revisa los datos antes de confirmar la cancelacion.
+                  Revisá los datos antes de confirmar la cancelación.
                 </p>
               </div>
 
@@ -146,7 +146,7 @@ export function PublicAppointmentCancellation({ token }: { token: string }) {
                 {details.canCancel ? (
                   <p>
                     Este turno se puede cancelar hasta {formatDateTime(details.cancelUntil, details.timeZone)}.
-                    {details.wasPaidWithMercadoPago ? " Si fue pagado por Mercado Pago, vamos a solicitar el reembolso automaticamente." : ""}
+                    {details.wasPaidWithMercadoPago ? " Si fue pagado por Mercado Pago, vamos a solicitar el reembolso automáticamente." : ""}
                   </p>
                 ) : (
                   <p>{details.appointmentStatus === "cancelled" ? "Este turno ya fue cancelado." : details.cannotCancelReason}</p>
@@ -161,7 +161,7 @@ export function PublicAppointmentCancellation({ token }: { token: string }) {
 
               {details.canCancel ? (
                 <TextAreaField
-                  label="Motivo de cancelacion"
+                  label="Motivo de cancelación"
                   name="cancellation-reason"
                   placeholder="Conta brevemente por que se cancela el turno."
                   value={cancellationReason}

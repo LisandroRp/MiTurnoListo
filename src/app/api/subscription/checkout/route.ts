@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return createApiErrorResponse(error, {
       code: "SUBSCRIPTION_CHECKOUT_FAILED",
-      fallbackMessage: "No pudimos iniciar la suscripcion al plan Pro.",
+      fallbackMessage: "No pudimos iniciar la suscripción al plan Pro.",
       status: 502
     });
   }

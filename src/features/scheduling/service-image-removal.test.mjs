@@ -39,7 +39,7 @@ test("service management requires estimated duration", () => {
   assert.equal(servicesView.includes("durationMinutes: event.target.checked ? 0 : null"), false);
   assert.equal(servicesView.includes("handleDurationEnabledChange"), false);
   assert.equal(serviceTypes.includes("durationMinutes: number;"), true);
-  assert.equal(messages.includes('duration: "Duracion estimada"'), true);
+  assert.equal(messages.includes('duration: "Duración estimada"'), true);
 });
 
 test("service management normalizes capacity on blur", () => {

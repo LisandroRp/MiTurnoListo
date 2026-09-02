@@ -59,7 +59,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     if (!normalizedCancellationReason) {
-      return NextResponse.json({ error: "El motivo de cancelacion es obligatorio." }, { status: 400 });
+      return NextResponse.json({ error: "El motivo de cancelación es obligatorio." }, { status: 400 });
     }
 
     const supabase = getSupabaseAdminClient();
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 async function getCancellationDetails(token: string) {
   if (!token.trim()) {
     return {
-      response: NextResponse.json({ error: "Link invalido." }, { status: 400 })
+      response: NextResponse.json({ error: "Link inválido." }, { status: 400 })
     };
   }
 
@@ -164,7 +164,7 @@ async function getCancellationDetails(token: string) {
     ? "Este turno ya fue cancelado."
     : isRescheduled
       ? "Este turno ya fue reprogramado."
-    : `Este turno solo se podia cancelar hasta ${formatDateTime(cancelUntil.toISOString(), businessResult.data?.timezone ?? "America/Argentina/Buenos_Aires")}.`;
+    : `Este turno solo se podía cancelar hasta ${formatDateTime(cancelUntil.toISOString(), businessResult.data?.timezone ?? "America/Argentina/Buenos_Aires")}.`;
 
   return {
     appointment,

@@ -395,11 +395,11 @@ async function enforceServicePaymentConfiguration(
   );
 
   if (needsMercadoPago && !data?.allow_mercadopago) {
-    throw new Error("PAYMENT_CONFIG:Configura Mercado Pago antes de usarlo como metodo de pago del servicio.");
+    throw new Error("PAYMENT_CONFIG:Configura Mercado Pago antes de usarlo como método de pago del servicio.");
   }
 
   if (needsTransfer && !hasTransferSettings) {
-    throw new Error("PAYMENT_CONFIG:Configura transferencia bancaria antes de usarla como metodo de pago del servicio.");
+    throw new Error("PAYMENT_CONFIG:Configura transferencia bancaria antes de usarla como método de pago del servicio.");
   }
 }
 
@@ -426,7 +426,7 @@ function enforceServiceBookingConfiguration(service: Service) {
     service.durationMinutes <= 0 ||
     service.capacity < 1
   ) {
-    throw new Error("SERVICE_CONFIG:Precio, duracion y capacidad son obligatorios. La capacidad debe ser al menos 1 y la anticipacion para cancelar al menos 1 dia.");
+    throw new Error("SERVICE_CONFIG:Precio, duración y capacidad son obligatorios. La capacidad debe ser al menos 1 y la anticipación para cancelar al menos 1 día.");
   }
 }
 
@@ -476,7 +476,7 @@ async function saveBusinessDayBlock(
   const reason = dayBlock.reason?.trim() || "Cerrado";
 
   if (!isValidDateValue(startsOn) || !isValidDateValue(endsOn) || startsOn > endsOn) {
-    throw new Error("DAY_BLOCK_CONFIG:Revisa las fechas del dia bloqueado.");
+    throw new Error("DAY_BLOCK_CONFIG:Revisá las fechas del día bloqueado.");
   }
 
   enforceBlockDateIsFuture(startsOn, context.timeZone);
@@ -501,7 +501,7 @@ function enforceBlockDateIsFuture(startsOn: string, timeZone: string) {
   const today = formatTodayForTimeZone(timeZone);
 
   if (startsOn <= today) {
-    throw new Error("DAY_BLOCK_CONFIG:No podes bloquear dias pasados ni el dia de hoy.");
+    throw new Error("DAY_BLOCK_CONFIG:No podés bloquear días pasados ni el día de hoy.");
   }
 }
 
@@ -528,7 +528,7 @@ async function enforceNoAppointmentsInDateRange(
   }
 
   if ((count ?? 0) > 0) {
-    throw new Error("DAY_BLOCK_CONFIG:Este dia ya tiene turnos. Primero reprogramalos o cancelalos antes de bloquear el dia.");
+    throw new Error("DAY_BLOCK_CONFIG:Este día ya tiene turnos. Primero reprogramalos o cancelalos antes de bloquear el día.");
   }
 }
 
@@ -891,7 +891,7 @@ async function cancelAppointment(
   const normalizedCancellationReason = typeof cancellationReason === "string" ? cancellationReason.trim() : "";
 
   if (!normalizedCancellationReason) {
-    throw new Error("El motivo de cancelacion es obligatorio.");
+    throw new Error("El motivo de cancelación es obligatorio.");
   }
 
   const { data: appointment, error: appointmentError } = await supabase
@@ -1261,7 +1261,7 @@ async function enforceDateIsNotBlocked(supabase: SupabaseClient, businessId: str
   }
 
   if ((count ?? 0) > 0) {
-    throw new Error("DAY_BLOCK_CONFIG:Este dia esta bloqueado para reservas.");
+    throw new Error("DAY_BLOCK_CONFIG:Este día esta bloqueado para reservas.");
   }
 }
 

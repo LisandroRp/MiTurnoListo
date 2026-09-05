@@ -15,6 +15,7 @@ type ProfileSuperAdminPanelProps = {
   actionBusinessId: string;
   businesses: SuperAdminBusiness[];
   errorMessage: string;
+  hasLoadedBusinesses: boolean;
   isLoading: boolean;
   messages: Messages;
   onAction: (businessId: string, action: SuperAdminAction) => void;
@@ -28,6 +29,7 @@ export function ProfileSuperAdminPanel({
   actionBusinessId,
   businesses,
   errorMessage,
+  hasLoadedBusinesses,
   isLoading,
   messages,
   onAction,
@@ -36,6 +38,7 @@ export function ProfileSuperAdminPanel({
   const [query, setQuery] = useState("");
   const [planFilter, setPlanFilter] = useState<PlanFilter>("all");
   const [revenueMode, setRevenueMode] = useState<RevenueMode>("monthly");
+  const isInitialLoading = !hasLoadedBusinesses || (isLoading && businesses.length === 0);
   const filteredBusinesses = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -61,26 +64,36 @@ export function ProfileSuperAdminPanel({
   return (
     <div className="grid gap-6">
       <div className="grid gap-3 md:grid-cols-3">
-        <SuperAdminMetricCard
-          label={messages.profile.superAdminTotalBusinesses}
-          value={String(businesses.length)}
-        />
-        <SuperAdminMetricCard
-          label={messages.profile.superAdminPlans}
-          value={`${proCount} Pro / ${freeCount} Free`}
-        />
-        <SuperAdminMetricCard
-          action={(
-            <RevenueModeToggle
-              messages={messages}
-              mode={revenueMode}
-              onChange={setRevenueMode}
+        {isInitialLoading ? (
+          <>
+            <SuperAdminMetricSkeleton />
+            <SuperAdminMetricSkeleton />
+            <SuperAdminMetricSkeleton />
+          </>
+        ) : (
+          <>
+            <SuperAdminMetricCard
+              label={messages.profile.superAdminTotalBusinesses}
+              value={String(businesses.length)}
             />
-          )}
-          helper={`${paidSubscriptionCount} ${messages.profile.superAdminPaidSubscriptions}`}
-          label={messages.profile.superAdminSubscriptionRevenue}
-          value={formatCurrency(subscriptionRevenue)}
-        />
+            <SuperAdminMetricCard
+              label={messages.profile.superAdminPlans}
+              value={`${proCount} Pro / ${freeCount} Free`}
+            />
+            <SuperAdminMetricCard
+              action={(
+                <RevenueModeToggle
+                  messages={messages}
+                  mode={revenueMode}
+                  onChange={setRevenueMode}
+                />
+              )}
+              helper={`${paidSubscriptionCount} ${messages.profile.superAdminPaidSubscriptions}`}
+              label={messages.profile.superAdminSubscriptionRevenue}
+              value={formatCurrency(subscriptionRevenue)}
+            />
+          </>
+        )}
       </div>
 
       <Card className="overflow-hidden p-0">
@@ -126,10 +139,8 @@ export function ProfileSuperAdminPanel({
           </div>
         ) : null}
 
-        {isLoading && businesses.length === 0 ? (
-          <div className="grid min-h-52 place-items-center p-5 text-sm font-semibold text-muted">
-            {messages.profile.superAdminLoading}
-          </div>
+        {isInitialLoading ? (
+          <SuperAdminTableSkeleton messages={messages} />
         ) : filteredBusinesses.length === 0 ? (
           <div className="grid min-h-52 place-items-center p-5 text-center text-sm font-semibold text-muted">
             {messages.profile.superAdminEmpty}
@@ -181,6 +192,16 @@ export function ProfileSuperAdminPanel({
   );
 }
 
+function SuperAdminMetricSkeleton() {
+  return (
+    <Card aria-busy="true">
+      <div className="h-5 w-32 animate-pulse rounded-md bg-surface-strong" />
+      <div className="mt-3 h-8 w-40 animate-pulse rounded-lg bg-surface-strong" />
+      <div className="mt-2 h-4 w-24 animate-pulse rounded-md bg-surface-strong" />
+    </Card>
+  );
+}
+
 function SuperAdminMetricCard({
   action,
   helper,
@@ -202,6 +223,56 @@ function SuperAdminMetricCard({
       {helper ? <p className="mt-1 text-xs font-semibold text-muted">{helper}</p> : null}
     </Card>
   );
+}
+
+function SuperAdminTableSkeleton({ messages }: { messages: Messages }) {
+  return (
+    <>
+      <div className="hidden overflow-x-auto lg:block" aria-busy="true" aria-label={messages.profile.superAdminLoading}>
+        <table className="w-full min-w-[1120px] text-left text-sm">
+          <thead className="bg-input text-xs uppercase tracking-[0.04em] text-muted">
+            <tr>
+              <th className="px-5 py-3">{messages.profile.superAdminBusiness}</th>
+              <th className="px-5 py-3">{messages.profile.superAdminOwner}</th>
+              <th className="px-5 py-3">{messages.profile.superAdminAccount}</th>
+              <th className="px-5 py-3">{messages.profile.superAdminPlan}</th>
+              <th className="w-36 px-5 py-3">{messages.profile.superAdminUsage}</th>
+              <th className="px-5 py-3">{messages.profile.superAdminSubscription}</th>
+              <th className="px-5 py-3 text-right">{messages.profile.superAdminActions}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-subtle">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <tr key={index}>
+                <td className="px-5 py-4"><SkeletonLine className="w-36" /><SkeletonLine className="mt-2 w-20" /></td>
+                <td className="px-5 py-4"><SkeletonLine className="w-48" /></td>
+                <td className="px-5 py-4"><SkeletonLine className="w-28" /></td>
+                <td className="px-5 py-4"><SkeletonLine className="w-16" /></td>
+                <td className="px-5 py-4"><SkeletonLine className="w-20" /><SkeletonLine className="mt-2 w-24" /><SkeletonLine className="mt-2 w-20" /></td>
+                <td className="px-5 py-4"><SkeletonLine className="w-24" /><SkeletonLine className="mt-2 w-32" /></td>
+                <td className="px-5 py-4"><SkeletonLine className="ml-auto w-28" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="grid gap-3 p-4 lg:hidden" aria-busy="true" aria-label={messages.profile.superAdminLoading}>
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="grid gap-3 rounded-lg border border-subtle bg-surface p-4">
+            <SkeletonLine className="w-36" />
+            <SkeletonLine className="w-48" />
+            <SkeletonLine className="w-24" />
+            <SkeletonLine className="w-full" />
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function SkeletonLine({ className = "" }: { className?: string }) {
+  return <div className={`h-4 animate-pulse rounded-md bg-surface-strong ${className}`} />;
 }
 
 function RevenueModeToggle({

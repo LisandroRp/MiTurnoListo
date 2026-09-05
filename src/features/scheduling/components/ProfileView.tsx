@@ -418,6 +418,7 @@ export function ProfileView({
             actionBusinessId={superAdminActionBusinessId}
             businesses={superAdminBusinesses}
             errorMessage={superAdminError}
+            hasLoadedBusinesses={hasLoadedSuperAdminBusinesses}
             isLoading={isLoadingSuperAdminBusinesses}
             messages={messages}
             onAction={(targetBusinessId, action) => void handleSuperAdminAction(targetBusinessId, action)}

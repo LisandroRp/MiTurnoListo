@@ -173,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (event === "SIGNED_OUT") {
       clearAllAuthState();
+      setAuthState({ status: "guest", userEmail: null, userId: null });
       return;
     }
 

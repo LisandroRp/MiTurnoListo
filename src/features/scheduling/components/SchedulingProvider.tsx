@@ -7,6 +7,7 @@ import { ToastMessage } from "@/components/ui/Toast";
 import { shouldRepairWorkspaceAfterSnapshotError } from "@/features/auth/auth-bootstrap";
 import { useAuth } from "@/features/auth/components/AuthProvider";
 import { messages, Messages } from "@/features/scheduling/i18n/messages";
+import { getWorkspaceLoadMode } from "@/features/scheduling/scheduling-workspace-cache";
 import { bootstrapWorkspace } from "@/lib/networking/endpoints/auth";
 import { getSuperAdminStatus } from "@/lib/networking/endpoints/super-admin";
 import {
@@ -166,8 +167,10 @@ function getTodayDateValue() {
 export function SchedulingProvider({ children }: { children: ReactNode }) {
   const toastCounter = useRef(1);
   const didAttemptWorkspaceRepair = useRef(false);
+  const latestHydrateRequestId = useRef(0);
+  const loadedSnapshotUserIdRef = useRef<string | null>(null);
   const loadedSnapshotScopesRef = useRef<Set<SchedulingSnapshotScope>>(new Set());
-  const { status: authStatus } = useAuth();
+  const { status: authStatus, userId: authUserId } = useAuth();
   const pathname = usePathname();
   const snapshotScope = useMemo(() => getSchedulingSnapshotScope(pathname), [pathname]);
   const [businessId, setBusinessId] = useState<string | null>(null);
@@ -188,17 +191,26 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadedSnapshotUserId, setLoadedSnapshotUserId] = useState<string | null>(null);
   const [loadedSnapshotScopes, setLoadedSnapshotScopes] = useState<SchedulingSnapshotScope[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const copy = messages[locale];
-  const isCurrentScopeCached = loadedSnapshotScopes.includes(snapshotScope);
-  const isSnapshotScopePending = authStatus === "authenticated" && !isCurrentScopeCached;
+  const workspaceLoadMode = getWorkspaceLoadMode({
+    authStatus,
+    cachedScopes: loadedSnapshotScopes,
+    cachedUserId: loadedSnapshotUserId,
+    currentUserId: authUserId,
+    requestedScope: snapshotScope
+  });
+  const isSnapshotScopePending = workspaceLoadMode === "initial";
   const isWorkspaceLoading = isLoading || isSnapshotScopePending;
 
   function clearWorkspace() {
     didAttemptWorkspaceRepair.current = false;
+    latestHydrateRequestId.current += 1;
+    loadedSnapshotUserIdRef.current = null;
     loadedSnapshotScopesRef.current = new Set();
     setBusinessId(null);
     setLocaleState("es");
@@ -217,6 +229,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     setLoadError(null);
     setIsFetching(false);
     setIsLoading(false);
+    setLoadedSnapshotUserId(null);
     setLoadedSnapshotScopes([]);
   }
 
@@ -254,11 +267,23 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   }, [snapshotScope]);
 
   const hydrateWorkspace = useCallback(async (options: { preserveFocusedDate?: boolean } = {}) => {
+    if (!authUserId) {
+      return false;
+    }
+
+    const requestId = latestHydrateRequestId.current + 1;
+    latestHydrateRequestId.current = requestId;
+
     try {
       const [snapshot, superAdminStatus] = await Promise.all([
         loadSchedulingSnapshotWithRepair(),
         snapshotScope === "profile" ? loadSuperAdminStatus() : Promise.resolve<boolean | null>(null)
       ]);
+
+      if (requestId !== latestHydrateRequestId.current || loadedSnapshotUserIdRef.current !== authUserId) {
+        return false;
+      }
+
       const scopeConfig = getSchedulingSnapshotScopeConfig(snapshotScope);
       setBusinessId(snapshot.businessId);
       setLocaleState(snapshot.locale);
@@ -306,35 +331,45 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       markSnapshotScopeLoaded(snapshotScope);
       return true;
     } catch (error) {
+      if (requestId !== latestHydrateRequestId.current || loadedSnapshotUserIdRef.current !== authUserId) {
+        return false;
+      }
+
       setLoadError(getWorkspaceLoadErrorMessage(error));
       return false;
     }
-  }, [loadSchedulingSnapshotWithRepair, snapshotScope]);
+  }, [authUserId, loadSchedulingSnapshotWithRepair, snapshotScope]);
 
   useEffect(() => {
-    if (authStatus !== "authenticated") {
-      if (authStatus === "loading" || authStatus === "bootstrapping") {
+    let isActive = true;
+    const loadTimer = window.setTimeout(() => {
+      if (authStatus !== "authenticated" || !authUserId) {
+        if (authStatus !== "loading" && authStatus !== "bootstrapping") {
+          clearWorkspace();
+        }
         return;
       }
 
-      const resetTimer = window.setTimeout(() => {
+      if (loadedSnapshotUserIdRef.current !== authUserId) {
         clearWorkspace();
-      }, 0);
+        loadedSnapshotUserIdRef.current = authUserId;
+        setLoadedSnapshotUserId(authUserId);
+      }
 
-      return () => {
-        window.clearTimeout(resetTimer);
-      };
-    }
+      const loadMode = getWorkspaceLoadMode({
+        authStatus,
+        cachedScopes: Array.from(loadedSnapshotScopesRef.current),
+        cachedUserId: loadedSnapshotUserIdRef.current,
+        currentUserId: authUserId,
+        requestedScope: snapshotScope
+      });
 
-    let isActive = true;
-    const hasScopeCache = loadedSnapshotScopesRef.current.has(snapshotScope);
-    const loadTimer = window.setTimeout(() => {
-      setIsLoading(!hasScopeCache);
-      setIsFetching(hasScopeCache);
+      setIsLoading(loadMode === "initial");
+      setIsFetching(loadMode === "refresh");
       setLoadError(null);
 
       void hydrateWorkspace().then((didLoad) => {
-        if (!isActive) {
+        if (!isActive || loadedSnapshotUserIdRef.current !== authUserId) {
           return;
         }
 
@@ -347,7 +382,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       isActive = false;
       window.clearTimeout(loadTimer);
     };
-  }, [authStatus, hydrateWorkspace, snapshotScope]);
+  }, [authStatus, authUserId, hydrateWorkspace, snapshotScope]);
 
   function showToast(toast: Omit<ToastMessage, "id">) {
     const toastId = `toast-${toastCounter.current}`;
@@ -719,6 +754,21 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
+    if (snapshotScope === "payments") {
+      try {
+        await markAppointmentPaidRequest(businessId, appointmentId);
+        showToast({ tone: "success", title: copy.toast.appointmentPaid });
+        return true;
+      } catch (error) {
+        showToast({
+          tone: "error",
+          title: "Update failed",
+          description: getErrorMessage(error, "Unable to mark the appointment as paid.")
+        });
+        return false;
+      }
+    }
+
     return runMutation(
       () => markAppointmentPaidRequest(businessId, appointmentId),
       copy.toast.appointmentPaid,
@@ -935,6 +985,10 @@ function getSchedulingSnapshotScope(pathname: string): SchedulingSnapshotScope {
 
   if (pathname.startsWith("/pagos")) {
     return "payments";
+  }
+
+  if (pathname.startsWith("/clientes")) {
+    return "customers";
   }
 
   if (pathname.startsWith("/metodos-de-pago")) {

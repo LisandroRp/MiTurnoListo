@@ -47,6 +47,7 @@ type BusinessDayBlockInput = SchedulingSnapshot["businessDayBlocks"][number];
 export type SchedulingSnapshotScope =
   | "booking"
   | "calendar"
+  | "customers"
   | "dashboard"
   | "payments"
   | "paymentMethods"
@@ -651,6 +652,7 @@ export function getSchedulingSnapshotScopeConfig(scope: SchedulingSnapshotScope)
       includeServiceEmployees: true,
       includeServices: true
     },
+    customers: {},
     dashboard: {
       includeAppointments: true,
       includeEmployeeAvailability: true,

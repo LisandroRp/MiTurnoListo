@@ -16,6 +16,7 @@ import {
 } from "@/lib/networking/mappers/scheduling";
 import { getAccessToken } from "@/lib/networking/endpoints/auth";
 import { getPaymentSettings, savePaymentSettings as savePaymentSettingsRequest } from "@/lib/networking/endpoints/payment-settings";
+import { getReferralSummary } from "@/lib/networking/endpoints/referrals";
 import {
   cancelProSubscription,
   createProSubscriptionCheckout,
@@ -51,6 +52,7 @@ export type SchedulingSnapshotScope =
   | "paymentMethods"
   | "personnel"
   | "profile"
+  | "referrals"
   | "services"
   | "statistics";
 
@@ -142,7 +144,8 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
     serviceAddonResult,
     appointmentResult,
     businessDayBlockResult,
-    paymentSettings
+    paymentSettings,
+    referralSummary
   ] = await Promise.all([
     supabase
       .from("user_profiles")
@@ -208,7 +211,10 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
       : createSkippedQueryResult([]),
     scopeConfig.includePaymentSettings
       ? getPaymentSettings(businessId)
-      : Promise.resolve(emptyPaymentSettings)
+      : Promise.resolve(emptyPaymentSettings),
+    shouldLoadReferralSummary(scope)
+      ? getReferralSummary().catch(() => null)
+      : Promise.resolve(null)
   ]);
 
   if (isMissingSingleRowError(userProfileResult.error)) {
@@ -249,7 +255,7 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
   const appointments = mapAppointments(appointmentResult.data ?? [], timeZone);
   const businessDayBlocks = mapBusinessDayBlocks(businessDayBlockResult.data ?? []);
   const focusedDate = getDefaultFocusedDate(appointments, timeZone);
-  const profile = mapProfile(userProfileResult.data, businessResult.data, user.email ?? "");
+  const profile = mapProfile(userProfileResult.data, businessResult.data, user.email ?? "", referralSummary ?? undefined);
 
   return {
     appointments,
@@ -608,6 +614,10 @@ function createSkippedQueryResult<T>(data: T) {
   };
 }
 
+function shouldLoadReferralSummary(scope: SchedulingSnapshotScope) {
+  return scope === "profile" || scope === "referrals";
+}
+
 export function getSchedulingSnapshotScopeConfig(scope: SchedulingSnapshotScope): SchedulingSnapshotScopeConfig {
   const baseConfig: SchedulingSnapshotScopeConfig = {
     includeAppointments: false,
@@ -662,6 +672,7 @@ export function getSchedulingSnapshotScopeConfig(scope: SchedulingSnapshotScope)
     profile: {
       includePaymentSettings: true
     },
+    referrals: {},
     services: {
       includeAppointments: true,
       includeEmployeeAvailability: true,

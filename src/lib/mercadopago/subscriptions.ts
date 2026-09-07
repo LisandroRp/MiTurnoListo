@@ -10,6 +10,7 @@ import {
 } from "@/lib/mercadopago/subscription-status";
 import { getMercadoPagoPublicOrigin } from "@/lib/mercadopago/checkout";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
+import { reconcileReferralAccessForBusiness, rewardReferralForBusinessPayment } from "@/lib/referrals";
 import { isUuid } from "@/lib/slugs";
 
 const mercadoPagoSubscriptionApiBaseUrl = "https://api.mercadopago.com/preapproval";
@@ -159,6 +160,7 @@ export async function syncSubscriptionTierByPreapprovalId(preapprovalId: string)
     subscription
   });
   await updateBusinessSubscriptionTier(businessId, subscription.status);
+  await reconcileReferralAccessForBusiness({ businessId, supabase });
 
   return {
     businessId,
@@ -187,6 +189,12 @@ export async function syncSubscriptionPaymentByPaymentId(paymentId: string) {
     payment,
     providerSubscriptionId
   });
+  await rewardReferralForBusinessPayment({
+    businessId,
+    paymentId: String(payment.id),
+    paymentStatus: payment.status,
+    supabase
+  });
 
   return {
     amount: Number(payment.transaction_amount ?? 0),
@@ -213,6 +221,10 @@ export async function syncBusinessSubscriptionByPreapprovalId({
         await invalidateStoredBusinessSubscription(storedSubscription.id, businessId);
       } else {
         await updateBusinessSubscriptionTier(businessId, "free");
+        await reconcileReferralAccessForBusiness({
+          businessId,
+          supabase
+        });
       }
 
       return null;
@@ -235,6 +247,10 @@ export async function syncBusinessSubscriptionByPreapprovalId({
     subscription
   });
   await updateBusinessSubscriptionTier(businessId, subscription.status);
+  await reconcileReferralAccessForBusiness({
+    businessId,
+    supabase: getSupabaseAdminClient()
+  });
 
   return {
     businessId,
@@ -292,6 +308,10 @@ export async function syncLatestBusinessSubscription({
 
   if (!subscription?.id) {
     await updateBusinessSubscriptionTier(businessId, "free");
+    await reconcileReferralAccessForBusiness({
+      businessId,
+      supabase: getSupabaseAdminClient()
+    });
 
     return {
       businessId,
@@ -343,6 +363,10 @@ export async function cancelLatestBusinessSubscription({
       subscription
     });
     await updateBusinessSubscriptionTier(businessId, subscription.status);
+    await reconcileReferralAccessForBusiness({
+      businessId,
+      supabase: getSupabaseAdminClient()
+    });
 
     return {
       businessId,
@@ -381,6 +405,10 @@ export async function cancelLatestBusinessSubscription({
     }
   });
   await updateBusinessSubscriptionTier(businessId, payload?.status);
+  await reconcileReferralAccessForBusiness({
+    businessId,
+    supabase: getSupabaseAdminClient()
+  });
 
   return {
     businessId,

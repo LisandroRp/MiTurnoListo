@@ -11,11 +11,25 @@ export type ViewId =
   | "newBooking"
   | "statistics"
   | "paymentMethods"
+  | "referrals"
   | "profile";
 export type PaymentMethod = "cash" | "card" | "transfer" | "mixed";
 export type ToastTone = "success" | "warning" | "error";
 export type BookingStep = "service" | "addons" | "employee" | "datetime" | "details" | "summary" | "success";
 export type SubscriptionTier = "free" | "pro";
+export type SubscriptionAccessSource = "free" | "paid" | "referral";
+
+export type ReferralSummary = {
+  subscriptionAccessSource: SubscriptionAccessSource;
+  referralCode: string;
+  referralLink: string;
+  isProgramActive: boolean;
+  registeredCount: number;
+  premiumReferralCount: number;
+  availableMonths: number;
+  usedMonths: number;
+  activeDaysRemaining: number;
+};
 
 export type Employee = {
   id: string;
@@ -94,6 +108,8 @@ export type Profile = {
   lastName: string;
   email: string;
   subscriptionTier: SubscriptionTier;
+  subscriptionAccessSource: SubscriptionAccessSource;
+  referralSummary: ReferralSummary;
   businessName: string;
   businessSlug: string;
   address: string;

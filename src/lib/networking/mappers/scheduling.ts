@@ -10,6 +10,7 @@ import {
   Employee,
   PaymentMethod,
   Profile,
+  ReferralSummary,
   Service,
   ServiceAddon,
   ServiceSchedule,
@@ -19,6 +20,7 @@ import {
 import { formatCurrency } from "@/features/scheduling/utils/format";
 import { normalizeStoredImageUrl } from "@/lib/networking/utils/assets";
 import { formatDateForTimeZone, formatTimeForTimeZone, formatTodayForTimeZone } from "@/lib/networking/utils/date-time";
+import { getEffectiveSubscriptionTier } from "@/lib/referral-rules";
 
 type DayKey = keyof ServiceSchedule;
 
@@ -288,13 +290,27 @@ function normalizeAppointmentSource(source: string | null): AppointmentSource {
 export function mapProfile(
   userProfile: UserProfileRow,
   business: BusinessRow,
-  userEmail: string
+  userEmail: string,
+  referralSummary?: ReferralSummary
 ): Profile {
+  const safeReferralSummary = referralSummary ?? createEmptyReferralSummary();
+  const subscriptionAccessSource = referralSummary
+    ? referralSummary.subscriptionAccessSource
+    : business.subscription_tier === "pro"
+      ? "paid"
+      : "free";
+  const subscriptionTier = getEffectiveSubscriptionTier(subscriptionAccessSource, business.subscription_tier);
+
   return {
     firstName: userProfile.first_name,
     lastName: userProfile.last_name,
     email: userEmail,
-    subscriptionTier: business.subscription_tier,
+    subscriptionTier,
+    subscriptionAccessSource,
+    referralSummary: {
+      ...safeReferralSummary,
+      subscriptionAccessSource
+    },
     businessName: business.name,
     businessSlug: business.public_slug ?? "",
     address: business.address ?? "",
@@ -302,6 +318,20 @@ export function mapProfile(
     publicLogoUrl: normalizeStoredImageUrl(business.public_logo_url),
     publicOpeningHours: business.public_opening_hours ?? "",
     avatarUrl: normalizeStoredImageUrl(userProfile.avatar_url)
+  };
+}
+
+export function createEmptyReferralSummary(): ReferralSummary {
+  return {
+    activeDaysRemaining: 0,
+    availableMonths: 0,
+    isProgramActive: false,
+    premiumReferralCount: 0,
+    referralCode: "",
+    referralLink: "",
+    registeredCount: 0,
+    subscriptionAccessSource: "free",
+    usedMonths: 0
   };
 }
 

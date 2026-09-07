@@ -7,6 +7,7 @@ export type SuperAdminBusiness = {
   businessId: string;
   businessName: string;
   employeeCount: number;
+  isReferralPro: boolean;
   monthlyAppointmentCount: number;
   monthlyCancelledCount: number;
   monthlyPaidSubscriptionCount: number;
@@ -19,6 +20,12 @@ export type SuperAdminBusiness = {
   plan: string;
   providerStatus: string;
   providerSubscriptionId: string;
+  referralActiveDaysRemaining: number;
+  referralAvailableMonths: number;
+  referralCode: string;
+  referralPremiumCount: number;
+  referralRegisteredCount: number;
+  referredByCode: string;
   serviceCount: number;
   subscriptionTier: string;
   totalPaidSubscriptionCount: number;

@@ -44,6 +44,7 @@ type OwnerAccount = {
   isEmailVerified: boolean;
   lastSignInAt: string;
   provider: string;
+  userId: string;
 };
 
 type CountRow = {
@@ -56,6 +57,25 @@ type AppointmentRow = {
   id: string;
   status: string | null;
   total_amount: number | string | null;
+};
+
+type UserProfileReferralRow = {
+  id: string;
+  referral_attribution_code: string | null;
+  referral_code: string | null;
+};
+
+type ReferralRow = {
+  referred_user_id: string;
+  referrer_user_id: string;
+  status: string;
+};
+
+type ReferralRewardRow = {
+  days_remaining: number | string | null;
+  expires_at: string | null;
+  status: string;
+  user_id: string;
 };
 
 type AuthenticatedSuperAdmin = {
@@ -222,7 +242,10 @@ async function loadSuperAdminBusinesses(supabase: ReturnType<typeof getSupabaseA
     subscriptionPaymentResult,
     serviceResult,
     employeeResult,
-    appointmentResult
+    appointmentResult,
+    profileReferralResult,
+    referralResult,
+    referralRewardResult
   ] = await Promise.all([
     supabase
       .from("businesses")
@@ -249,11 +272,20 @@ async function loadSuperAdminBusinesses(supabase: ReturnType<typeof getSupabaseA
       .from("appointments")
       .select("business_id, id, status, total_amount")
       .gte("starts_at", monthRange.start)
-      .lt("starts_at", monthRange.end)
+      .lt("starts_at", monthRange.end),
+    supabase
+      .from("user_profiles")
+      .select("id, referral_code, referral_attribution_code"),
+    supabase
+      .from("referrals")
+      .select("referrer_user_id, referred_user_id, status"),
+    supabase
+      .from("referral_rewards")
+      .select("user_id, days_remaining, expires_at, status")
   ]);
 
-  if (businessResult.error || membershipResult.error || subscriptionResult.error || subscriptionPaymentResult.error || serviceResult.error || employeeResult.error || appointmentResult.error) {
-    throw businessResult.error ?? membershipResult.error ?? subscriptionResult.error ?? subscriptionPaymentResult.error ?? serviceResult.error ?? employeeResult.error ?? appointmentResult.error;
+  if (businessResult.error || membershipResult.error || subscriptionResult.error || subscriptionPaymentResult.error || serviceResult.error || employeeResult.error || appointmentResult.error || profileReferralResult.error || referralResult.error || referralRewardResult.error) {
+    throw businessResult.error ?? membershipResult.error ?? subscriptionResult.error ?? subscriptionPaymentResult.error ?? serviceResult.error ?? employeeResult.error ?? appointmentResult.error ?? profileReferralResult.error ?? referralResult.error ?? referralRewardResult.error;
   }
 
   const businesses = (businessResult.data ?? []) as BusinessRow[];
@@ -272,6 +304,9 @@ async function loadSuperAdminBusinesses(supabase: ReturnType<typeof getSupabaseA
   const serviceCounts = countByBusinessId((serviceResult.data ?? []) as CountRow[]);
   const employeeCounts = countByBusinessId((employeeResult.data ?? []) as CountRow[]);
   const monthlyAppointments = aggregateAppointmentsByBusinessId((appointmentResult.data ?? []) as AppointmentRow[]);
+  const profileReferralsByUserId = getProfileReferralsByUserId((profileReferralResult.data ?? []) as UserProfileReferralRow[]);
+  const referralStatsByUserId = aggregateReferralStatsByUserId((referralResult.data ?? []) as ReferralRow[]);
+  const rewardStatsByUserId = aggregateReferralRewardStatsByUserId((referralRewardResult.data ?? []) as ReferralRewardRow[]);
 
   return businesses.map((business) => {
     const subscription = subscriptionsByBusinessId.get(business.id);
@@ -281,23 +316,36 @@ async function loadSuperAdminBusinesses(supabase: ReturnType<typeof getSupabaseA
       ? realSubscriptionRevenue
       : estimatedSubscriptionRevenue;
     const appointments = monthlyAppointments.get(business.id);
+    const owner = owners.get(business.id);
+    const profileReferral = owner?.userId ? profileReferralsByUserId.get(owner.userId) : null;
+    const referralStats = owner?.userId ? referralStatsByUserId.get(owner.userId) : null;
+    const rewardStats = owner?.userId ? rewardStatsByUserId.get(owner.userId) : null;
+    const hasAuthorizedSubscription = subscription?.provider_status === "authorized";
+    const isReferralPro = business.subscription_tier === "pro" && !hasAuthorizedSubscription && Boolean(rewardStats?.activeDaysRemaining);
 
     return {
       businessId: business.id,
       businessName: business.name ?? "Sin nombre",
       employeeCount: employeeCounts.get(business.id) ?? 0,
+      isReferralPro,
       monthlyAppointmentCount: appointments?.count ?? 0,
       monthlyCancelledCount: appointments?.cancelledCount ?? 0,
       monthlyPaidSubscriptionCount: subscriptionRevenue?.monthlyPaidCount ?? 0,
       monthlySubscriptionRevenue: subscriptionRevenue?.monthlyRevenue ?? 0,
-      ownerCreatedAt: owners.get(business.id)?.createdAt ?? "",
-      ownerEmail: owners.get(business.id)?.email ?? "-",
-      ownerEmailVerified: owners.get(business.id)?.isEmailVerified ?? false,
-      ownerLastSignInAt: owners.get(business.id)?.lastSignInAt ?? "",
-      ownerProvider: owners.get(business.id)?.provider ?? "-",
+      ownerCreatedAt: owner?.createdAt ?? "",
+      ownerEmail: owner?.email ?? "-",
+      ownerEmailVerified: owner?.isEmailVerified ?? false,
+      ownerLastSignInAt: owner?.lastSignInAt ?? "",
+      ownerProvider: owner?.provider ?? "-",
       plan: business.subscription_tier ?? "free",
       providerStatus: subscription?.provider_status ?? "manual",
       providerSubscriptionId: subscription?.provider_subscription_id ?? "",
+      referralActiveDaysRemaining: rewardStats?.activeDaysRemaining ?? 0,
+      referralAvailableMonths: rewardStats?.availableMonths ?? 0,
+      referralCode: profileReferral?.referral_code ?? "",
+      referralPremiumCount: referralStats?.premiumCount ?? 0,
+      referralRegisteredCount: referralStats?.registeredCount ?? 0,
+      referredByCode: profileReferral?.referral_attribution_code ?? "",
       serviceCount: serviceCounts.get(business.id) ?? 0,
       subscriptionTier: subscription?.subscription_tier ?? business.subscription_tier ?? "free",
       totalPaidSubscriptionCount: subscriptionRevenue?.totalPaidCount ?? 0,
@@ -322,12 +370,57 @@ async function loadOwnerAccounts(
         email: user.email,
         isEmailVerified: Boolean(user.email_confirmed_at),
         lastSignInAt: user.last_sign_in_at ?? "",
-        provider: getUserProvider(user.app_metadata)
+        provider: getUserProvider(user.app_metadata),
+        userId: membership.user_id
       });
     }
   }));
 
   return ownerAccountByBusinessId;
+}
+
+function getProfileReferralsByUserId(rows: UserProfileReferralRow[]) {
+  return rows.reduce<Map<string, UserProfileReferralRow>>((accumulator, row) => {
+    accumulator.set(row.id, row);
+
+    return accumulator;
+  }, new Map());
+}
+
+function aggregateReferralStatsByUserId(rows: ReferralRow[]) {
+  return rows.reduce<Map<string, { premiumCount: number; registeredCount: number }>>((accumulator, row) => {
+    const current = accumulator.get(row.referrer_user_id) ?? {
+      premiumCount: 0,
+      registeredCount: 0
+    };
+
+    accumulator.set(row.referrer_user_id, {
+      premiumCount: current.premiumCount + (row.status === "rewarded" || row.status === "capped" ? 1 : 0),
+      registeredCount: current.registeredCount + 1
+    });
+
+    return accumulator;
+  }, new Map());
+}
+
+function aggregateReferralRewardStatsByUserId(rows: ReferralRewardRow[]) {
+  return rows.reduce<Map<string, { activeDaysRemaining: number; availableMonths: number }>>((accumulator, row) => {
+    const current = accumulator.get(row.user_id) ?? {
+      activeDaysRemaining: 0,
+      availableMonths: 0
+    };
+    const daysRemaining = Number(row.days_remaining ?? 0);
+    const activeDaysRemaining = row.status === "active" && row.expires_at
+      ? Math.max(0, Math.ceil((Date.parse(row.expires_at) - Date.now()) / 86400000))
+      : 0;
+
+    accumulator.set(row.user_id, {
+      activeDaysRemaining: Math.max(current.activeDaysRemaining, activeDaysRemaining),
+      availableMonths: current.availableMonths + (row.status === "available" ? Math.floor(daysRemaining / 30) : 0)
+    });
+
+    return accumulator;
+  }, new Map());
 }
 
 function getUserProvider(appMetadata: unknown) {

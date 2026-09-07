@@ -16,6 +16,7 @@ import { ForgotPasswordForm } from "@/features/auth/components/ForgotPasswordFor
 import { LoginForm } from "@/features/auth/components/LoginForm";
 import { ResetPasswordForm } from "@/features/auth/components/ResetPasswordForm";
 import { SignUpForm } from "@/features/auth/components/SignUpForm";
+import { storePendingReferralCode } from "@/lib/networking/endpoints/auth";
 
 type AuthMode = "login" | "signup" | "forgot" | "recovery";
 
@@ -121,6 +122,10 @@ export function AuthPanel() {
           : "forgot";
   const loginHref = createModeHref("login", nextPath);
   const forgotPasswordHref = createModeHref("forgot", nextPath);
+
+  useEffect(() => {
+    storePendingReferralCode(searchParams.get("ref"));
+  }, [searchParams]);
 
   useEffect(() => {
     if (status === "authenticated" && mode !== "recovery") {

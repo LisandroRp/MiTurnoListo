@@ -52,6 +52,7 @@ import {
   updateSchedulingPreferences,
 } from "@/lib/networking/endpoints/scheduling";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
+import { activateReferralProgram as activateReferralProgramRequest } from "@/lib/networking/endpoints/referrals";
 
 type SchedulingContextValue = {
   appointments: Appointment[];
@@ -95,6 +96,7 @@ type SchedulingContextValue = {
   startProSubscription: () => Promise<{ checkoutUrl: string; subscriptionTier: SubscriptionTier } | null>;
   cancelProSubscription: () => Promise<boolean>;
   refreshWorkspaceSubscription: (preapprovalId?: string) => Promise<{ status: string; subscriptionTier: SubscriptionTier } | null>;
+  activateReferralProgram: () => Promise<boolean>;
   setTheme: (theme: ThemeId) => Promise<boolean>;
   showToast: (toast: Omit<ToastMessage, "id">) => void;
   theme: ThemeId;
@@ -122,6 +124,18 @@ const emptyProfile: Profile = {
   lastName: "",
   email: "",
   subscriptionTier: "free",
+  subscriptionAccessSource: "free",
+  referralSummary: {
+    activeDaysRemaining: 0,
+    availableMonths: 0,
+    isProgramActive: false,
+    premiumReferralCount: 0,
+    referralCode: "",
+    referralLink: "",
+    registeredCount: 0,
+    subscriptionAccessSource: "free",
+    usedMonths: 0
+  },
   businessName: "",
   businessSlug: "",
   address: "",
@@ -655,6 +669,28 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function activateReferralProgram() {
+    try {
+      const summary = await activateReferralProgramRequest();
+      setProfileState((current) => ({
+        ...current,
+        referralSummary: summary
+      }));
+      showToast({
+        tone: "success",
+        title: copy.profile.referralsActivatedToast
+      });
+      return true;
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: copy.toast.error,
+        description: getErrorMessage(error, "No pudimos activar tu código de referidos.")
+      });
+      return false;
+    }
+  }
+
   async function createAppointment(appointment: Appointment, addonIds: string[] = []) {
     if (!businessId) {
       return false;
@@ -831,6 +867,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         toasts,
         createAppointment,
         archiveEmployee,
+        activateReferralProgram,
         archiveService,
         deleteAppointment,
         deleteBusinessDayBlock,
@@ -914,6 +951,10 @@ function getSchedulingSnapshotScope(pathname: string): SchedulingSnapshotScope {
 
   if (pathname.startsWith("/perfil")) {
     return "profile";
+  }
+
+  if (pathname.startsWith("/referidos")) {
+    return "referrals";
   }
 
   return "dashboard";

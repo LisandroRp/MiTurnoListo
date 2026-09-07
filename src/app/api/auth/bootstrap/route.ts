@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
+import { normalizeReferralCode } from "@/lib/referral-rules";
+import { attributeReferralForNewProfile } from "@/lib/referrals";
 import { getSafePublicSlug, normalizeSlug } from "@/lib/slugs";
 
 type BootstrapPayload = {
+  referralCode?: string;
   timeZone?: string;
 };
 
@@ -43,6 +46,7 @@ export async function POST(request: NextRequest) {
   }
 
   const seed = buildDefaultSeed(user.email);
+  const referralCode = normalizeReferralCode(payload.referralCode);
   let { data: membership, error: membershipError } = await loadBusinessMembership(supabase, user.id);
 
   if (membershipError) {
@@ -69,6 +73,8 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  const shouldAttributeReferral = !profile;
+
   if (!profile) {
     const { error: insertProfileError } = await supabase
       .from("user_profiles")
@@ -84,6 +90,14 @@ export async function POST(request: NextRequest) {
         code: "BOOTSTRAP_PROFILE_CREATE_FAILED",
         fallbackMessage: "Unable to create the user profile.",
         status: 500
+      });
+    }
+
+    if (referralCode) {
+      await attributeReferralForNewProfile({
+        referralCode,
+        referredUserId: user.id,
+        supabase
       });
     }
   }
@@ -185,6 +199,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     businessId,
+    referralCodeConsumed: Boolean(referralCode && shouldAttributeReferral),
     role: membership?.role ?? "owner"
   });
 }

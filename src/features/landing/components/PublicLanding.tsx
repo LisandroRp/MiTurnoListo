@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { FiArrowRight, FiBarChart2, FiCalendar, FiCheckCircle, FiClock, FiUsers } from "react-icons/fi";
+import { ReactNode } from "react";
+import { FiArrowRight, FiBarChart2, FiCalendar, FiCheckCircle, FiClock, FiGift, FiShare2, FiUsers } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
 import { PublicSupportContact } from "@/components/composed/PublicSupportContact";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { cx } from "@/components/ui/utils";
+import { LandingAnchorLink } from "@/features/landing/components/LandingAnchorLink";
 
 const dashboardPreviewItems = [
   { title: "Turnos del dia", description: "Agenda, horarios y estado de cada reserva en una vista simple." },
@@ -119,9 +121,12 @@ export function PublicLanding() {
             <BrandMark variant="full" size="md" priority />
           </Link>
           <nav className="flex items-center gap-2">
-            <Link href="#planes" className="hidden cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-muted hover:bg-surface-strong hover:text-primary sm:inline-flex">
+            <LandingAnchorLink targetId="planes" className="hidden cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-muted hover:bg-surface-strong hover:text-primary sm:inline-flex">
               Planes
-            </Link>
+            </LandingAnchorLink>
+            <LandingAnchorLink targetId="referidos" className="hidden cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-muted hover:bg-surface-strong hover:text-primary sm:inline-flex">
+              Referidos
+            </LandingAnchorLink>
             <Link href="/login" className={cx(ctaPrimary, "hidden sm:inline-flex")}>Login</Link>
           </nav>
         </div>
@@ -141,7 +146,7 @@ export function PublicLanding() {
             <Link href="/login" className={cx(ctaPrimary, ctaLarge)}>
               Entrar al panel <FiArrowRight />
             </Link>
-            <Link href="#planes" className={cx(ctaSecondary, ctaLarge)}>Ver planes</Link>
+            <LandingAnchorLink targetId="planes" className={cx(ctaSecondary, ctaLarge)}>Ver planes</LandingAnchorLink>
           </div>
         </div>
 
@@ -175,6 +180,36 @@ export function PublicLanding() {
               </Card>
             );
           })}
+        </div>
+      </section>
+
+      <section id="referidos" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <div>
+            <Badge tone="brand" className="w-fit">Referidos</Badge>
+            <h2 className="mt-3 text-3xl font-bold text-primary">Compartí MiTurnoListo y ganá meses Premium.</h2>
+            <p className="mt-4 text-base leading-7 text-muted">
+              Cada cuenta nueva que se suscribe a Premium con tu código te suma 30 días de PRO. Los meses se acumulan hasta un máximo de 3 disponibles.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link href="/login?mode=signup" className={cx(ctaPrimary, ctaLarge)}>
+                Crear cuenta <FiArrowRight />
+              </Link>
+              <LandingAnchorLink targetId="planes" className={cx(ctaSecondary, ctaLarge)}>Ver Premium</LandingAnchorLink>
+            </div>
+          </div>
+          <Card className={cx("bg-sidebar", landingCardHover)}>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <ReferralLandingStep icon={<FiGift />} title="Activá tu código" description="Desde el panel de referidos generás un código fijo para compartir." />
+              <ReferralLandingStep icon={<FiShare2 />} title="Invitá" description="Tu link lleva al signup con el código guardado para esa cuenta nueva." />
+              <ReferralLandingStep icon={<FiCheckCircle />} title="Ganás PRO" description="Cuando confirma su primer pago Premium, recibís 30 días acumulables." />
+            </div>
+            <div className="mt-5 rounded-lg border border-brand bg-brand-soft p-4">
+              <p className="text-sm font-bold text-brand-strong">Máximo acumulable</p>
+              <p className="mt-2 text-4xl font-bold text-primary">3 <span className="text-sm font-bold text-brand-strong">MAX</span></p>
+              <p className="mt-2 text-sm leading-6 text-muted">Cuando un mes empieza a correr, vuelve a quedar espacio para sumar otro referido.</p>
+            </div>
+          </Card>
         </div>
       </section>
 
@@ -218,5 +253,25 @@ export function PublicLanding() {
 
       <PublicSupportContact />
     </main>
+  );
+}
+
+function ReferralLandingStep({
+  description,
+  icon,
+  title
+}: {
+  description: string;
+  icon: ReactNode;
+  title: string;
+}) {
+  return (
+    <div className="rounded-lg border border-subtle bg-input p-4">
+      <span className="grid h-10 w-10 place-items-center rounded-lg bg-brand-soft text-xl text-brand-strong">
+        {icon}
+      </span>
+      <h3 className="mt-4 text-base font-bold text-primary">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-muted">{description}</p>
+    </div>
   );
 }

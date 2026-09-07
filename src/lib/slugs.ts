@@ -32,6 +32,7 @@ const reservedPublicSlugs = new Set([
   "pagos",
   "perfil",
   "personal",
+  "referidos",
   "robots-txt",
   "servicios",
   "sitemap-xml"

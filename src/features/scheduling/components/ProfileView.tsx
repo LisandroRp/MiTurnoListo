@@ -78,6 +78,7 @@ export function ProfileView({
   const [isSavingBusiness, setIsSavingBusiness] = useState(false);
   const [isSubmittingPlanChange, setIsSubmittingPlanChange] = useState(false);
   const isProPlan = profile.subscriptionTier === "pro";
+  const isReferralPlan = profile.subscriptionAccessSource === "referral";
 
   useEffect(() => {
     setBusinessDraft(createBusinessDraft(profile));
@@ -127,7 +128,7 @@ export function ProfileView({
   }
 
   function handlePlanClick(targetTier: SubscriptionTier) {
-    if (targetTier === profile.subscriptionTier) {
+    if (!isReferralPlan && targetTier === profile.subscriptionTier) {
       return;
     }
 
@@ -154,6 +155,11 @@ export function ProfileView({
 
   async function confirmPlanChange() {
     if (!pendingTier) {
+      return;
+    }
+
+    if (isReferralPlan && pendingTier === "free") {
+      closeModal();
       return;
     }
 
@@ -318,8 +324,20 @@ export function ProfileView({
               className="mt-6 w-full cursor-pointer rounded-lg bg-brand-soft p-4 text-center transition-all hover:-translate-y-0.5 hover:shadow-sm"
             >
               <p className="text-xs font-semibold text-brand-strong">{messages.profile.plan}</p>
-              <p className="mt-1 text-lg font-bold text-primary">{isProPlan ? messages.profile.proPlan : messages.profile.freePlan}</p>
+              <p className="mt-1 text-lg font-bold text-primary">{getPlanDisplayName(messages, profile)}</p>
             </button>
+            {isReferralPlan ? (
+              <div className="mt-3 rounded-lg border border-brand bg-brand-soft p-4">
+                <p className="text-sm font-bold text-brand-strong">{messages.profile.referralProActiveTitle}</p>
+                <p className="mt-1 text-sm leading-6 text-muted">
+                  {messages.profile.referralProActivePrefix}{" "}
+                  <span className="font-bold text-primary">
+                    {profile.referralSummary.activeDaysRemaining} {messages.profile.superAdminReferralDays}
+                  </span>{" "}
+                  {messages.profile.referralProActiveSuffix}
+                </p>
+              </div>
+            ) : null}
           </Card>
         ) : null}
 
@@ -347,7 +365,7 @@ export function ProfileView({
                     price={messages.profile.freePlanPrice}
                     description={messages.profile.freePlanDescription}
                     features={messages.profile.freePlanFeatures}
-                    isCurrent={!isProPlan}
+                    isCurrent={!isProPlan && !isReferralPlan}
                     onClick={() => handlePlanClick("free")}
                     currentPlanLabel={messages.profile.currentPlan}
                   />
@@ -356,7 +374,7 @@ export function ProfileView({
                     price={messages.profile.proPlanPrice}
                     description={messages.profile.proPlanDescription}
                     features={messages.profile.proPlanFeatures}
-                    isCurrent={isProPlan}
+                    isCurrent={isProPlan && !isReferralPlan}
                     isRecommended
                     onClick={() => handlePlanClick("pro")}
                     currentPlanLabel={messages.profile.currentPlan}
@@ -433,10 +451,10 @@ export function ProfileView({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold text-primary">
-                  {pendingTier === "pro" ? messages.profile.subscribeTitle : messages.profile.unsubscribeTitle}
+                  {getPlanModalTitle(messages, profile, pendingTier)}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-muted">
-                  {pendingTier === "pro" ? messages.profile.subscribeDescription : messages.profile.unsubscribeDescription}
+                  {getPlanModalDescription(messages, profile, pendingTier)}
                 </p>
               </div>
               <Button size="icon" variant="ghost" aria-label="Close modal" onClick={closeModal}>
@@ -472,13 +490,15 @@ export function ProfileView({
               <Button variant="secondary" onClick={closeModal}>
                 {messages.actions.cancel}
               </Button>
-              <Button
-                icon={pendingTier === "pro" ? <FiArrowRight /> : undefined}
-                isLoading={isSubmittingPlanChange}
-                onClick={() => void confirmPlanChange()}
-              >
-                {pendingTier === "pro" ? messages.profile.subscribeAction : messages.profile.unsubscribeAction}
-              </Button>
+              {isReferralPlan && pendingTier === "free" ? null : (
+                <Button
+                  icon={pendingTier === "pro" ? <FiArrowRight /> : undefined}
+                  isLoading={isSubmittingPlanChange}
+                  onClick={() => void confirmPlanChange()}
+                >
+                  {pendingTier === "pro" ? messages.profile.subscribeAction : messages.profile.unsubscribeAction}
+                </Button>
+              )}
             </div>
           </>
         ) : null}
@@ -772,6 +792,32 @@ function PlanCard({
       </ul>
     </button>
   );
+}
+
+function getPlanDisplayName(messages: Messages, profile: Profile) {
+  if (profile.subscriptionAccessSource === "referral") {
+    return messages.profile.referralProPlan;
+  }
+
+  return profile.subscriptionTier === "pro" ? messages.profile.proPlan : messages.profile.freePlan;
+}
+
+function getPlanModalDescription(messages: Messages, profile: Profile, pendingTier: SubscriptionTier) {
+  if (profile.subscriptionAccessSource !== "referral") {
+    return pendingTier === "pro" ? messages.profile.subscribeDescription : messages.profile.unsubscribeDescription;
+  }
+
+  return pendingTier === "pro"
+    ? messages.profile.referralSubscribeDescription
+    : messages.profile.referralCannotUnsubscribeDescription;
+}
+
+function getPlanModalTitle(messages: Messages, profile: Profile, pendingTier: SubscriptionTier) {
+  if (profile.subscriptionAccessSource === "referral" && pendingTier === "free") {
+    return messages.profile.referralCannotUnsubscribeTitle;
+  }
+
+  return pendingTier === "pro" ? messages.profile.subscribeTitle : messages.profile.unsubscribeTitle;
 }
 
 function createBusinessDraft(profile: Profile): BusinessProfile {

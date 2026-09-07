@@ -60,12 +60,15 @@ export function ProfileSuperAdminPanel({
   const subscriptionRevenue = businesses.reduce((total, business) => (
     total + (revenueMode === "monthly" ? business.monthlySubscriptionRevenue : business.totalSubscriptionRevenue)
   ), 0);
+  const referralSignupCount = businesses.reduce((total, business) => total + business.referralRegisteredCount, 0);
+  const referralPremiumCount = businesses.reduce((total, business) => total + business.referralPremiumCount, 0);
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {isInitialLoading ? (
           <>
+            <SuperAdminMetricSkeleton />
             <SuperAdminMetricSkeleton />
             <SuperAdminMetricSkeleton />
             <SuperAdminMetricSkeleton />
@@ -79,6 +82,17 @@ export function ProfileSuperAdminPanel({
             <SuperAdminMetricCard
               label={messages.profile.superAdminPlans}
               value={`${proCount} Pro / ${freeCount} Free`}
+            />
+            <SuperAdminMetricCard
+              label={(
+                <>
+                  {messages.profile.superAdminReferralSignups}
+                  {" /"}
+                  <br />
+                  {messages.profile.superAdminReferralPremium}
+                </>
+              )}
+              value={`${referralSignupCount}/${referralPremiumCount}`}
             />
             <SuperAdminMetricCard
               action={(
@@ -148,13 +162,14 @@ export function ProfileSuperAdminPanel({
         ) : (
           <>
             <div className="hidden overflow-x-auto lg:block">
-              <table className="w-full min-w-[1120px] text-left text-sm">
+              <table className="w-full min-w-[1240px] text-left text-sm">
                 <thead className="bg-input text-xs uppercase tracking-[0.04em] text-muted">
                   <tr>
                     <th className="px-5 py-3">{messages.profile.superAdminBusiness}</th>
                     <th className="px-5 py-3">{messages.profile.superAdminOwner}</th>
                     <th className="px-5 py-3">{messages.profile.superAdminAccount}</th>
                     <th className="px-5 py-3">{messages.profile.superAdminPlan}</th>
+                    <th className="px-5 py-3">{messages.profile.superAdminReferrals}</th>
                     <th className="w-36 px-5 py-3">{messages.profile.superAdminUsage}</th>
                     <th className="px-5 py-3">{messages.profile.superAdminSubscription}</th>
                     <th className="px-5 py-3 text-right">{messages.profile.superAdminActions}</th>
@@ -210,7 +225,7 @@ function SuperAdminMetricCard({
 }: {
   action?: ReactNode;
   helper?: string;
-  label: string;
+  label: ReactNode;
   value: string;
 }) {
   return (
@@ -236,6 +251,7 @@ function SuperAdminTableSkeleton({ messages }: { messages: Messages }) {
               <th className="px-5 py-3">{messages.profile.superAdminOwner}</th>
               <th className="px-5 py-3">{messages.profile.superAdminAccount}</th>
               <th className="px-5 py-3">{messages.profile.superAdminPlan}</th>
+              <th className="px-5 py-3">{messages.profile.superAdminReferrals}</th>
               <th className="w-36 px-5 py-3">{messages.profile.superAdminUsage}</th>
               <th className="px-5 py-3">{messages.profile.superAdminSubscription}</th>
               <th className="px-5 py-3 text-right">{messages.profile.superAdminActions}</th>
@@ -248,6 +264,7 @@ function SuperAdminTableSkeleton({ messages }: { messages: Messages }) {
                 <td className="px-5 py-4"><SkeletonLine className="w-48" /></td>
                 <td className="px-5 py-4"><SkeletonLine className="w-28" /></td>
                 <td className="px-5 py-4"><SkeletonLine className="w-16" /></td>
+                <td className="px-5 py-4"><SkeletonLine className="w-32" /><SkeletonLine className="mt-2 w-24" /></td>
                 <td className="px-5 py-4"><SkeletonLine className="w-20" /><SkeletonLine className="mt-2 w-24" /><SkeletonLine className="mt-2 w-20" /></td>
                 <td className="px-5 py-4"><SkeletonLine className="w-24" /><SkeletonLine className="mt-2 w-32" /></td>
                 <td className="px-5 py-4"><SkeletonLine className="ml-auto w-28" /></td>
@@ -334,7 +351,10 @@ function SuperAdminBusinessRow({
         </div>
       </td>
       <td className="px-5 py-4">
-        <PlanBadge plan={business.plan} messages={messages} />
+        <PlanBadge isReferralPro={business.isReferralPro} plan={business.plan} messages={messages} />
+      </td>
+      <td className="px-5 py-4 text-muted">
+        <ReferralAdminInfo business={business} messages={messages} />
       </td>
       <td className="w-36 whitespace-nowrap px-5 py-4 text-muted">
         <p>{business.monthlyAppointmentCount} {messages.calendar.appointments}</p>
@@ -375,7 +395,7 @@ function SuperAdminBusinessCard({
           <h3 className="font-bold text-primary">{business.businessName}</h3>
           <p className="mt-1 text-sm text-muted">{business.ownerEmail}</p>
         </div>
-        <PlanBadge plan={business.plan} messages={messages} />
+        <PlanBadge isReferralPro={business.isReferralPro} plan={business.plan} messages={messages} />
       </div>
       <div className="grid gap-2 text-sm text-muted">
         <div className="flex items-center gap-2">
@@ -384,6 +404,10 @@ function SuperAdminBusinessCard({
         </div>
         <p>{business.monthlyAppointmentCount} {messages.calendar.appointments}</p>
         <p>{business.monthlyPaidSubscriptionCount} {messages.profile.superAdminPaidSubscriptions} · {formatCurrency(business.monthlySubscriptionRevenue)}</p>
+        <div className="flex items-center gap-2">
+          <span>{messages.profile.superAdminReferrals}: {business.referralRegisteredCount}/{business.referralPremiumCount}</span>
+          <ReferralAdminInfo business={business} messages={messages} showCount={false} />
+        </div>
         <p>{business.serviceCount} {messages.nav.services}</p>
         <p>{business.employeeCount} {messages.nav.personnel}</p>
         <p>{business.providerStatus} · {business.providerSubscriptionId || messages.profile.superAdminManualPlan}</p>
@@ -398,11 +422,58 @@ function SuperAdminBusinessCard({
   );
 }
 
-function PlanBadge({ plan, messages }: { plan: string; messages: Messages }) {
+function PlanBadge({ isReferralPro, plan, messages }: { isReferralPro: boolean; plan: string; messages: Messages }) {
   return (
     <Badge tone={plan === "pro" ? "warning" : "neutral"} className={plan === "pro" ? "bg-warning text-primary" : ""}>
-      {plan === "pro" ? messages.profile.proPlan : messages.profile.freePlan}
+      {isReferralPro ? messages.profile.referralProPlan : plan === "pro" ? messages.profile.proPlan : messages.profile.freePlan}
     </Badge>
+  );
+}
+
+function ReferralAdminInfo({
+  business,
+  messages,
+  showCount = true
+}: {
+  business: SuperAdminBusiness;
+  messages: Messages;
+  showCount?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      {showCount ? <span>{business.referralRegisteredCount}/{business.referralPremiumCount}</span> : null}
+      <FloatingInfoPopover
+        ariaLabel={messages.profile.superAdminReferrals}
+        className="grid h-7 w-7 cursor-help place-items-center rounded-full border border-subtle bg-input text-muted transition-colors hover:border-brand hover:text-brand-strong focus:outline-none focus:ring-2 focus:ring-focus"
+        content={
+          <>
+            <span className="block">
+              <span className="font-bold text-primary">{messages.profile.superAdminReferralCode}:</span> {business.referralCode || "-"}
+            </span>
+            <span className="mt-1 block">
+              <span className="font-bold text-primary">{messages.profile.superAdminReferrals}:</span> {business.referralRegisteredCount} / {business.referralPremiumCount}
+            </span>
+            <span className="mt-1 block">
+              <span className="font-bold text-primary">{messages.profile.superAdminReferralAvailable}:</span>{" "}
+              {business.referralAvailableMonths} {business.referralAvailableMonths === 1 ? messages.profile.superAdminReferralMonthSingular : messages.profile.superAdminReferralMonthPlural}
+            </span>
+            {business.referralActiveDaysRemaining > 0 ? (
+              <span className="mt-1 block">
+                <span className="font-bold text-primary">{messages.profile.superAdminReferralActive}:</span>{" "}
+                {business.referralActiveDaysRemaining} {messages.profile.superAdminReferralDays}
+              </span>
+            ) : null}
+            {business.referredByCode ? (
+              <span className="mt-1 block">
+                <span className="font-bold text-primary">{messages.profile.superAdminReferredBy}:</span> {business.referredByCode}
+              </span>
+            ) : null}
+          </>
+        }
+      >
+        <FiInfo aria-hidden="true" />
+      </FloatingInfoPopover>
+    </div>
   );
 }
 

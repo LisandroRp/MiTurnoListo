@@ -5,6 +5,7 @@ import {
   getAvailableSlotsForEmployee
 } from "@/features/booking-flow/utils/booking";
 import { freePlanLimits, getCurrentMonthRange, isFreePlan } from "@/features/scheduling/plan-limits";
+import { buildCustomFieldResponses } from "@/features/scheduling/service-custom-fields";
 import { AppointmentStatus, PaymentMethod, ServiceAddon } from "@/features/scheduling/types";
 import { sendBookingCreatedEmails } from "@/lib/email/booking-emails";
 import { createMercadoPagoPreference, getMercadoPagoPublicOrigin } from "@/lib/mercadopago/checkout";
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .select("id, employee_id, weekday, start_time, end_time"),
     supabase
       .from("appointments")
-      .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+      .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot, custom_field_responses")
       .eq("business_id", businessId)
       .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[]),
     supabase
@@ -164,6 +165,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     customerName: "",
     customerEmail: "",
     customerPhone: "",
+    customFieldResponses: [],
     revenue: 0,
     paymentMethod: (appointment.paymentMethod === "mixed" ? "cash" : appointment.paymentMethod) as PaymentMethod
   }));
@@ -233,6 +235,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     partySize?: number;
     paymentMethod?: Exclude<PaymentMethod, "mixed">;
     addonIds?: string[];
+    customFieldResponses?: Record<string, string>;
     timeZone?: string;
     slot?: {
       date?: string;
@@ -317,7 +320,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .eq("employee_id", payload.employeeId),
       supabase
         .from("appointments")
-        .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+        .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot, custom_field_responses")
         .eq("business_id", service.business_id)
         .eq("employee_id", payload.employeeId)
         .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[]),
@@ -443,6 +446,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const appointmentId = crypto.randomUUID();
     const selectedAddonIds = new Set((payload.addonIds ?? []).filter((addonId) => typeof addonId === "string"));
     const selectedAddons = serviceModel.addons.filter((addon) => selectedAddonIds.has(addon.id));
+    const customFieldResponses = buildCustomFieldResponses(serviceModel.customFields, payload.customFieldResponses ?? {});
+    const missingCustomField = customFieldResponses.find((field) => field.isRequired && !field.value.trim());
+
+    if (missingCustomField) {
+      return NextResponse.json({ error: "Invalid booking payload." }, { status: 400 });
+    }
+
     const addonsAmount = selectedAddons.reduce((total, addon) => total + addon.price, 0);
     const depositAmount = service.deposit_amount * payload.partySize;
     const totalAmount = (service.price_amount * payload.partySize) + addonsAmount;
@@ -491,6 +501,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           customer_name_snapshot: customer.fullName,
           customer_email_snapshot: customer.email,
           customer_phone_snapshot: customer.phone,
+          custom_field_responses: customFieldResponses,
           notes: ""
         });
 
@@ -534,6 +545,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         customer_name_snapshot: customer.fullName,
         customer_email_snapshot: customer.email,
         customer_phone_snapshot: customer.phone,
+        custom_field_responses: customFieldResponses,
         notes: ""
       })
       .select("id")
@@ -569,7 +581,7 @@ async function resolvePublicBookingService({
   serviceKey: string;
   supabase: ReturnType<typeof getSupabaseAdminClient>;
 }) {
-  const selectColumns = "id, public_slug, business_id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active";
+  const selectColumns = "id, public_slug, business_id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active, custom_fields";
 
   if (businessKey) {
     const { data: business, error: businessError } = await supabase

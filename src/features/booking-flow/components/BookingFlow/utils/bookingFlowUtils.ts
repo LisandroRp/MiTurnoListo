@@ -2,7 +2,7 @@ import { BookingDraft } from "@/features/booking-flow/types";
 import { bookingStepOrder } from "@/features/booking-flow/components/BookingFlow/utils/bookingFlowConfig";
 import { formatLongDate } from "@/features/booking-flow/utils/booking";
 import { Messages } from "@/features/scheduling/i18n/messages";
-import { Service } from "@/features/scheduling/types";
+import { Service, ServiceCustomField } from "@/features/scheduling/types";
 
 export function buildWhatsAppHref(phone: string, message?: string) {
   const normalizedPhone = phone.replace(/\D/g, "");
@@ -27,7 +27,12 @@ export function buildReceiptWhatsappMessage(
     .replace("{time}", time);
 }
 
-export function getStepValidationMessage(step: typeof bookingStepOrder[number], draft: BookingDraft, messages: Messages) {
+export function getStepValidationMessage(
+  step: typeof bookingStepOrder[number],
+  draft: BookingDraft,
+  messages: Messages,
+  customFields: ServiceCustomField[] = []
+) {
   if (step === "employee" && !draft.employeeId) {
     return messages.bookingFlow.validation.employeeRequired;
   }
@@ -55,6 +60,14 @@ export function getStepValidationMessage(step: typeof bookingStepOrder[number], 
 
     if (!draft.paymentOption) {
       return messages.bookingFlow.validation.paymentRequired;
+    }
+
+    const missingCustomField = customFields.find((field) => (
+      field.isRequired && !draft.customFieldResponses[field.id]?.trim()
+    ));
+
+    if (missingCustomField) {
+      return messages.bookingFlow.validation.customFieldRequired.replace("{field}", missingCustomField.label);
     }
   }
 

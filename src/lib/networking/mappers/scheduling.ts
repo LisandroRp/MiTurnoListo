@@ -8,11 +8,13 @@ import {
   BusinessDayBlock,
   DashboardMetric,
   Employee,
+  AppointmentCustomFieldResponse,
   PaymentMethod,
   Profile,
   ReferralSummary,
   Service,
   ServiceAddon,
+  ServiceCustomField,
   ServiceSchedule,
   ThemeId,
   TimeRange
@@ -58,6 +60,7 @@ type ServiceRow = {
   payment_mode: PaymentMethod;
   is_public: boolean;
   is_active: boolean;
+  custom_fields?: unknown;
 };
 
 type ServiceEmployeeRow = {
@@ -91,6 +94,7 @@ type AppointmentRow = {
   customer_name_snapshot: string;
   customer_email_snapshot: string | null;
   customer_phone_snapshot: string | null;
+  custom_field_responses?: unknown;
 };
 
 type UserProfileRow = {
@@ -203,7 +207,8 @@ export function mapServices(
     employeeIds: serviceEmployeeRows
       .filter((row) => row.service_id === service.id)
       .map((row) => row.employee_id),
-    addons: mapServiceAddons(addonRows.filter((row) => row.service_id === service.id))
+    addons: mapServiceAddons(addonRows.filter((row) => row.service_id === service.id)),
+    customFields: normalizeServiceCustomFields(service.custom_fields)
   }));
 }
 
@@ -226,6 +231,7 @@ export function mapAppointments(appointmentRows: AppointmentRow[], timeZone: str
       customerName: appointment.customer_name_snapshot,
       customerEmail: appointment.customer_email_snapshot ?? "",
       customerPhone: appointment.customer_phone_snapshot ?? "",
+      customFieldResponses: normalizeAppointmentCustomFieldResponses(appointment.custom_field_responses),
       serviceId: appointment.service_id,
       employeeId: appointment.employee_id,
       date: formatDateForTimeZone(appointment.starts_at, timeZone),
@@ -244,6 +250,67 @@ export function mapAppointments(appointmentRows: AppointmentRow[], timeZone: str
       const rightKey = `${right.date}T${right.startTime}`;
       return leftKey.localeCompare(rightKey);
     });
+}
+
+function normalizeServiceCustomFields(value: unknown): ServiceCustomField[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item, index) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const field = item as Record<string, unknown>;
+      const label = typeof field.label === "string" ? field.label.trim() : "";
+
+      if (!label) {
+        return null;
+      }
+
+      return {
+        id: typeof field.id === "string" && field.id.trim() ? field.id : `custom-field-${index}`,
+        isRequired: field.isRequired === true,
+        label,
+        sortOrder: typeof field.sortOrder === "number" && Number.isFinite(field.sortOrder) ? field.sortOrder : index
+      } satisfies ServiceCustomField;
+    })
+    .filter((field): field is ServiceCustomField => field !== null)
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label))
+    .slice(0, 3);
+}
+
+function normalizeAppointmentCustomFieldResponses(value: unknown): AppointmentCustomFieldResponse[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item, index) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const field = item as Record<string, unknown>;
+      const label = typeof field.label === "string" ? field.label.trim() : "";
+
+      if (!label) {
+        return null;
+      }
+
+      return {
+        id: typeof field.id === "string" && field.id.trim() ? field.id : `custom-field-response-${index}`,
+        isRequired: field.isRequired === true,
+        label,
+        sortOrder: typeof field.sortOrder === "number" && Number.isFinite(field.sortOrder) ? field.sortOrder : index,
+        value: typeof field.value === "string" ? field.value.trim() : ""
+      } satisfies AppointmentCustomFieldResponse;
+    })
+    .filter((field): field is AppointmentCustomFieldResponse => field !== null)
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label))
+    .slice(0, 3);
 }
 
 function normalizeAppointmentLifecycleStatus(

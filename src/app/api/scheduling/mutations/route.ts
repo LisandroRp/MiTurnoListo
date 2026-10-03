@@ -3,6 +3,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { Appointment, BusinessDayBlock, Employee, Service } from "@/features/scheduling/types";
 import { freePlanLimits, getCurrentMonthRange, isFreePlan } from "@/features/scheduling/plan-limits";
+import {
+  buildCustomFieldResponses,
+  hasValidServiceCustomFields,
+  mapCustomFieldResponsesById,
+  normalizeServiceCustomFields
+} from "@/features/scheduling/service-custom-fields";
 import { hasValidCancellationLeadMinutes } from "@/features/scheduling/service-cancellation-policy";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 import { createApiErrorResponse, getSafeErrorMessage } from "@/lib/networking/api-errors";
@@ -429,6 +435,10 @@ function enforceServiceBookingConfiguration(service: Service) {
   ) {
     throw new Error("SERVICE_CONFIG:Precio, duración y capacidad son obligatorios. La capacidad debe ser al menos 1 y la anticipación para cancelar al menos 1 día.");
   }
+
+  if (!hasValidServiceCustomFields(service.customFields)) {
+    throw new Error("SERVICE_CONFIG:Podés cargar hasta 3 datos adicionales con una etiqueta válida.");
+  }
 }
 
 async function archiveService(supabase: SupabaseClient, businessId: string, serviceId: string) {
@@ -734,7 +744,8 @@ async function saveService(supabase: SupabaseClient, businessId: string, service
       cancellation_lead_minutes: service.cancellationLeadMinutes,
       payment_mode: service.paymentMethod,
       is_public: service.isVisible,
-      is_active: true
+      is_active: true,
+      custom_fields: normalizeServiceCustomFields(service.customFields)
     });
 
   if (serviceError) {
@@ -862,7 +873,11 @@ async function createAppointment(
       selected_payment_method: appointment.paymentMethod === "mixed" ? "cash" : appointment.paymentMethod,
       customer_name_snapshot: appointment.customerName,
       customer_email_snapshot: appointment.customerEmail || null,
-      customer_phone_snapshot: appointment.customerPhone || null
+      customer_phone_snapshot: appointment.customerPhone || null,
+      custom_field_responses: buildCustomFieldResponses(
+        service.customFields,
+        mapCustomFieldResponsesById(appointment.customFieldResponses)
+      )
     });
 
   if (error) {
@@ -1070,7 +1085,7 @@ async function rescheduleAppointment(
 
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
-    .select("id, business_id, customer_id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, unit_price_amount, deposit_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+    .select("id, business_id, customer_id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, unit_price_amount, deposit_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot, custom_field_responses")
     .eq("id", appointmentId)
     .eq("business_id", businessId)
     .limit(1)
@@ -1102,7 +1117,7 @@ async function rescheduleAppointment(
   ] = await Promise.all([
     supabase
       .from("services")
-      .select("id, public_slug, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
+      .select("id, public_slug, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active, custom_fields")
       .eq("id", appointment.service_id)
       .eq("business_id", businessId)
       .limit(1)
@@ -1129,7 +1144,7 @@ async function rescheduleAppointment(
       .eq("employee_id", employeeId),
     supabase
       .from("appointments")
-      .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+      .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot, custom_field_responses")
       .eq("business_id", businessId)
   ]);
 
@@ -1205,6 +1220,7 @@ async function rescheduleAppointment(
       customer_name_snapshot: appointment.customer_name_snapshot,
       customer_email_snapshot: appointment.customer_email_snapshot,
       customer_phone_snapshot: appointment.customer_phone_snapshot,
+      custom_field_responses: appointment.custom_field_responses ?? [],
       notes: "",
       rescheduled_from_appointment_id: appointmentId
     });

@@ -53,6 +53,13 @@ export function SummaryStep({
           value={draft.paymentOption ? messages.bookingFlow.paymentOptions[draft.paymentOption] : "-"}
         />
         <SummaryRow label={messages.bookingFlow.summary.customer} value={draft.customer.fullName || "-"} />
+        {service.customFields.filter((field) => field.label.trim()).map((field) => (
+          <SummaryRow
+            key={field.id}
+            label={field.label}
+            value={draft.customFieldResponses[field.id]?.trim() || "-"}
+          />
+        ))}
         {service.capacity > 1 ? (
           <SummaryRow label={messages.bookingFlow.summary.attendees} value={String(draft.partySize)} />
         ) : null}

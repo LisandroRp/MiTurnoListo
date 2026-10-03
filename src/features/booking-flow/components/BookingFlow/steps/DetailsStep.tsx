@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { FiMail, FiPhone, FiUser } from "react-icons/fi";
+import { FiFileText, FiMail, FiPhone, FiUser } from "react-icons/fi";
 
 import { Card } from "@/components/ui/Card";
 import { TextField } from "@/components/ui/TextField";
@@ -8,7 +8,7 @@ import { ReceiptWhatsappNotice, TransferPaymentRow } from "@/features/booking-fl
 import { buildReceiptWhatsappMessage, buildWhatsAppHref } from "@/features/booking-flow/components/BookingFlow/utils/bookingFlowUtils";
 import { BookingCustomerSuggestion, BookingDraft, BookingPaymentOption } from "@/features/booking-flow/types";
 import { Messages } from "@/features/scheduling/i18n/messages";
-import { BusinessPaymentSettings, Service } from "@/features/scheduling/types";
+import { BusinessPaymentSettings, Service, ServiceCustomField } from "@/features/scheduling/types";
 
 export function DetailsStep({
   messages,
@@ -20,10 +20,13 @@ export function DetailsStep({
   customerSuggestions,
   isLoadingCustomerSuggestions,
   draft,
+  customFields,
+  customFieldResponses,
   paymentSettingsText,
   onPaymentOptionChange,
   onMissingCustomerName,
   onCustomerChange,
+  onCustomFieldResponseChange,
   onCustomerLookupQueryChange,
   onCustomerSuggestionSelect
 }: {
@@ -36,10 +39,13 @@ export function DetailsStep({
   customerSuggestions: BookingCustomerSuggestion[];
   isLoadingCustomerSuggestions: boolean;
   draft: BookingDraft;
+  customFields: ServiceCustomField[];
+  customFieldResponses: Record<string, string>;
   paymentSettingsText: BusinessPaymentSettings["transfers"];
   onPaymentOptionChange: (option: BookingPaymentOption) => void;
   onMissingCustomerName: () => void;
   onCustomerChange: (field: keyof BookingDraft["customer"], value: string) => void;
+  onCustomFieldResponseChange: (fieldId: string, value: string) => void;
   onCustomerLookupQueryChange: (query: string) => void;
   onCustomerSuggestionSelect: (customerSuggestion: BookingCustomerSuggestion) => void;
 }) {
@@ -175,6 +181,27 @@ export function DetailsStep({
             />
           </div>
         </div>
+
+        {customFields.length > 0 ? (
+          <div className="grid gap-3 border-t border-subtle pt-4">
+            <div>
+              <h3 className="text-sm font-bold text-primary">{messages.bookingFlow.customFieldsTitle}</h3>
+              <p className="mt-1 text-sm leading-6 text-muted">{messages.bookingFlow.customFieldsHint}</p>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              {customFields.map((field) => (
+                <TextField
+                  key={field.id}
+                  label={field.label}
+                  value={customFieldResponses[field.id] ?? ""}
+                  prefix={<FiFileText />}
+                  required={field.isRequired}
+                  onChange={(event) => onCustomFieldResponseChange(field.id, event.target.value)}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
       </Card>
     </div>
   );

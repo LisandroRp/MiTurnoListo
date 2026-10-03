@@ -21,13 +21,14 @@ import { employeeColorClasses } from "@/features/scheduling/components/employeeC
 import { ShareCatalogModal, ShareServiceModal } from "@/features/scheduling/components/ServicesView/ShareResourceModal";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, isFreePlan } from "@/features/scheduling/plan-limits";
+import { hasValidServiceCustomFields, maxServiceCustomFields, normalizeServiceCustomFields } from "@/features/scheduling/service-custom-fields";
 import {
   cancellationLeadDaysToMinutes,
   cancellationLeadMinutesToDays,
   hasValidCancellationLeadMinutes,
   normalizeCancellationLeadMinutes
 } from "@/features/scheduling/service-cancellation-policy";
-import { Appointment, Employee, PaymentMethod, Service, ServiceAddon, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
+import { Appointment, Employee, PaymentMethod, Service, ServiceAddon, ServiceCustomField, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 import { createNewServiceDraft } from "@/lib/networking/endpoints/scheduling";
 
@@ -151,6 +152,11 @@ export function ServicesView({
         id: globalThis.crypto.randomUUID(),
         sortOrder: index
       })),
+      customFields: service.customFields.map((field, index) => ({
+        ...field,
+        id: globalThis.crypto.randomUUID(),
+        sortOrder: index
+      })),
       schedule: structuredClone(service.schedule),
       employeeIds: [...service.employeeIds]
         .filter((employeeId) => assignableEmployeeIds.has(employeeId))
@@ -231,6 +237,43 @@ export function ServicesView({
     setDraft((current) => ({
       ...current,
       addons: current.addons.filter((addon) => addon.id !== addonId)
+    }));
+  }
+
+  function addCustomField() {
+    setDraft((current) => {
+      if (current.customFields.length >= maxServiceCustomFields) {
+        return current;
+      }
+
+      return {
+        ...current,
+        customFields: [
+          ...current.customFields,
+          {
+            id: globalThis.crypto.randomUUID(),
+            isRequired: false,
+            label: "",
+            sortOrder: current.customFields.length
+          }
+        ]
+      };
+    });
+  }
+
+  function updateCustomField(fieldId: string, nextField: Partial<ServiceCustomField>) {
+    setDraft((current) => ({
+      ...current,
+      customFields: current.customFields.map((field) => (
+        field.id === fieldId ? { ...field, ...nextField } : field
+      ))
+    }));
+  }
+
+  function removeCustomField(fieldId: string) {
+    setDraft((current) => ({
+      ...current,
+      customFields: current.customFields.filter((field) => field.id !== fieldId)
     }));
   }
 
@@ -548,6 +591,13 @@ export function ServicesView({
               onAddAddon={addAddon}
               onRemoveAddon={removeAddon}
               onUpdateAddon={updateAddon}
+            />
+            <ServiceCustomFieldsEditor
+              customFields={draft.customFields}
+              messages={messages}
+              onAddField={addCustomField}
+              onRemoveField={removeCustomField}
+              onUpdateField={updateCustomField}
             />
             </FormSection>
           ) : null}
@@ -1215,6 +1265,7 @@ function ServiceReview({ messages, service, employees }: { messages: Messages; s
   const assignedEmployees = employees.filter((employee) => !employee.isArchived && employee.isVisible && service.employeeIds.includes(employee.id));
   const scheduleRangeCount = getScheduleRangeCount(service.schedule);
   const activeAddons = service.addons.filter((addon) => addon.name.trim() && addon.isActive);
+  const activeCustomFields = service.customFields.filter((field) => field.label.trim());
 
   return (
     <FormSection title={messages.services.reviewSection} description={messages.services.reviewSectionHint}>
@@ -1253,6 +1304,24 @@ function ServiceReview({ messages, service, employees }: { messages: Messages; s
           </div>
         ) : (
           <p className="rounded-lg border border-subtle bg-input p-3 text-sm text-muted">{messages.services.emptyAddons}</p>
+        )}
+      </div>
+
+      <div className="grid gap-3">
+        <h3 className="text-sm font-bold text-primary">{messages.services.customFieldsSection}</h3>
+        {activeCustomFields.length > 0 ? (
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {activeCustomFields.map((field) => (
+              <div key={field.id} className="rounded-lg border border-subtle bg-input p-3">
+                <p className="text-sm font-semibold text-primary">{field.label}</p>
+                <p className="mt-1 text-sm text-muted">
+                  {field.isRequired ? messages.services.customFieldRequired : messages.services.customFieldOptional}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-lg border border-subtle bg-input p-3 text-sm text-muted">{messages.services.emptyCustomFields}</p>
         )}
       </div>
 
@@ -1365,6 +1434,61 @@ function ServiceAddonsEditor({
   );
 }
 
+function ServiceCustomFieldsEditor({
+  customFields,
+  messages,
+  onAddField,
+  onRemoveField,
+  onUpdateField
+}: {
+  customFields: ServiceCustomField[];
+  messages: Messages;
+  onAddField: () => void;
+  onRemoveField: (fieldId: string) => void;
+  onUpdateField: (fieldId: string, field: Partial<ServiceCustomField>) => void;
+}) {
+  const canAddField = customFields.length < maxServiceCustomFields;
+
+  return (
+    <div className="grid gap-3 rounded-xl border border-subtle bg-surface p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-base font-bold text-primary">{messages.services.customFieldsSection}</h3>
+          <p className="mt-1 text-sm leading-6 text-muted">{messages.services.customFieldsSectionHint}</p>
+        </div>
+        <Button size="sm" variant="secondary" icon={<FiPlus />} disabled={!canAddField} onClick={onAddField}>
+          {messages.services.addCustomField}
+        </Button>
+      </div>
+
+      {customFields.length > 0 ? (
+        <div className="grid gap-3">
+          {customFields.map((field) => (
+            <div key={field.id} className="grid gap-3 rounded-lg border border-subtle bg-input p-3 lg:grid-cols-[1fr_160px_auto] lg:items-end">
+              <TextField
+                label={messages.services.customFieldLabel}
+                value={field.label}
+                required
+                onChange={(event) => onUpdateField(field.id, { label: event.target.value })}
+              />
+              <CheckboxField
+                label={messages.services.customFieldRequired}
+                checked={field.isRequired}
+                onChange={(event) => onUpdateField(field.id, { isRequired: event.target.checked })}
+              />
+              <Button size="icon" variant="ghost" aria-label={messages.actions.delete} onClick={() => onRemoveField(field.id)}>
+                <FiTrash2 />
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-lg border border-subtle bg-input p-3 text-sm text-muted">{messages.services.emptyCustomFields}</p>
+      )}
+    </div>
+  );
+}
+
 function FormSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return (
     <Card className="grid gap-5">
@@ -1394,6 +1518,10 @@ function getServiceStepValidationMessage(
 
   if (step === "booking" && isPaymentMethodDisabled(service.paymentMethod, isMercadoPagoConfigured, isTransferConfigured)) {
     return messages.services.validation.paymentMethod;
+  }
+
+  if (step === "booking" && !hasValidServiceCustomFields(service.customFields)) {
+    return messages.services.validation.customFields;
   }
 
   if (step === "staff" && service.employeeIds.length === 0) {
@@ -1475,6 +1603,7 @@ function normalizeServiceDraft(service: Service): Service {
   return {
     ...service,
     addons: service.addons.map((addon) => ({ ...addon })),
+    customFields: normalizeServiceCustomFields(service.customFields),
     cancellationLeadMinutes: normalizeCancellationLeadMinutes(service.cancellationLeadMinutes),
     employeeIds: [...service.employeeIds],
     schedule: structuredClone(service.schedule)

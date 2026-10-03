@@ -176,7 +176,7 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
     scopeConfig.includeServices
       ? supabase
         .from("services")
-        .select("id, public_slug, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active")
+        .select("id, public_slug, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active, custom_fields")
         .eq("business_id", businessId)
         .order("is_active", { ascending: false })
         .order("name", { ascending: true })
@@ -199,7 +199,7 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
     scopeConfig.includeAppointments
       ? supabase
         .from("appointments")
-        .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot")
+        .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot, custom_field_responses")
         .eq("business_id", businessId)
         .order("starts_at", { ascending: true })
       : createSkippedQueryResult([]),
@@ -596,7 +596,8 @@ export function createNewServiceDraft() {
     cancellationLeadMinutes: minimumCancellationLeadMinutes,
     schedule: createEmptySchedule(),
     employeeIds: [],
-    addons: []
+    addons: [],
+    customFields: []
   };
 }
 

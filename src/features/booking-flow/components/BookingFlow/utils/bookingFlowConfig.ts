@@ -30,6 +30,7 @@ export function createInitialBookingDraft(): BookingDraft {
     selectedSlot: null,
     paymentOption: null,
     customer: createEmptyCustomer(),
+    customFieldResponses: {},
     partySize: 1
   };
 }

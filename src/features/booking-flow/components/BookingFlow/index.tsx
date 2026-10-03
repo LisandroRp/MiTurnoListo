@@ -35,6 +35,7 @@ import {
 } from "@/features/booking-flow/utils/booking";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
 import { messages as schedulingMessages } from "@/features/scheduling/i18n/messages";
+import { buildCustomFieldResponses } from "@/features/scheduling/service-custom-fields";
 import { Appointment, Locale, ThemeId } from "@/features/scheduling/types";
 import { getCustomers } from "@/lib/networking/endpoints/customers";
 import {
@@ -100,6 +101,7 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
   };
   const localeCode = bookingLocaleMap[locale];
   const activeAddons = service?.addons.filter((addon) => addon.isActive && addon.name.trim()) ?? [];
+  const activeCustomFields = service?.customFields.filter((field) => field.label.trim()).slice(0, 3) ?? [];
   const bookingSteps = activeAddons.length > 0
     ? bookingStepOrder
     : bookingStepOrder.filter((step) => step !== "addons");
@@ -325,7 +327,8 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
     const nextValidationMessage = getStepValidationMessage(
       currentStep,
       { ...draft, paymentOption: selectedPaymentOption, selectedSlot },
-      messages
+      messages,
+      activeCustomFields
     );
 
     if (nextValidationMessage) {
@@ -379,6 +382,7 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
           customerName: draft.customer.fullName,
           customerEmail: draft.customer.email,
           customerPhone: draft.customer.phone,
+          customFieldResponses: buildCustomFieldResponses(activeCustomFields, draft.customFieldResponses),
           serviceId: service.id,
           employeeId: selectedEmployee.id,
           date: selectedSlot.date,
@@ -406,6 +410,7 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
         partySize: draft.partySize,
         paymentMethod: mapPaymentOptionToMethod(selectedPaymentOption),
         addonIds: draft.selectedAddonIds,
+        customFieldResponses: draft.customFieldResponses,
         timeZone: getBrowserTimeZone(),
         slot: {
           date: selectedSlot.date,
@@ -546,6 +551,8 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
                   selectedPaymentOption={selectedPaymentOption}
                   customer={draft.customer}
                   draft={{ ...draft, paymentOption: selectedPaymentOption, selectedSlot }}
+                  customFields={activeCustomFields}
+                  customFieldResponses={draft.customFieldResponses}
                   paymentSettingsText={paymentSettings.transfers}
                   customerSuggestions={isPreview ? customerSuggestions : []}
                   isLoadingCustomerSuggestions={isPreview && isLoadingCustomerSuggestions}
@@ -560,6 +567,15 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
                     if (field === "fullName" || field === "email") {
                       setCustomerLookupQuery(value);
                     }
+                  }}
+                  onCustomFieldResponseChange={(fieldId, value) => {
+                    setDraft((current) => ({
+                      ...current,
+                      customFieldResponses: {
+                        ...current.customFieldResponses,
+                        [fieldId]: value
+                      }
+                    }));
                   }}
                   onCustomerLookupQueryChange={setCustomerLookupQuery}
                   onCustomerSuggestionSelect={(customerSuggestion) => {

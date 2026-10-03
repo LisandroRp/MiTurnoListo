@@ -21,6 +21,7 @@ export type BookingDraft = {
   selectedSlot: BookingSlot | null;
   paymentOption: BookingPaymentOption | null;
   customer: BookingCustomer;
+  customFieldResponses: Record<string, string>;
   partySize: number;
 };
 

@@ -52,6 +52,7 @@ export type CreatePublicBookingInput = {
   };
   employeeId: string;
   addonIds: string[];
+  customFieldResponses: Record<string, string>;
   partySize: number;
   paymentMethod: Exclude<Appointment["paymentMethod"], "mixed">;
   timeZone: string;

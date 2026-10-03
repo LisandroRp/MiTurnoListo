@@ -54,6 +54,7 @@ export type Appointment = {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
+  customFieldResponses?: AppointmentCustomFieldResponse[];
   serviceId: string;
   employeeId: string;
   date: string;
@@ -93,6 +94,7 @@ export type Service = {
   schedule: ServiceSchedule;
   employeeIds: string[];
   addons: ServiceAddon[];
+  customFields: ServiceCustomField[];
 };
 
 export type ServiceAddon = {
@@ -101,6 +103,17 @@ export type ServiceAddon = {
   price: number;
   isActive: boolean;
   sortOrder: number;
+};
+
+export type ServiceCustomField = {
+  id: string;
+  label: string;
+  isRequired: boolean;
+  sortOrder: number;
+};
+
+export type AppointmentCustomFieldResponse = ServiceCustomField & {
+  value: string;
 };
 
 export type Profile = {

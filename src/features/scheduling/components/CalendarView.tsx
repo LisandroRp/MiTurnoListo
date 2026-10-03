@@ -890,6 +890,14 @@ export function AppointmentCard({
         <div className="mt-5 grid gap-3 rounded-xl border border-subtle bg-input p-4 text-sm">
           <AppointmentDetail icon={<FiMail />} label={messages.calendar.customerEmail} value={appointment.customerEmail || "-"} />
           <AppointmentDetail icon={<FiPhone />} label={messages.calendar.customerPhone} value={formatPhoneForDisplay(appointment.customerPhone)} />
+          {(appointment.customFieldResponses ?? []).filter((field) => field.label.trim()).map((field) => (
+            <AppointmentDetail
+              key={field.id}
+              icon={<FiUser />}
+              label={`${messages.calendar.additionalDetails} · ${field.label}`}
+              value={field.value || "-"}
+            />
+          ))}
           <AppointmentDetail icon={<FiUser />} label={messages.calendar.professional} value={employeeName || "-"} />
           <AppointmentDetail icon={<FiCalendar />} label={messages.calendar.dateAndTime} value={`${getDateLabel(appointment.date)} · ${appointment.startTime} - ${appointment.endTime}`} />
           <AppointmentDetail

@@ -53,6 +53,20 @@ test("vertical configs include required SEO and hero copy", () => {
   }
 });
 
+test("vertical configs personalize before conversations and avoid hard-number claims", () => {
+  const config = readProjectFile("src/features/landing/verticals.ts");
+  const component = readProjectFile("src/features/landing/components/VerticalLanding.tsx");
+
+  assert.equal(config.includes("¿Corte solo o corte + barba?"), true);
+  assert.equal(config.includes("¿También brushing?"), true);
+  assert.equal(config.includes("limpieza facial"), true);
+  assert.equal(component.includes("8 mensajes menos"), false);
+  assert.equal(component.includes("1 min"), false);
+  assert.equal(component.includes("0 horarios"), false);
+  assert.equal(config.includes("Reserva en pocos pasos"), true);
+  assert.equal(config.includes("Disponibilidad automática"), true);
+});
+
 test("vertical landing exposes measurable CTAs and exact FAQ structured data source", () => {
   const component = readProjectFile("src/features/landing/components/VerticalLanding.tsx");
 

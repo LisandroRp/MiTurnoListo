@@ -30,8 +30,8 @@ import {
 } from "@/features/landing/landing-content";
 
 const bookingSteps = [
-  { title: "Servicio", description: "Corte clásico", meta: "30 min" },
-  { title: "Profesional", description: "Barbero disponible", meta: "Sin cruces" },
+  { title: "Servicio", description: "Servicio seleccionado", meta: "30 min" },
+  { title: "Profesional", description: "Profesional disponible", meta: "Sin cruces" },
   { title: "Día", description: "Jueves 16", meta: "Agenda abierta" },
   { title: "Horario", description: "18:30", meta: "Confirmación inmediata" }
 ];
@@ -44,7 +44,7 @@ const benefits = [
   },
   {
     icon: FiLink,
-    title: "Un link para vender turnos",
+    title: "Un link para recibir reservas",
     description: "Compartilo en Instagram, Google o tus campañas. Cada servicio puede recibir reservas online sin fricción."
   },
   {

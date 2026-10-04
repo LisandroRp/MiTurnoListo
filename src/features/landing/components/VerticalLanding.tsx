@@ -81,7 +81,7 @@ export function VerticalLanding({ config }: { config: VerticalLandingConfig }) {
       />
       <VerticalHeader />
       <HeroSection config={config} />
-      <ProblemSection />
+      <ProblemSection config={config} />
       <HowItWorksSection config={config} />
       <CustomerExperienceSection config={config} />
       <BenefitsSection />
@@ -195,7 +195,7 @@ function VerticalBookingPreview({ config }: { config: VerticalLandingConfig }) {
   );
 }
 
-function ProblemSection() {
+function ProblemSection({ config }: { config: VerticalLandingConfig }) {
   return (
     <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
       <div className="max-w-2xl">
@@ -209,14 +209,14 @@ function ProblemSection() {
         <Card className="bg-sidebar">
           <Badge>Antes</Badge>
           <div className="mt-5 grid gap-3 text-sm font-semibold">
-            <MessageBubble label="Cliente" text="Hola, ¿tenés turno el jueves?" />
-            <MessageBubble label="Negocio" text="Sí, ¿a qué hora?" align="right" />
-            <MessageBubble label="Cliente" text="Después de las 18" />
-            <MessageBubble label="Negocio" text="Tengo 18:30 o 19:15. ¿Qué servicio querés?" align="right" />
-            <MessageBubble label="Cliente" text="¿Cuánto sale? ¿Y quién atiende?" />
-            <MessageBubble label="Negocio" text="Te paso opciones y precios. Confirmame cuál elegís." align="right" />
-            <MessageBubble label="Cliente" text="Dale, reservame 19:15." />
-            <MessageBubble label="Negocio" text="Listo. Te agendo y te aviso si cambia algo." align="right" />
+            {config.beforeConversation.map((message) => (
+              <MessageBubble
+                key={`${message.speaker}-${message.text}`}
+                label={message.speaker}
+                text={message.text}
+                align={message.speaker === "Negocio" ? "right" : "left"}
+              />
+            ))}
           </div>
         </Card>
         <div className="grid gap-4 self-start">
@@ -241,9 +241,9 @@ function ProblemSection() {
             </div>
           </Card>
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-            <MetricCard value="8" label="mensajes menos para cerrar un turno" />
-            <MetricCard value="1 min" label="para que el cliente complete la reserva" />
-            <MetricCard value="0" label="horarios coordinados manualmente" />
+            {config.contrastHighlights.map((highlight) => (
+              <MetricCard key={highlight.title} title={highlight.title} description={highlight.description} />
+            ))}
           </div>
         </div>
       </div>
@@ -251,11 +251,11 @@ function ProblemSection() {
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
+function MetricCard({ description, title }: { description: string; title: string }) {
   return (
     <div className="rounded-lg border border-subtle bg-sidebar p-4 shadow-sm">
-      <p className="text-2xl font-bold text-brand-strong">{value}</p>
-      <p className="mt-1 text-sm font-semibold leading-5 text-muted">{label}</p>
+      <p className="text-base font-bold text-brand-strong">{title}</p>
+      <p className="mt-1 text-sm font-semibold leading-5 text-muted">{description}</p>
     </div>
   );
 }

@@ -45,6 +45,17 @@ test("public landing copy uses accented Spanish for visible product text", () =>
   assert.equal(content.includes("Estadísticas"), true);
 });
 
+test("public landing keeps general examples neutral", () => {
+  const landing = readProjectFile("src/features/landing/components/PublicLanding.tsx");
+
+  assert.equal(landing.includes("Corte clásico"), false);
+  assert.equal(landing.includes("Barbero disponible"), false);
+  assert.equal(landing.includes("Servicio seleccionado"), true);
+  assert.equal(landing.includes("Profesional disponible"), true);
+  assert.equal(landing.includes("Un link para recibir reservas"), true);
+  assert.equal(landing.includes("Un link para vender turnos"), false);
+});
+
 test("global landing metadata keeps Spanish accents in crawler-visible copy", () => {
   const layout = readProjectFile("src/app/layout.tsx");
 

@@ -740,7 +740,9 @@ export function ServicesView({
                         <div className={cx("flex min-w-0 items-center gap-3", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
                           <div className="min-w-0">
                             <h2 className="truncate text-sm font-bold text-primary">{service.name}</h2>
-                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">{service.description || messages.services.emptyDescription}</p>
+                            {service.description ? (
+                              <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">{service.description}</p>
+                            ) : null}
                           </div>
                         </div>
                       </td>

@@ -104,6 +104,9 @@ function VerticalHeader() {
           <Link href="/" className="hidden cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-muted hover:bg-surface-strong hover:text-primary sm:inline-flex">
             Home
           </Link>
+          <LandingAnchorLink targetId="como-funciona" className="hidden cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-muted hover:bg-surface-strong hover:text-primary sm:inline-flex">
+            Cómo funciona
+          </LandingAnchorLink>
           <LandingAnchorLink targetId="planes" className="hidden cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-muted hover:bg-surface-strong hover:text-primary sm:inline-flex">
             Planes
           </LandingAnchorLink>

@@ -9,7 +9,6 @@ import { useAuth } from "@/features/auth/components/AuthProvider";
 import { messages, Messages } from "@/features/scheduling/i18n/messages";
 import { getWorkspaceLoadMode } from "@/features/scheduling/scheduling-workspace-cache";
 import { bootstrapWorkspace } from "@/lib/networking/endpoints/auth";
-import { getSuperAdminStatus } from "@/lib/networking/endpoints/super-admin";
 import {
   Appointment,
   BusinessDayBlock,
@@ -72,7 +71,6 @@ type SchedulingContextValue = {
   focusedDate: string;
   isFetching: boolean;
   isLoading: boolean;
-  isSuperAdmin: boolean;
   loadError: string | null;
   messages: Messages;
   paymentSettings: BusinessPaymentSettings;
@@ -190,7 +188,6 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [paymentSettings, setPaymentSettings] = useState<BusinessPaymentSettings>(emptyPaymentSettings);
   const [themeOptions, setThemeOptions] = useState<ThemeId[]>(["coral", "blue", "sage"]);
   const [dashboardMetrics, setDashboardMetrics] = useState<SchedulingContextValue["dashboardMetrics"]>([]);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadedSnapshotUserId, setLoadedSnapshotUserId] = useState<string | null>(null);
@@ -228,7 +225,6 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     setServiceList([]);
     setPaymentSettings(emptyPaymentSettings);
     setDashboardMetrics([]);
-    setIsSuperAdmin(false);
     setLoadError(null);
     setIsFetching(false);
     setIsLoading(false);
@@ -282,10 +278,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     latestHydrateRequestId.current = requestId;
 
     try {
-      const [snapshot, superAdminStatus] = await Promise.all([
-        loadSchedulingSnapshotWithRepair(),
-        snapshotScope === "profile" ? loadSuperAdminStatus() : Promise.resolve<boolean | null>(null)
-      ]);
+      const snapshot = await loadSchedulingSnapshotWithRepair();
 
       if (requestId !== latestHydrateRequestId.current || loadedSnapshotUserIdRef.current !== authUserId) {
         return false;
@@ -328,10 +321,6 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
       if (scopeConfig.includeAppointments && scopeConfig.includeEmployees) {
         setDashboardMetrics(snapshot.dashboardMetrics);
-      }
-
-      if (superAdminStatus !== null) {
-        setIsSuperAdmin(superAdminStatus);
       }
 
       setLoadError(null);
@@ -923,7 +912,6 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         focusedDate,
         isFetching,
         isLoading: isWorkspaceLoading,
-        isSuperAdmin,
         loadError,
         messages: copy,
         paymentSettings,
@@ -997,14 +985,6 @@ function getWorkspaceLoadErrorMessage(error: unknown) {
   }
 
   return getErrorMessage(error, "No pudimos cargar tu espacio. Intentá refrescar la página.");
-}
-
-async function loadSuperAdminStatus() {
-  try {
-    return await getSuperAdminStatus();
-  } catch {
-    return false;
-  }
 }
 
 function getSchedulingSnapshotScope(pathname: string): SchedulingSnapshotScope {

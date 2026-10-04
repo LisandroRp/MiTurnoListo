@@ -30,6 +30,7 @@ type ProfileViewProps = {
   profile: Profile;
   businessId: string | null;
   isSuperAdmin: boolean;
+  isReferralSummaryLoading: boolean;
   locale: Locale;
   theme: ThemeId;
   themeOptions: ThemeId[];
@@ -48,6 +49,7 @@ export function ProfileView({
   profile,
   businessId,
   isSuperAdmin,
+  isReferralSummaryLoading,
   locale,
   theme,
   themeOptions,
@@ -324,9 +326,19 @@ export function ProfileView({
               className="mt-6 w-full cursor-pointer rounded-lg bg-brand-soft p-4 text-center transition-all hover:-translate-y-0.5 hover:shadow-sm"
             >
               <p className="text-xs font-semibold text-brand-strong">{messages.profile.plan}</p>
-              <p className="mt-1 text-lg font-bold text-primary">{getPlanDisplayName(messages, profile)}</p>
+              {isReferralSummaryLoading ? (
+                <span className="mx-auto mt-2 block h-5 w-28 animate-pulse rounded-full bg-surface-strong" aria-hidden="true" />
+              ) : (
+                <p className="mt-1 text-lg font-bold text-primary">{getPlanDisplayName(messages, profile)}</p>
+              )}
             </button>
-            {isReferralPlan ? (
+            {isReferralSummaryLoading ? (
+              <div className="mt-3 rounded-lg border border-subtle bg-input p-4" aria-hidden="true">
+                <span className="block h-4 w-32 animate-pulse rounded-full bg-surface-strong" />
+                <span className="mt-3 block h-4 w-full animate-pulse rounded-full bg-surface-strong" />
+                <span className="mt-2 block h-4 w-3/4 animate-pulse rounded-full bg-surface-strong" />
+              </div>
+            ) : isReferralPlan ? (
               <div className="mt-3 rounded-lg border border-brand bg-brand-soft p-4">
                 <p className="text-sm font-bold text-brand-strong">{messages.profile.referralProActiveTitle}</p>
                 <p className="mt-1 text-sm leading-6 text-muted">

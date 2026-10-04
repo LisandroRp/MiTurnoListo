@@ -617,7 +617,7 @@ function createSkippedQueryResult<T>(data: T) {
 }
 
 function shouldLoadReferralSummary(scope: SchedulingSnapshotScope) {
-  return scope === "profile" || scope === "referrals";
+  return scope === "referrals";
 }
 
 export function getSchedulingSnapshotScopeConfig(scope: SchedulingSnapshotScope): SchedulingSnapshotScopeConfig {
@@ -672,9 +672,7 @@ export function getSchedulingSnapshotScopeConfig(scope: SchedulingSnapshotScope)
       includeServiceEmployees: true,
       includeServices: true
     },
-    profile: {
-      includePaymentSettings: true
-    },
+    profile: {},
     referrals: {},
     services: {
       includeAppointments: true,

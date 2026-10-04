@@ -50,8 +50,8 @@ export function AppShell({ children }: AppShellProps) {
   const navigationItems: NavigationItem[] = [
     { id: "home", label: messages.nav.home, icon: FiHome, href: "/inicio" },
     { id: "calendar", label: messages.nav.calendar, icon: FiCalendar, href: "/calendario" },
-    { id: "services", label: messages.nav.services, icon: FiGrid, href: "/servicios" },
     { id: "personnel", label: messages.nav.personnel, icon: FiUsers, href: "/personal" },
+    { id: "services", label: messages.nav.services, icon: FiGrid, href: "/servicios" },
     { id: "customers", label: messages.nav.customers, icon: FiUserCheck, href: "/clientes" },
     { id: "payments", label: messages.nav.payments, icon: FiDollarSign, href: "/pagos" },
     { id: "newBooking", label: messages.nav.newBooking, icon: FiPlusCircle, href: "/nueva-reserva" },

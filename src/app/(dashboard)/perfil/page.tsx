@@ -1,22 +1,27 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useAuth } from "@/features/auth/components/AuthProvider";
 import { ProfileView } from "@/features/scheduling/components/ProfileView";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
+import { ReferralSummary } from "@/features/scheduling/types";
+import { getReferralSummary } from "@/lib/networking/endpoints/referrals";
+import { getSuperAdminStatus } from "@/lib/networking/endpoints/super-admin";
 
 export default function ProfileSectionPage() {
   const { requestPasswordReset, userEmail } = useAuth();
   const hasSyncedSubscription = useRef(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [referralSummary, setReferralSummary] = useState<ReferralSummary | null>(null);
+  const [isReferralSummaryLoading, setIsReferralSummaryLoading] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const {
     businessId,
     cancelProSubscription,
-    isSuperAdmin,
     messages,
     profile,
     locale,
@@ -30,6 +35,63 @@ export default function ProfileSectionPage() {
     setTheme,
     showToast
   } = useScheduling();
+  const profileWithReferralSummary = referralSummary
+    ? {
+        ...profile,
+        referralSummary,
+        subscriptionAccessSource: referralSummary.subscriptionAccessSource,
+        subscriptionTier: referralSummary.subscriptionAccessSource === "free" ? "free" : "pro"
+      } as const
+    : profile;
+
+  useEffect(() => {
+    let isActive = true;
+
+    void getSuperAdminStatus()
+      .then((nextIsSuperAdmin) => {
+        if (isActive) {
+          setIsSuperAdmin(nextIsSuperAdmin);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setIsSuperAdmin(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!businessId) {
+      return;
+    }
+
+    let isActive = true;
+
+    void getReferralSummary()
+      .then((summary) => {
+        if (isActive) {
+          setReferralSummary(summary);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setReferralSummary(null);
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsReferralSummaryLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [businessId]);
 
   useEffect(() => {
     const subscriptionState = searchParams.get("subscription");
@@ -96,9 +158,10 @@ export default function ProfileSectionPage() {
   return (
     <ProfileView
       messages={messages}
-      profile={profile}
+      profile={profileWithReferralSummary}
       businessId={businessId}
       isSuperAdmin={isSuperAdmin}
+      isReferralSummaryLoading={Boolean(businessId) && isReferralSummaryLoading}
       locale={locale}
       theme={theme}
       themeOptions={themeOptions}

@@ -114,6 +114,20 @@ test("services table shows accepted payment labels", () => {
   assert.equal(messages.includes('mixed: "Todos"'), true);
 });
 
+test("services table hides empty descriptions", () => {
+  const servicesView = readProjectFile("src/features/scheduling/components/ServicesView.tsx");
+
+  assert.equal(servicesView.includes("{service.description || messages.services.emptyDescription}"), true);
+  assert.equal(servicesView.includes('<p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">{service.description || messages.services.emptyDescription}</p>'), false);
+  assert.equal(servicesView.includes("{service.description ? ("), true);
+});
+
+test("sidebar shows personnel before services", () => {
+  const appShell = readProjectFile("src/features/scheduling/components/AppShell.tsx");
+
+  assert.equal(appShell.indexOf('id: "personnel"') < appShell.indexOf('id: "services"'), true);
+});
+
 test("public booking selects date and time before professional", () => {
   const bookingConfig = readProjectFile("src/features/booking-flow/components/BookingFlow/utils/bookingFlowConfig.ts");
   const bookingFlow = readProjectFile("src/features/booking-flow/components/BookingFlow/index.tsx");

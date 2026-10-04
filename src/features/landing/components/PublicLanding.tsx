@@ -54,12 +54,6 @@ const benefits = [
   }
 ];
 
-const dashboardPreviewItems = [
-  { title: "Agenda por día, semana y mes", description: "Revisá quién atiende cada turno y el estado de cada reserva." },
-  { title: "Servicios y personal", description: "Definí duración, capacidad, anticipos, profesionales y horarios disponibles." },
-  { title: "Datos para decidir", description: "Seguí ingresos estimados, cancelaciones, actividad diaria y estadísticas Premium." }
-];
-
 const features = [
   { icon: FiCalendar, title: "Agenda virtual", description: "Mirá día, semana y mes sin perder de vista quién atiende cada turno." },
   { icon: FiUsers, title: "Equipo ordenado", description: "Cargá personal, disponibilidad y servicios para evitar cruces raros." },
@@ -264,19 +258,6 @@ export function PublicLanding() {
             );
           })}
         </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <Card className={cx("bg-sidebar", landingCardHover)}>
-          <div className="grid gap-4 lg:grid-cols-3">
-            {dashboardPreviewItems.map((item) => (
-              <div key={item.title} className="rounded-lg border border-subtle bg-input p-4">
-                <p className="text-base font-bold text-primary">{item.title}</p>
-                <p className="mt-1 text-sm leading-6 text-muted">{item.description}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">

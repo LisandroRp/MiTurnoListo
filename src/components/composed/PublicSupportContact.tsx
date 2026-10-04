@@ -1,9 +1,10 @@
-import { FiMail } from "react-icons/fi";
+import { FiInstagram, FiMail } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
 
 const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "contacto@miturnolisto.com";
 const supportMailHref = `mailto:${supportEmail}`;
+const instagramUrl = "https://www.instagram.com/miturnolisto/";
 const currentYear = new Date().getFullYear();
 
 export function PublicSupportContact() {
@@ -19,6 +20,15 @@ export function PublicSupportContact() {
             >
               <FiMail className="text-lg" aria-hidden="true" />
               {supportEmail}
+            </a>
+            <a
+              href={instagramUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-fit cursor-pointer items-center gap-3 text-sm font-semibold !text-muted-strong transition-colors hover:!text-brand"
+            >
+              <FiInstagram className="text-lg" aria-hidden="true" />
+              @miturnolisto
             </a>
             <p className="max-w-4xl text-sm leading-6 text-muted">
               Escribinos por dudas, soporte o consultas comerciales sobre MiTurnoListo.

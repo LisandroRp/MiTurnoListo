@@ -6,6 +6,7 @@ import { normalizeReferralCode } from "@/lib/referral-rules";
 
 type BootstrapWorkspaceResponse = {
   businessId: string;
+  businessCreated: boolean;
   referralCodeConsumed?: boolean;
   role: string;
 };

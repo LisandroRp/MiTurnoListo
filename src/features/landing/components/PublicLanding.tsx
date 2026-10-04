@@ -176,10 +176,10 @@ export function PublicLanding() {
             Compartí tu link y dejá que elijan servicio, profesional, día y horario. Organizá toda tu agenda desde MiTurnoListo sin vivir pendiente de WhatsApp.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/login?mode=signup" className={cx(landingCtaPrimary, landingCtaLarge)}>
+            <Link href="/login?mode=signup" className={cx(landingCtaPrimary, landingCtaLarge)} data-cta="hero_signup" data-vertical="home">
               Empezá gratis <FiArrowRight />
             </Link>
-            <LandingAnchorLink targetId="como-funciona" className={cx(landingCtaSecondary, landingCtaLarge)}>
+            <LandingAnchorLink targetId="como-funciona" className={cx(landingCtaSecondary, landingCtaLarge)} data-cta="how_it_works" data-vertical="home">
               Ver cómo funciona
             </LandingAnchorLink>
           </div>
@@ -214,7 +214,7 @@ export function PublicLanding() {
               <p className="text-sm font-bold text-brand-strong">Reserva confirmada</p>
               <p className="mt-1 text-base font-semibold text-primary">El cliente recibe la confirmación y vos ves el turno en tu agenda.</p>
             </div>
-            <Link href="/login?mode=signup" className={cx(landingCtaPrimary, "w-full sm:w-auto")}>
+            <Link href="/login?mode=signup" className={cx(landingCtaPrimary, "w-full sm:w-auto")} data-cta="how_it_works" data-vertical="home">
               Probar gratis <FiArrowRight />
             </Link>
           </div>
@@ -347,7 +347,7 @@ export function PublicLanding() {
             Creá tu cuenta, configurá tus servicios y compartí tu link para empezar a recibir turnos online.
           </p>
           <div className="mt-6 flex justify-center">
-            <Link href="/login?mode=signup" className={cx(landingCtaPrimary, landingCtaLarge)}>
+            <Link href="/login?mode=signup" className={cx(landingCtaPrimary, landingCtaLarge)} data-cta="bottom_signup" data-vertical="home">
               Empezá gratis <FiArrowRight />
             </Link>
           </div>

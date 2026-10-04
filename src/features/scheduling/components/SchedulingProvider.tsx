@@ -54,6 +54,7 @@ import {
 } from "@/lib/networking/endpoints/scheduling";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
 import { activateReferralProgram as activateReferralProgramRequest } from "@/lib/networking/endpoints/referrals";
+import { trackEvent } from "@/lib/analytics/ga";
 
 type SchedulingContextValue = {
   appointments: Appointment[];
@@ -167,6 +168,7 @@ function getTodayDateValue() {
 export function SchedulingProvider({ children }: { children: ReactNode }) {
   const toastCounter = useRef(1);
   const didAttemptWorkspaceRepair = useRef(false);
+  const didTrackPremiumStarted = useRef(false);
   const latestHydrateRequestId = useRef(0);
   const loadedSnapshotUserIdRef = useRef<string | null>(null);
   const loadedSnapshotScopesRef = useRef<Set<SchedulingSnapshotScope>>(new Set());
@@ -209,6 +211,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
   function clearWorkspace() {
     didAttemptWorkspaceRepair.current = false;
+    didTrackPremiumStarted.current = false;
     latestHydrateRequestId.current += 1;
     loadedSnapshotUserIdRef.current = null;
     loadedSnapshotScopesRef.current = new Set();
@@ -257,7 +260,11 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
       didAttemptWorkspaceRepair.current = true;
       try {
-        await bootstrapWorkspace();
+        const bootstrapResult = await bootstrapWorkspace();
+
+        if (bootstrapResult.businessCreated) {
+          trackEvent("business_created");
+        }
       } catch {
         throw new Error("No pudimos cargar tu espacio. Refrescá la página o volvé a iniciar sesión.");
       }
@@ -409,10 +416,17 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    return runMutation(
+    const isNewService = !serviceList.some((item) => item.id === service.id);
+    const didSave = await runMutation(
       () => saveServiceRequest(businessId, service),
       copy.toast.serviceSaved
     );
+
+    if (didSave && isNewService) {
+      trackEvent("service_created");
+    }
+
+    return didSave;
   }
 
   async function deleteService(serviceId: string) {
@@ -492,10 +506,17 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    return runMutation(
+    const isNewEmployee = !employeeList.some((item) => item.id === employee.id);
+    const didSave = await runMutation(
       () => saveEmployeeRequest(businessId, employee),
       copy.toast.employeeSaved
     );
+
+    if (didSave && isNewEmployee) {
+      trackEvent("staff_created");
+    }
+
+    return didSave;
   }
 
   async function deleteEmployee(employeeId: string) {
@@ -626,6 +647,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       const result = await startProSubscriptionRequest(businessId);
 
       if (result.subscriptionTier === "pro") {
+        trackPremiumStartedOnce(profileState.subscriptionTier);
+
         const didRefresh = await hydrateWorkspace();
 
         if (didRefresh) {
@@ -687,7 +710,12 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
     try {
       const result = await refreshWorkspaceSubscriptionRequest(businessId, preapprovalId);
+      const wasPremium = profileState.subscriptionTier === "pro";
       const didRefresh = await hydrateWorkspace();
+
+      if (!wasPremium && result.subscriptionTier === "pro") {
+        trackPremiumStartedOnce(profileState.subscriptionTier);
+      }
 
       if (!didRefresh) {
         return result;
@@ -872,6 +900,15 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       });
       return false;
     }
+  }
+
+  function trackPremiumStartedOnce(previousSubscriptionTier: SubscriptionTier) {
+    if (didTrackPremiumStarted.current || previousSubscriptionTier === "pro") {
+      return;
+    }
+
+    didTrackPremiumStarted.current = true;
+    trackEvent("premium_started");
   }
 
   return (

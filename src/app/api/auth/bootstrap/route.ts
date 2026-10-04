@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
   const seed = buildDefaultSeed(user.email);
   const referralCode = normalizeReferralCode(payload.referralCode);
   let { data: membership, error: membershipError } = await loadBusinessMembership(supabase, user.id);
+  let businessCreated = false;
 
   if (membershipError) {
     return createApiErrorResponse(membershipError, {
@@ -139,6 +140,8 @@ export async function POST(request: NextRequest) {
         status: 500
       });
     }
+
+    businessCreated = true;
   }
 
   if (!membership) {
@@ -155,6 +158,7 @@ export async function POST(request: NextRequest) {
     if (insertMembershipError) {
       if (isPostgresErrorCode(insertMembershipError, uniqueViolationCode)) {
         await deleteUnusedBusiness(supabase, businessId);
+        businessCreated = false;
 
         const recoveredMembership = await loadBusinessMembership(supabase, user.id);
 
@@ -199,6 +203,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     businessId,
+    businessCreated,
     referralCodeConsumed: Boolean(referralCode && shouldAttributeReferral),
     role: membership?.role ?? "owner"
   });

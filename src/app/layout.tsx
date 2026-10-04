@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+import { GoogleAnalytics } from "@/components/composed/GoogleAnalytics";
+import { MarketingEventTracker } from "@/components/composed/MarketingEventTracker";
 import { AuthProvider } from "@/features/auth/components/AuthProvider";
 import { SchedulingProvider } from "@/features/scheduling/components/SchedulingProvider";
 
@@ -93,6 +95,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="es">
       <body>
+        <GoogleAnalytics />
+        <MarketingEventTracker />
         <AuthProvider>
           <SchedulingProvider>{children}</SchedulingProvider>
         </AuthProvider>

@@ -12,6 +12,7 @@ import {
 import { getSupabaseBrowserClient } from "@/lib/networking/clients/supabase-browser";
 import { bootstrapWorkspace } from "@/lib/networking/endpoints/auth";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
+import { trackEvent } from "@/lib/analytics/ga";
 
 const passwordRecoverySessionKey = "miturnolisto_password_recovery";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -233,7 +234,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthState((current) => ({ ...current, status: "bootstrapping" }));
 
     try {
-      await bootstrapWorkspace(data.session?.access_token);
+      trackBusinessCreated(await bootstrapWorkspace(data.session?.access_token));
     } catch (bootstrapError) {
       await signOutLocally();
       return {
@@ -291,7 +292,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthState((current) => ({ ...current, status: "bootstrapping" }));
 
       try {
-        await bootstrapWorkspace(data.session.access_token);
+        trackEvent("sign_up", {
+          method: "email"
+        });
+        trackBusinessCreated(await bootstrapWorkspace(data.session.access_token));
       } catch (bootstrapError) {
         await signOutLocally();
         return {
@@ -314,6 +318,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthActionInProgress.current = false;
       clearLocalAuthStorage();
       setAuthState({ status: "guest", userEmail: null, userId: null });
+      trackEvent("sign_up", {
+        method: "email"
+      });
 
       return {
         status: "confirmation_required",
@@ -454,4 +461,12 @@ function getAuthBootstrapErrorMessage(error: unknown) {
   }
 
   return message;
+}
+
+function trackBusinessCreated(payload: { businessCreated?: boolean }) {
+  if (!payload.businessCreated) {
+    return;
+  }
+
+  trackEvent("business_created");
 }

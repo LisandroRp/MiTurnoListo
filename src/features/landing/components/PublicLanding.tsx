@@ -1,6 +1,18 @@
 import Link from "next/link";
 import { ReactNode } from "react";
-import { FiArrowRight, FiBarChart2, FiCalendar, FiCheckCircle, FiClock, FiGift, FiShare2, FiUsers } from "react-icons/fi";
+import {
+  FiArrowRight,
+  FiBarChart2,
+  FiCalendar,
+  FiCheckCircle,
+  FiClock,
+  FiGift,
+  FiLink,
+  FiMessageCircle,
+  FiShare2,
+  FiSmartphone,
+  FiUsers
+} from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
 import { PublicSupportContact } from "@/components/composed/PublicSupportContact";
@@ -8,41 +20,69 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { cx } from "@/components/ui/utils";
 import { LandingAnchorLink } from "@/features/landing/components/LandingAnchorLink";
+import {
+  getSiteUrl,
+  landingCardHover,
+  landingCtaLarge,
+  landingCtaPrimary,
+  landingCtaSecondary,
+  landingPlans
+} from "@/features/landing/landing-content";
 
-const dashboardPreviewItems = [
-  { title: "Turnos del dia", description: "Agenda, horarios y estado de cada reserva en una vista simple." },
-  { title: "Equipo disponible", description: "Personal y servicios conectados para evitar cruces de horarios." },
-  { title: "Datos del negocio", description: "Ingresos estimados, cancelaciones y actividad para decidir mejor." }
+const bookingSteps = [
+  { title: "Servicio", description: "Corte clásico", meta: "30 min" },
+  { title: "Profesional", description: "Barbero disponible", meta: "Sin cruces" },
+  { title: "Día", description: "Jueves 16", meta: "Agenda abierta" },
+  { title: "Horario", description: "18:30", meta: "Confirmación inmediata" }
 ];
 
-const features = [
-  { icon: FiCalendar, title: "Agenda virtual", description: "Mira dia, semana y mes sin perder de vista quien atiende cada turno." },
-  { icon: FiUsers, title: "Equipo ordenado", description: "Carga personal, disponibilidad y servicios para evitar cruces raros." },
-  { icon: FiBarChart2, title: "Datos rapidos", description: "Tenes caja estimada, cancelaciones y actividad diaria en el inicio." },
-  { icon: FiClock, title: "Configuracion simple", description: "Servicios con duracion, anticipo, capacidad y horarios disponibles." }
-];
-
-const plans = [
+const benefits = [
   {
-    name: "Gratis",
-    price: "$0",
-    description: "Para empezar a ordenar tus primeros turnos.",
-    perks: ["Hasta 2 integrantes del personal", "5 servicios visibles", "15 turnos por mes"]
+    icon: FiMessageCircle,
+    title: "Menos WhatsApp",
+    description: "Dejá de coordinar ida y vuelta. Tus clientes eligen un horario disponible y la agenda se actualiza sola."
   },
   {
-    name: "Premium",
-    price: "$25.000",
-    description: "Para negocios que viven de la agenda y necesitan orden diario.",
-    perks: ["Turnos ilimitados", "Personal y servicios ilimitados", "Estadisticas y pagos online"],
-    highlighted: true
+    icon: FiLink,
+    title: "Un link para vender turnos",
+    description: "Compartilo en Instagram, Google o tus campañas. Cada servicio puede recibir reservas online sin fricción."
+  },
+  {
+    icon: FiUsers,
+    title: "Equipo sin superposiciones",
+    description: "Conectá servicios, profesionales y disponibilidad para evitar reservas imposibles o dobles turnos."
   }
 ];
 
-const ctaPrimary = "inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-hover";
-const ctaSecondary = "inline-flex h-10 cursor-pointer items-center justify-center rounded-lg border border-subtle bg-surface px-4 text-sm font-semibold text-primary transition-colors hover:bg-surface-strong";
-const ctaLarge = "h-12 px-5 text-base";
-const landingCardHover = "transition-all duration-200 hover:-translate-y-1 hover:shadow-lg";
-const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.miturnolisto.com").replace(/\/+$/, "");
+const dashboardPreviewItems = [
+  { title: "Agenda por día, semana y mes", description: "Revisá quién atiende cada turno y el estado de cada reserva." },
+  { title: "Servicios y personal", description: "Definí duración, capacidad, anticipos, profesionales y horarios disponibles." },
+  { title: "Datos para decidir", description: "Seguí ingresos estimados, cancelaciones, actividad diaria y estadísticas Premium." }
+];
+
+const features = [
+  { icon: FiCalendar, title: "Agenda virtual", description: "Mirá día, semana y mes sin perder de vista quién atiende cada turno." },
+  { icon: FiUsers, title: "Equipo ordenado", description: "Cargá personal, disponibilidad y servicios para evitar cruces raros." },
+  { icon: FiBarChart2, title: "Datos rápidos", description: "Tenés caja estimada, cancelaciones y actividad diaria en el inicio." },
+  { icon: FiClock, title: "Configuración simple", description: "Servicios con duración, anticipo, capacidad y horarios disponibles." }
+];
+
+const faqs = [
+  {
+    question: "¿Necesito instalar algo?",
+    answer: "No. MiTurnoListo funciona desde el navegador y podés compartir tu link de reservas apenas configurás servicios, equipo y horarios."
+  },
+  {
+    question: "¿Sirve si trabajo solo?",
+    answer: "Sí. Podés usarlo como agenda individual y sumar más profesionales cuando el negocio crezca."
+  },
+  {
+    question: "¿Puedo empezar sin pagar?",
+    answer: "Sí. El plan gratis te permite validar el flujo con tus primeros servicios, profesionales y reservas online."
+  }
+];
+
+const siteUrl = getSiteUrl();
 const homeUrl = `${siteUrl}/`;
 const structuredData = {
   "@context": "https://schema.org",
@@ -121,44 +161,116 @@ export function PublicLanding() {
             <BrandMark variant="full" size="md" priority />
           </Link>
           <nav className="flex items-center gap-2">
+            <LandingAnchorLink targetId="como-funciona" className="hidden cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-muted hover:bg-surface-strong hover:text-primary sm:inline-flex">
+              Cómo funciona
+            </LandingAnchorLink>
             <LandingAnchorLink targetId="planes" className="hidden cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-muted hover:bg-surface-strong hover:text-primary sm:inline-flex">
               Planes
             </LandingAnchorLink>
-            <LandingAnchorLink targetId="referidos" className="hidden cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-muted hover:bg-surface-strong hover:text-primary sm:inline-flex">
-              Referidos
-            </LandingAnchorLink>
-            <Link href="/login" className={cx(ctaPrimary, "hidden sm:inline-flex")}>Login</Link>
+            <Link href="/login" className={cx(landingCtaPrimary, "hidden sm:inline-flex")}>Login</Link>
           </nav>
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] pt-16">
+      <section className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr]">
         <div className="flex flex-col justify-center">
-          <Badge tone="brand" className="w-fit">Agenda, equipo y servicios en un solo lugar</Badge>
+          <Badge tone="brand" className="w-fit">Turnos, equipo y servicios en un solo lugar</Badge>
           <h1 className="mt-5 max-w-3xl text-4xl font-bold leading-tight text-primary sm:text-6xl">
-            Agenda virtual para que cualquier negocio venda mas turnos sin vivir en WhatsApp.
+            Tus clientes reservan solos. Vos ocupate de tu negocio.
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-muted">
-            Un organizador de turnos online pensado para peluquerias, consultorios, centros de estetica,
-            estudios y cualquier equipo que necesite ordenar reservas, horarios y personal sin complicarse.
+            Compartí tu link y dejá que elijan servicio, profesional, día y horario. Organizá toda tu agenda desde MiTurnoListo sin vivir pendiente de WhatsApp.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/login" className={cx(ctaPrimary, ctaLarge)}>
-              Entrar al panel <FiArrowRight />
+            <Link href="/login?mode=signup" className={cx(landingCtaPrimary, landingCtaLarge)}>
+              Empezá gratis <FiArrowRight />
             </Link>
-            <LandingAnchorLink targetId="planes" className={cx(ctaSecondary, ctaLarge)}>Ver planes</LandingAnchorLink>
+            <LandingAnchorLink targetId="como-funciona" className={cx(landingCtaSecondary, landingCtaLarge)}>
+              Ver cómo funciona
+            </LandingAnchorLink>
           </div>
         </div>
 
-        <Card className={cx("grid gap-4 bg-sidebar", landingCardHover)}>
-          <div className="rounded-lg bg-brand-soft p-5">
-            <p className="text-sm font-semibold text-brand-strong">Panel operativo</p>
-            <p className="mt-3 text-3xl font-bold text-primary">Todo lo importante, en un lugar</p>
-            <p className="mt-2 text-sm leading-6 text-muted">Una vista pensada para abrir la app y entender agenda, equipo y servicios sin revisar chats.</p>
+        <BookingFlowPreview />
+      </section>
+
+      <section id="como-funciona" className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <div className="max-w-2xl">
+          <p className="text-sm font-bold uppercase text-muted">Cómo reserva un cliente</p>
+          <h2 className="mt-2 text-3xl font-bold text-primary">Compartís un link. El cliente completa el turno en minutos.</h2>
+        </div>
+        <div className="mt-8 grid gap-4 md:grid-cols-4">
+          {bookingSteps.map((step, index) => (
+            <Card key={step.title} className={cx("h-full", landingCardHover)}>
+              <div className="flex items-center justify-between gap-3">
+                <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-soft text-sm font-bold text-brand-strong">
+                  {index + 1}
+                </span>
+                <FiArrowRight className={cx("text-lg text-muted", index === bookingSteps.length - 1 ? "opacity-0" : "hidden md:block")} aria-hidden="true" />
+              </div>
+              <h3 className="mt-4 text-lg font-bold text-primary">{step.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-muted">{step.description}</p>
+              <p className="mt-4 text-xs font-bold uppercase text-brand-strong">{step.meta}</p>
+            </Card>
+          ))}
+        </div>
+        <Card className="mt-4 border-brand bg-brand-soft">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-bold text-brand-strong">Reserva confirmada</p>
+              <p className="mt-1 text-base font-semibold text-primary">El cliente recibe la confirmación y vos ves el turno en tu agenda.</p>
+            </div>
+            <Link href="/login?mode=signup" className={cx(landingCtaPrimary, "w-full sm:w-auto")}>
+              Probar gratis <FiArrowRight />
+            </Link>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+        </Card>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <div className="grid gap-4 md:grid-cols-3">
+          {benefits.map((benefit) => {
+            const Icon = benefit.icon;
+
+            return (
+              <Card key={benefit.title} className={cx("h-full", landingCardHover)}>
+                <Icon className="text-2xl text-brand-strong" aria-hidden="true" />
+                <h2 className="mt-4 text-lg font-bold text-primary">{benefit.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-muted">{benefit.description}</p>
+              </Card>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-6xl gap-6 px-4 py-12 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+        <div>
+          <p className="text-sm font-bold uppercase text-muted">Panel de gestión</p>
+          <h2 className="mt-2 text-3xl font-bold text-primary">Todo lo que necesitás para ordenar la agenda diaria.</h2>
+          <p className="mt-4 text-base leading-7 text-muted">
+            Después de que el cliente reserva, MiTurnoListo te ayuda a manejar servicios, profesionales, horarios, pagos y actividad sin perder contexto.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {features.map((feature) => {
+            const Icon = feature.icon;
+
+            return (
+              <Card key={feature.title} className={cx("h-full", landingCardHover)}>
+                <Icon className="text-2xl text-brand-strong" aria-hidden="true" />
+                <h3 className="mt-4 text-lg font-bold text-primary">{feature.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-muted">{feature.description}</p>
+              </Card>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <Card className={cx("bg-sidebar", landingCardHover)}>
+          <div className="grid gap-4 lg:grid-cols-3">
             {dashboardPreviewItems.map((item) => (
-              <div key={item.title} className={cx("rounded-lg border border-subtle bg-input p-4", landingCardHover)}>
+              <div key={item.title} className="rounded-lg border border-subtle bg-input p-4">
                 <p className="text-base font-bold text-primary">{item.title}</p>
                 <p className="mt-1 text-sm leading-6 text-muted">{item.description}</p>
               </div>
@@ -167,59 +279,27 @@ export function PublicLanding() {
         </Card>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {features.map((feature) => {
-            const Icon = feature.icon;
-
-            return (
-              <Card key={feature.title} className={cx("h-full", landingCardHover)}>
-                <Icon className="text-2xl text-brand-strong" aria-hidden="true" />
-                <h2 className="mt-4 text-lg font-bold text-primary">{feature.title}</h2>
-                <p className="mt-2 text-sm leading-6 text-muted">{feature.description}</p>
-              </Card>
-            );
-          })}
-        </div>
-      </section>
-
-      <section id="referidos" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <div className="grid gap-4 rounded-lg border border-subtle bg-sidebar p-5 md:grid-cols-[0.9fr_1.1fr] md:items-center">
           <div>
-            <Badge tone="brand" className="w-fit">Referidos</Badge>
-            <h2 className="mt-3 text-3xl font-bold text-primary">Compartí MiTurnoListo y ganá meses Premium.</h2>
-            <p className="mt-4 text-base leading-7 text-muted">
-              Cada cuenta nueva que se suscribe a Premium con tu código te suma 30 días de PRO. Los meses se acumulan hasta un máximo de 3 disponibles.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link href="/login?mode=signup" className={cx(ctaPrimary, ctaLarge)}>
-                Crear cuenta <FiArrowRight />
-              </Link>
-              <LandingAnchorLink targetId="planes" className={cx(ctaSecondary, ctaLarge)}>Ver Premium</LandingAnchorLink>
-            </div>
+            <p className="text-sm font-bold uppercase text-muted">MiTurnoListo funciona para</p>
+            <h2 className="mt-2 text-2xl font-bold text-primary">Landings pensadas para tu tipo de negocio.</h2>
           </div>
-          <Card className={cx("bg-sidebar", landingCardHover)}>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <ReferralLandingStep icon={<FiGift />} title="Activá tu código" description="Desde el panel de referidos generás un código fijo para compartir." />
-              <ReferralLandingStep icon={<FiShare2 />} title="Invitá" description="Tu link lleva al signup con el código guardado para esa cuenta nueva." />
-              <ReferralLandingStep icon={<FiCheckCircle />} title="Ganás PRO" description="Cuando confirma su primer pago Premium, recibís 30 días acumulables." />
-            </div>
-            <div className="mt-5 rounded-lg border border-brand bg-brand-soft p-4">
-              <p className="text-sm font-bold text-brand-strong">Máximo acumulable</p>
-              <p className="mt-2 text-4xl font-bold text-primary">3 <span className="text-sm font-bold text-brand-strong">MAX</span></p>
-              <p className="mt-2 text-sm leading-6 text-muted">Cuando un mes empieza a correr, vuelve a quedar espacio para sumar otro referido.</p>
-            </div>
-          </Card>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <VerticalLink href="/barberias" title="Barberías" description="Cortes, barba y equipo." />
+            <VerticalLink href="/peluquerias" title="Peluquerías" description="Color, brushing y servicios." />
+            <VerticalLink href="/estetica" title="Centros de estética" description="Tratamientos y turnos 24/7." />
+          </div>
         </div>
       </section>
 
       <section id="planes" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
         <div className="max-w-2xl">
           <p className="text-sm font-bold uppercase text-muted">Planes</p>
-          <h2 className="mt-2 text-3xl font-bold text-primary">Arranca gratis, escala cuando la agenda se ponga seria.</h2>
+          <h2 className="mt-2 text-3xl font-bold text-primary">Arrancá gratis, escalá cuando la agenda se ponga seria.</h2>
         </div>
         <div className="mt-8 grid gap-4 md:grid-cols-2">
-          {plans.map((plan) => (
+          {landingPlans.map((plan) => (
             <Card
               key={plan.name}
               className={cx(
@@ -251,8 +331,100 @@ export function PublicLanding() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <div className="grid gap-4 md:grid-cols-3">
+          {faqs.map((faq) => (
+            <Card key={faq.question} className="h-full">
+              <h2 className="text-base font-bold text-primary">{faq.question}</h2>
+              <p className="mt-2 text-sm leading-6 text-muted">{faq.answer}</p>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section id="referidos" className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <div className="grid gap-6 rounded-lg border border-subtle bg-sidebar p-5 md:grid-cols-[1fr_1.2fr] md:items-center">
+          <div>
+            <Badge tone="brand" className="w-fit">Referidos</Badge>
+            <h2 className="mt-3 text-2xl font-bold text-primary">Compartí MiTurnoListo y ganá meses Premium.</h2>
+            <p className="mt-3 text-sm leading-6 text-muted">
+              Cuando una cuenta nueva se suscribe a Premium con tu código, sumás 30 días de PRO acumulables hasta un máximo de 3 meses.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <ReferralLandingStep icon={<FiGift />} title="Activá tu código" description="Generalo desde el panel de referidos." />
+            <ReferralLandingStep icon={<FiShare2 />} title="Invitá" description="Tu link lleva directo al signup." />
+            <ReferralLandingStep icon={<FiCheckCircle />} title="Ganás PRO" description="La recompensa llega con el primer pago aprobado." />
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <div className="rounded-lg border border-brand bg-brand-soft p-6 text-center">
+          <h2 className="text-3xl font-bold text-primary">Dejá que tus clientes reserven sin escribirte por WhatsApp.</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-muted">
+            Creá tu cuenta, configurá tus servicios y compartí tu link para empezar a recibir turnos online.
+          </p>
+          <div className="mt-6 flex justify-center">
+            <Link href="/login?mode=signup" className={cx(landingCtaPrimary, landingCtaLarge)}>
+              Empezá gratis <FiArrowRight />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       <PublicSupportContact />
     </main>
+  );
+}
+
+function BookingFlowPreview() {
+  return (
+    <Card className={cx("bg-sidebar", landingCardHover)}>
+      <div className="flex items-center justify-between gap-4 border-b border-subtle pb-4">
+        <div>
+          <p className="mt-1 text-xl font-bold text-primary">Reservar en MiTurnoListo</p>
+        </div>
+        <span className="grid h-11 w-11 place-items-center rounded-lg bg-brand-soft text-2xl text-brand-strong">
+          <FiSmartphone aria-hidden="true" />
+        </span>
+      </div>
+      <div className="mt-5 grid gap-3">
+        {bookingSteps.map((step, index) => (
+          <div key={step.title} className="flex items-center gap-3 rounded-lg border border-subtle bg-input p-4">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-soft text-sm font-bold text-brand-strong">
+              {index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-primary">{step.title}</p>
+              <p className="truncate text-sm text-muted">{step.description}</p>
+            </div>
+            <FiCheckCircle className="shrink-0 text-success" aria-hidden="true" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 rounded-lg border border-brand bg-brand-soft p-4">
+        <p className="text-sm font-bold text-brand-strong">Reserva confirmada</p>
+        <p className="mt-1 text-sm leading-6 text-muted">El horario queda bloqueado y aparece en el panel del negocio.</p>
+      </div>
+    </Card>
+  );
+}
+
+function VerticalLink({
+  description,
+  href,
+  title
+}: {
+  description: string;
+  href: string;
+  title: string;
+}) {
+  return (
+    <Link href={href} className="rounded-lg border border-subtle bg-input p-4 transition-colors hover:bg-surface-strong">
+      <span className="text-base font-bold text-primary">{title}</span>
+      <span className="mt-1 block text-sm leading-6 text-muted">{description}</span>
+    </Link>
   );
 }
 

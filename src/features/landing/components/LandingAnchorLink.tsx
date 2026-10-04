@@ -1,17 +1,17 @@
 "use client";
 
-import { MouseEvent, ReactNode } from "react";
+import { AnchorHTMLAttributes, MouseEvent, ReactNode } from "react";
 
-type LandingAnchorLinkProps = {
+type LandingAnchorLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "onClick"> & {
   children: ReactNode;
-  className?: string;
   targetId: string;
 };
 
 export function LandingAnchorLink({
   children,
   className,
-  targetId
+  targetId,
+  ...props
 }: LandingAnchorLinkProps) {
   function handleClick(event: MouseEvent<HTMLAnchorElement>) {
     event.preventDefault();
@@ -24,7 +24,7 @@ export function LandingAnchorLink({
   }
 
   return (
-    <a href={`#${targetId}`} className={className} onClick={handleClick}>
+    <a {...props} href={`#${targetId}`} className={className} onClick={handleClick}>
       {children}
     </a>
   );

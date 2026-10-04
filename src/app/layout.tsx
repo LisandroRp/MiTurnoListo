@@ -6,7 +6,7 @@ import { SchedulingProvider } from "@/features/scheduling/components/SchedulingP
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.miturnolisto.com";
 const siteName = "MiTurnoListo";
-const siteDescription = "MiTurnoListo es una agenda virtual y organizador de turnos online para negocios de servicios. Gestiona reservas, horarios, personal, pagos y clientes desde un solo lugar.";
+const siteDescription = "MiTurnoListo es una agenda virtual y organizador de turnos online para negocios de servicios. Gestioná reservas, horarios, personal, pagos y clientes desde un solo lugar.";
 const socialImage = "/branding/og-image.png";
 
 export const metadata: Metadata = {
@@ -31,12 +31,12 @@ export const metadata: Metadata = {
     "sistema de turnos",
     "sistema de reservas online",
     "software de turnos",
-    "gestion de turnos",
-    "gestion de reservas",
+    "gestión de turnos",
+    "gestión de reservas",
     "calendario de turnos",
-    "turnos para peluquerias",
+    "turnos para peluquerías",
     "turnos para consultorios",
-    "turnos para centros de estetica",
+    "turnos para centros de estética",
     "turnos para estudios profesionales",
     "agenda para negocios"
   ],

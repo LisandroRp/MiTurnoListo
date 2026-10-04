@@ -16,6 +16,9 @@ test("isUuid detects UUID route keys", () => {
 
 test("reserved public slugs are guarded for business URLs", () => {
   assert.equal(isReservedPublicSlug("login"), true);
+  assert.equal(isReservedPublicSlug("barberias"), true);
+  assert.equal(isReservedPublicSlug("peluquerias"), true);
+  assert.equal(isReservedPublicSlug("estetica"), true);
   assert.equal(isReservedPublicSlug("turnos-studio"), false);
   assert.equal(getSafePublicSlug("Login", "negocio"), "login-negocio");
 });

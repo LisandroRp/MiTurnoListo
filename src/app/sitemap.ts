@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 
+import { verticalLandingList } from "@/features/landing/verticals";
+
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.miturnolisto.com";
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -17,6 +19,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.4
-    }
+    },
+    ...verticalLandingList.map((vertical) => ({
+      url: `${siteUrl}${vertical.path}`,
+      lastModified: now,
+      changeFrequency: "weekly" as const,
+      priority: 0.85
+    }))
   ];
 }

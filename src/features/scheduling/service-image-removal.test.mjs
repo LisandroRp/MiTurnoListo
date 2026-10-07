@@ -128,6 +128,63 @@ test("sidebar shows personnel before services", () => {
   assert.equal(appShell.indexOf('id: "personnel"') < appShell.indexOf('id: "services"'), true);
 });
 
+test("today agenda expands overflowing hour rows without an inner scroll", () => {
+  const dashboardView = readProjectFile("src/features/scheduling/components/DashboardView.tsx");
+
+  assert.equal(dashboardView.includes("expandedHours"), true);
+  assert.equal(dashboardView.includes("canExpand = hourAppointments.length > 1"), true);
+  assert.equal(dashboardView.includes("didInitialScrollRef"), true);
+  assert.equal(dashboardView.includes("hourContentRefs"), true);
+  assert.equal(dashboardView.includes("node.scrollHeight"), true);
+  assert.equal(dashboardView.includes("ResizeObserver"), true);
+  assert.equal(dashboardView.includes("expandedHourHeights[hour]"), true);
+  assert.equal(dashboardView.includes("getExpandedHourRowHeight"), false);
+  assert.equal(dashboardView.includes("[...hourAppointments, ...hourAppointments]"), false);
+  assert.equal(dashboardView.includes("[overflow-anchor:none]"), true);
+  assert.equal(dashboardView.includes("transition-[max-height] duration-500 ease-in-out"), true);
+  assert.equal(dashboardView.includes('style={{ maxHeight: `${rowMaxHeight}px` }}'), true);
+  assert.equal(dashboardView.includes('className="grid content-start gap-1.5 px-4 py-2"'), true);
+  assert.equal(dashboardView.includes('isExpanded ? "" : "max-h-24 overflow-hidden"'), false);
+  assert.equal(dashboardView.includes("currentHourRowRef.current.offsetTop + currentTimeDetails.minuteOffset"), true);
+  assert.equal(dashboardView.includes("useMemo("), true);
+  assert.equal(dashboardView.includes("}, [currentTimeDetails]);"), true);
+  assert.equal(dashboardView.includes("compactHourRowHeightPx"), true);
+});
+
+test("calendar employee filter uses varied colors and compact truncated rows", () => {
+  const calendarView = readProjectFile("src/features/scheduling/components/CalendarView.tsx");
+  const globals = readProjectFile("src/app/globals.css");
+
+  assert.equal(calendarView.includes("calendarEmployeeColorKeys"), true);
+  assert.equal(calendarView.includes('"employee-amber"'), true);
+  assert.equal(calendarView.includes('"employee-teal"'), true);
+  assert.equal(calendarView.includes("color: calendarEmployeeColorKeys[index % calendarEmployeeColorKeys.length]"), true);
+  assert.equal(calendarView.includes("max-w-[min(26rem,calc(100vw-2rem))]"), true);
+  assert.equal(calendarView.includes("grid-cols-[minmax(0,1fr)_auto]"), true);
+  assert.equal(calendarView.includes("block truncate text-sm font-semibold leading-5 text-primary"), true);
+  assert.equal(calendarView.includes('visibleEmployees.map((employee) => employee.name).join(", ")'), false);
+  assert.equal(calendarView.includes("max-w-56 truncate rounded-lg border px-3 py-1.5 text-xs font-semibold text-primary"), true);
+  assert.equal(globals.includes("--color-employee-amber: var(--employee-amber);"), true);
+  assert.equal(globals.includes("--color-employee-teal: var(--employee-teal);"), true);
+});
+
+test("month calendar shows daily time range and employee color dots", () => {
+  const calendarView = readProjectFile("src/features/scheduling/components/CalendarView.tsx");
+
+  assert.equal(calendarView.includes("employeeDotClasses"), true);
+  assert.equal(calendarView.includes("getDayAppointmentEmployees"), true);
+  assert.equal(calendarView.includes("getDayEmployeeScheduleRanges"), true);
+  assert.equal(calendarView.includes("getDayKeyForDate(date)"), true);
+  assert.equal(calendarView.includes("employee.schedule[dayKey]"), true);
+  assert.equal(calendarView.includes("visibleDayEmployees = dayEmployees.slice(0, 5)"), true);
+  assert.equal(calendarView.includes("visibleTimeRanges = timeRanges.slice(0, 2)"), true);
+  assert.equal(calendarView.includes("scheduleRange.startTime <= previousRange.endTime"), true);
+  assert.equal(calendarView.includes("hiddenEmployeeCount > 0"), true);
+  assert.equal(calendarView.includes("hiddenTimeRangeCount > 0"), true);
+  assert.equal(calendarView.includes('className="mt-2 text-xs font-semibold text-muted-strong"'), true);
+  assert.equal(calendarView.includes('className={cx("h-2.5 w-2.5 rounded-full ring-2 ring-surface", employeeDotClasses[employee.color])}'), true);
+});
+
 test("public booking selects date and time before professional", () => {
   const bookingConfig = readProjectFile("src/features/booking-flow/components/BookingFlow/utils/bookingFlowConfig.ts");
   const bookingFlow = readProjectFile("src/features/booking-flow/components/BookingFlow/index.tsx");
@@ -154,6 +211,7 @@ test("admin can create walk-in appointments from home and new booking", () => {
   const homePage = readProjectFile("src/app/(dashboard)/inicio/page.tsx");
   const newBookingPage = readProjectFile("src/app/(dashboard)/nueva-reserva/page.tsx");
   const dashboardView = readProjectFile("src/features/scheduling/components/DashboardView.tsx");
+  const calendarView = readProjectFile("src/features/scheduling/components/CalendarView.tsx");
   const walkInModal = readProjectFile("src/features/scheduling/components/WalkInAppointmentModal.tsx");
   const messages = readProjectFile("src/features/scheduling/i18n/messages.ts");
 
@@ -173,6 +231,8 @@ test("admin can create walk-in appointments from home and new booking", () => {
   assert.equal(walkInModal.includes('source: "walk_in"'), true);
   assert.equal(walkInModal.includes("new Date()"), true);
   assert.equal(walkInModal.includes('paymentMethod === "mixed" ? "cash" : paymentMethod'), true);
+  assert.equal(calendarView.includes("grid min-h-12 w-full cursor-pointer"), true);
+  assert.equal(calendarView.includes('className="justify-center text-center leading-tight"'), true);
   assert.equal(messages.includes('action: "Sobreturno"'), true);
   assert.equal(messages.includes('noActiveTeamTitle: "Hoy no hay profesionales activos"'), true);
   assert.equal(messages.includes('createAnywayAction: "Crear de todas formas"'), true);

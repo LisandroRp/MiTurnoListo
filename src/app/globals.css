@@ -27,9 +27,13 @@
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
   --color-employee-coral: var(--employee-coral);
+  --color-employee-amber: var(--employee-amber);
   --color-employee-blue: var(--employee-blue);
+  --color-employee-indigo: var(--employee-indigo);
   --color-employee-green: var(--employee-green);
+  --color-employee-teal: var(--employee-teal);
   --color-employee-violet: var(--employee-violet);
+  --color-employee-rose: var(--employee-rose);
 }
 
 :root,
@@ -103,9 +107,13 @@
 
 :root {
   --employee-coral: oklch(0.73 0.13 35);
+  --employee-amber: oklch(0.72 0.14 78);
   --employee-blue: oklch(0.56 0.22 263);
+  --employee-indigo: oklch(0.53 0.2 285);
   --employee-green: oklch(0.55 0.12 155);
+  --employee-teal: oklch(0.58 0.13 190);
   --employee-violet: oklch(0.58 0.16 305);
+  --employee-rose: oklch(0.62 0.18 15);
 }
 
 * {

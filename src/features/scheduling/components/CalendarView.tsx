@@ -25,6 +25,7 @@ import { cx } from "@/components/ui/utils";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { getAvailableSlotsForEmployees, isDateBlocked } from "@/features/booking-flow/utils/booking";
 import { BusinessDayBlocksModal } from "@/features/scheduling/components/CalendarView/BusinessDayBlocksModal";
+import { getDayKeyForDate } from "@/features/scheduling/components/dashboardTeamUtils";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, getMonthlyAppointmentUsage, isFreePlan } from "@/features/scheduling/plan-limits";
 import { Appointment, BusinessDayBlock, CalendarMode, Employee, Service } from "@/features/scheduling/types";
@@ -32,10 +33,36 @@ import { getDateLabel } from "@/features/scheduling/utils/format";
 
 const appointmentToneClasses: Record<string, string> = {
   "employee-coral": "border-employee-coral/35 bg-employee-coral/12 hover:bg-employee-coral/18",
+  "employee-amber": "border-employee-amber/35 bg-employee-amber/12 hover:bg-employee-amber/18",
   "employee-blue": "border-employee-blue/35 bg-employee-blue/12 hover:bg-employee-blue/18",
+  "employee-indigo": "border-employee-indigo/35 bg-employee-indigo/12 hover:bg-employee-indigo/18",
   "employee-green": "border-employee-green/35 bg-employee-green/12 hover:bg-employee-green/18",
-  "employee-violet": "border-employee-violet/35 bg-employee-violet/12 hover:bg-employee-violet/18"
+  "employee-teal": "border-employee-teal/35 bg-employee-teal/12 hover:bg-employee-teal/18",
+  "employee-violet": "border-employee-violet/35 bg-employee-violet/12 hover:bg-employee-violet/18",
+  "employee-rose": "border-employee-rose/35 bg-employee-rose/12 hover:bg-employee-rose/18"
 };
+
+const employeeDotClasses: Record<string, string> = {
+  "employee-coral": "bg-employee-coral",
+  "employee-amber": "bg-employee-amber",
+  "employee-blue": "bg-employee-blue",
+  "employee-indigo": "bg-employee-indigo",
+  "employee-green": "bg-employee-green",
+  "employee-teal": "bg-employee-teal",
+  "employee-violet": "bg-employee-violet",
+  "employee-rose": "bg-employee-rose"
+};
+
+const calendarEmployeeColorKeys = [
+  "employee-blue",
+  "employee-coral",
+  "employee-green",
+  "employee-violet",
+  "employee-amber",
+  "employee-teal",
+  "employee-indigo",
+  "employee-rose"
+] as const;
 
 type CalendarViewProps = {
   messages: Messages;
@@ -85,7 +112,11 @@ export function CalendarView({
   onSaveBusinessDayBlock
 }: CalendarViewProps) {
   const [isDayBlocksModalOpen, setIsDayBlocksModalOpen] = useState(false);
-  const selectableEmployees = employees.filter((employee) => !employee.isArchived);
+  const calendarEmployees = employees.map((employee, index) => ({
+    ...employee,
+    color: calendarEmployeeColorKeys[index % calendarEmployeeColorKeys.length]
+  }));
+  const selectableEmployees = calendarEmployees.filter((employee) => !employee.isArchived);
   const selectableEmployeeIds = new Set(selectableEmployees.map((employee) => employee.id));
   const visibleEmployees = selectableEmployees.filter((employee) => selectedEmployeeIds.includes(employee.id));
   const filteredEmployeeOptions = selectableEmployees.filter((employee) =>
@@ -191,11 +222,21 @@ export function CalendarView({
       <section className="min-w-0">
         <Card className="min-h-[680px] min-w-0 overflow-visible p-0">
           <div className="flex flex-col gap-4 border-b border-subtle p-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-bold text-primary">{messages.calendar.visibleEmployees}</h2>
-              <p className="text-sm text-muted">
-                {visibleEmployees.map((employee) => employee.name).join(", ")}
-              </p>
+              <div className="mt-2 flex max-w-4xl flex-wrap gap-2">
+                {visibleEmployees.map((employee) => (
+                  <span
+                    key={employee.id}
+                    className={cx(
+                      "max-w-56 truncate rounded-lg border px-3 py-1.5 text-xs font-semibold text-primary",
+                      appointmentToneClasses[employee.color]
+                    )}
+                  >
+                    {employee.name}
+                  </span>
+                ))}
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 rounded-lg border border-subtle bg-input p-1">
@@ -239,7 +280,7 @@ export function CalendarView({
               focusedDate={safeFocusedDate}
               businessDayBlocks={businessDayBlocks}
               employees={visibleEmployees}
-              allEmployees={employees}
+              allEmployees={calendarEmployees}
               services={services}
               allAppointments={activeAppointments}
               appointments={visibleAppointments.filter((appointment) => appointment.date === safeFocusedDate)}
@@ -257,7 +298,7 @@ export function CalendarView({
               focusedDate={safeFocusedDate}
               businessDayBlocks={businessDayBlocks}
               services={services}
-              employees={employees}
+              employees={calendarEmployees}
               allAppointments={activeAppointments}
               appointments={visibleAppointments}
               onDateClick={(date) => {
@@ -275,6 +316,7 @@ export function CalendarView({
             <MonthCalendar
               messages={messages}
               dates={monthDates}
+              employees={calendarEmployees}
               appointments={visibleAppointments}
               businessDayBlocks={businessDayBlocks}
               focusedDate={safeFocusedDate}
@@ -324,7 +366,7 @@ function EmployeeDropdown({
       </Button>
 
       {isOpen ? (
-        <div className="absolute lg:left-auto lg:right-0 z-20 mt-2 grid w-80 gap-3 rounded-lg border border-subtle bg-surface p-3 shadow-lg">
+        <div className="absolute z-20 mt-2 grid w-fit min-w-80 max-w-[min(26rem,calc(100vw-2rem))] gap-3 rounded-lg border border-subtle bg-surface p-3 shadow-lg lg:left-auto lg:right-0">
           <TextField
             label={messages.calendar.searchEmployee}
             value={employeeQuery}
@@ -342,16 +384,16 @@ function EmployeeDropdown({
                   type="button"
                   onClick={() => onToggleEmployee(employee.id)}
                   className={cx(
-                    "flex cursor-pointer items-center justify-between rounded-lg border p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-sm",
+                    "grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-sm",
                     appointmentToneClasses[employee.color],
                     isSelected ? "ring-2 ring-brand/25" : "border-subtle bg-shell opacity-60 grayscale hover:bg-shell"
                   )}
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-primary">{employee.name}</span>
+                    <span className="block truncate text-sm font-semibold leading-5 text-primary">{employee.name}</span>
                     <span className="block truncate text-xs text-muted">{employee.role}</span>
                   </span>
-                  <span className="text-xs font-semibold text-muted">
+                  <span className="shrink-0 text-xs font-semibold text-muted">
                     <span>{employee.isVisible ? messages.services.visible : messages.services.hidden}</span>
                   </span>
                 </button>
@@ -822,18 +864,18 @@ export function AppointmentCard({
       type="button"
       onClick={() => setIsOpen(true)}
       className={cx(
-        "grid w-full cursor-pointer grid-cols-[1.2fr_1fr_1fr_0.9fr_0.8fr] items-center gap-3 rounded-lg border px-3 py-1.5 text-left text-sm shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+        "grid min-h-12 w-full cursor-pointer grid-cols-[1.2fr_1fr_1fr_0.9fr_0.8fr] items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
         isHistoricalAppointment ? "border-subtle bg-shell hover:bg-input" : "border-subtle bg-surface hover:bg-brand-soft"
       )}
     >
       <span className="flex min-w-0 items-center gap-2">
         <span className={cx("truncate font-semibold text-primary", isHistoricalAppointment ? "opacity-55 grayscale" : "")}>{appointment.customerName}</span>
       </span>
-      <span className={cx("truncate text-muted", isHistoricalAppointment ? "opacity-55 grayscale" : "")}>{serviceName}</span>
-      <span className={cx("truncate text-muted", isHistoricalAppointment ? "opacity-55 grayscale" : "")}>{employeeName}</span>
-      <span className={cx("whitespace-nowrap text-muted", isHistoricalAppointment ? "opacity-55 grayscale" : "")}>{appointment.startTime} - {appointment.endTime}</span>
-      <span>
-        <Badge tone={displayStatus.tone}>
+      <span className={cx("flex min-w-0 items-center truncate text-muted", isHistoricalAppointment ? "opacity-55 grayscale" : "")}>{serviceName}</span>
+      <span className={cx("flex min-w-0 items-center truncate text-muted", isHistoricalAppointment ? "opacity-55 grayscale" : "")}>{employeeName}</span>
+      <span className={cx("flex items-center whitespace-nowrap text-muted", isHistoricalAppointment ? "opacity-55 grayscale" : "")}>{appointment.startTime} - {appointment.endTime}</span>
+      <span className="flex min-w-0 items-center">
+        <Badge tone={displayStatus.tone} className="justify-center text-center leading-tight">
           {displayStatus.label}
         </Badge>
       </span>
@@ -1284,6 +1326,7 @@ function hasAppointmentStarted(appointment: Appointment) {
 function MonthCalendar({
   messages,
   dates,
+  employees,
   appointments,
   businessDayBlocks,
   focusedDate,
@@ -1291,6 +1334,7 @@ function MonthCalendar({
 }: {
   messages: Messages;
   dates: string[];
+  employees: Employee[];
   appointments: Appointment[];
   businessDayBlocks: BusinessDayBlock[];
   focusedDate: string;
@@ -1303,6 +1347,12 @@ function MonthCalendar({
       <div className="grid min-w-[980px] grid-cols-7 gap-px bg-subtle p-px">
         {dates.map((date) => {
           const dayAppointments = appointments.filter((appointment) => appointment.date === date);
+          const dayEmployees = getDayAppointmentEmployees(dayAppointments, employees);
+          const visibleDayEmployees = dayEmployees.slice(0, 5);
+          const hiddenEmployeeCount = Math.max(dayEmployees.length - visibleDayEmployees.length, 0);
+          const timeRanges = getDayEmployeeScheduleRanges(date, dayEmployees);
+          const visibleTimeRanges = timeRanges.slice(0, 2);
+          const hiddenTimeRangeCount = Math.max(timeRanges.length - visibleTimeRanges.length, 0);
           const isFocused = focusedDate === date;
           const isToday = todayDate === date;
           const isBlocked = isDateBlocked(date, businessDayBlocks);
@@ -1325,12 +1375,68 @@ function MonthCalendar({
               <p className="mt-6 text-xs font-semibold text-muted">
                 {dayAppointments.length} {messages.calendar.appointments}
               </p>
+              {visibleTimeRanges.length > 0 ? (
+                <p className="mt-2 text-xs font-semibold text-muted-strong">
+                  {visibleTimeRanges.join(" · ")}
+                  {hiddenTimeRangeCount > 0 ? ` +${hiddenTimeRangeCount}` : ""}
+                </p>
+              ) : null}
+              {visibleDayEmployees.length > 0 ? (
+                <div className="mt-3 flex items-center gap-1.5">
+                  {visibleDayEmployees.map((employee) => (
+                    <span
+                      key={employee.id}
+                      className={cx("h-2.5 w-2.5 rounded-full ring-2 ring-surface", employeeDotClasses[employee.color])}
+                      title={employee.name}
+                    />
+                  ))}
+                  {hiddenEmployeeCount > 0 ? (
+                    <span className="text-xs font-bold text-muted">+{hiddenEmployeeCount}</span>
+                  ) : null}
+                </div>
+              ) : null}
             </button>
           );
         })}
       </div>
     </div>
   );
+}
+
+function getDayAppointmentEmployees(dayAppointments: Appointment[], employees: Employee[]) {
+  const employeeIds = new Set(dayAppointments.map((appointment) => appointment.employeeId));
+
+  return employees.filter((employee) => employeeIds.has(employee.id));
+}
+
+function getDayEmployeeScheduleRanges(date: string, dayEmployees: Employee[]) {
+  if (dayEmployees.length === 0) {
+    return [];
+  }
+
+  const dayKey = getDayKeyForDate(date);
+  const mergedRanges = dayEmployees
+    .flatMap((employee) => employee.schedule[dayKey] ?? [])
+    .map((range) => ({
+      startTime: range.start,
+      endTime: range.end
+    }))
+    .sort((left, right) => left.startTime.localeCompare(right.startTime))
+    .reduce<Array<{ startTime: string; endTime: string }>>((ranges, scheduleRange) => {
+      const previousRange = ranges[ranges.length - 1];
+
+      if (previousRange && scheduleRange.startTime <= previousRange.endTime) {
+        previousRange.endTime = scheduleRange.endTime > previousRange.endTime
+          ? scheduleRange.endTime
+          : previousRange.endTime;
+        return ranges;
+      }
+
+      ranges.push({ ...scheduleRange });
+      return ranges;
+    }, []);
+
+  return mergedRanges.map((range) => `${range.startTime} - ${range.endTime}`);
 }
 
 function EmptyCalendar({ messages }: { messages: Messages }) {

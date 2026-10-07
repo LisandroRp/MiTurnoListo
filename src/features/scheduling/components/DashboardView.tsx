@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiPlusCircle, FiUsers } from "react-icons/fi";
+import { FiChevronDown, FiPlusCircle, FiUsers } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -17,6 +17,8 @@ import { Appointment, DashboardMetric, Employee, Service } from "@/features/sche
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 import { cx } from "@/components/ui/utils";
+
+const compactHourRowHeightPx = 96;
 
 type DashboardViewProps = {
   messages: Messages;
@@ -248,20 +250,84 @@ function DayAgenda({
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean> | void;
 }) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const currentTimeLabel = currentTimePosition !== null ? getCurrentTimeLabel() : "";
+  const currentHourRowRef = useRef<HTMLDivElement | null>(null);
+  const hourContentRefs = useRef(new Map<number, HTMLDivElement>());
+  const didInitialScrollRef = useRef(false);
+  const [expandedHours, setExpandedHours] = useState<Set<number>>(new Set());
+  const [expandedHourHeights, setExpandedHourHeights] = useState<Record<number, number>>({});
+  const currentTimeDetails = useMemo(
+    () => currentTimePosition !== null ? getCurrentTimeDetails() : null,
+    [currentTimePosition]
+  );
+  const measureHourRows = useCallback(() => {
+    const nextHeights: Record<number, number> = {};
+
+    hourContentRefs.current.forEach((node, hour) => {
+      nextHeights[hour] = Math.max(compactHourRowHeightPx, node.scrollHeight);
+    });
+
+    setExpandedHourHeights((currentHeights) => {
+      const currentKeys = Object.keys(currentHeights);
+      const nextKeys = Object.keys(nextHeights);
+      const hasSameHeights = currentKeys.length === nextKeys.length &&
+        nextKeys.every((key) => currentHeights[Number(key)] === nextHeights[Number(key)]);
+
+      return hasSameHeights ? currentHeights : nextHeights;
+    });
+  }, []);
 
   useEffect(() => {
-    if (currentTimePosition === null || !scrollContainerRef.current) {
+    const frameId = requestAnimationFrame(measureHourRows);
+
+    if (typeof ResizeObserver === "undefined") {
+      return () => cancelAnimationFrame(frameId);
+    }
+
+    const observer = new ResizeObserver(measureHourRows);
+    hourContentRefs.current.forEach((node) => observer.observe(node));
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      observer.disconnect();
+    };
+  }, [appointments, employees, measureHourRows, services]);
+
+  useEffect(() => {
+    if (didInitialScrollRef.current || !currentTimeDetails || !scrollContainerRef.current || !currentHourRowRef.current) {
       return;
     }
 
     const container = scrollContainerRef.current;
-    const lineOffset = container.scrollHeight * (currentTimePosition / 100);
+    const lineOffset = currentHourRowRef.current.offsetTop + currentTimeDetails.minuteOffset;
     container.scrollTop = Math.max(lineOffset - container.clientHeight / 2, 0);
-  }, [currentTimePosition]);
+    didInitialScrollRef.current = true;
+  }, [currentTimeDetails]);
+
+  function toggleExpandedHour(hour: number) {
+    setExpandedHours((current) => {
+      const next = new Set(current);
+
+      if (next.has(hour)) {
+        next.delete(hour);
+      } else {
+        next.add(hour);
+      }
+
+      return next;
+    });
+  }
+
+  function setHourContentRef(hour: number, node: HTMLDivElement | null) {
+    if (node) {
+      hourContentRefs.current.set(hour, node);
+      return;
+    }
+
+    hourContentRefs.current.delete(hour);
+  }
 
   return (
-    <div ref={scrollContainerRef} className="overflow-auto">
+    <div ref={scrollContainerRef} className="overflow-auto [overflow-anchor:none]">
       <div className="min-w-[760px]">
         <div className="sticky top-0 z-10 grid grid-cols-[4.5rem_1.2fr_1fr_1fr_0.9fr_0.8fr] border-b border-subtle bg-surface-strong px-4 py-3 text-xs font-bold uppercase tracking-[0.04em] text-muted">
           <span>{messages.home.time}</span>
@@ -271,28 +337,50 @@ function DayAgenda({
           <span>{messages.home.time}</span>
           <span>{messages.home.status}</span>
         </div>
-        <div className="relative h-[144rem]">
-          {currentTimePosition !== null ? (
-            <div
-              className="pointer-events-none absolute left-0 right-0 flex w-full items-center pt-5"
-              style={{ top: `${currentTimePosition}%` }}
-            >
-              <span className="h-2 w-2 rounded-full bg-danger" />
-              <span className="h-px flex-1 bg-danger" />
-              <span className="absolute left-4 bottom-1 text-xs font-bold text-danger">
-                {currentTimeLabel}
-              </span>
-            </div>
-          ) : null}
+        <div className="relative">
           {Array.from({ length: 24 }, (_, hour) => {
             const hourAppointments = appointments.filter((appointment) => Number(appointment.startTime.slice(0, 2)) === hour);
+            const isExpanded = expandedHours.has(hour);
+            const canExpand = hourAppointments.length > 1;
+            const isCurrentHour = currentTimeDetails?.hour === hour;
+            const rowMaxHeight = isExpanded ? expandedHourHeights[hour] ?? compactHourRowHeightPx : compactHourRowHeightPx;
 
             return (
-              <div key={hour} className="grid h-24 grid-cols-[4.5rem_1fr] border-b border-subtle last:border-b-0">
+              <div
+                key={hour}
+                ref={isCurrentHour ? currentHourRowRef : null}
+                className={cx(
+                  "relative grid min-h-24 grid-cols-[4.5rem_1fr] overflow-hidden border-b border-subtle transition-[max-height] duration-500 ease-in-out last:border-b-0"
+                )}
+                style={{ maxHeight: `${rowMaxHeight}px` }}
+              >
+                {isCurrentHour && currentTimeDetails ? (
+                  <div
+                    className="pointer-events-none absolute left-0 right-0 z-10 flex w-full items-center"
+                    style={{ top: `${currentTimeDetails.minuteOffset}px` }}
+                  >
+                    <span className="h-2 w-2 rounded-full bg-danger" />
+                    <span className="h-px flex-1 bg-danger" />
+                    <span className="absolute left-4 bottom-1 text-xs font-bold text-danger">
+                      {currentTimeDetails.label}
+                    </span>
+                  </div>
+                ) : null}
                 <div className="bg-input px-4 py-3 text-sm font-semibold text-muted">
-                  {String(hour).padStart(2, "0")}:00
+                  <span>{String(hour).padStart(2, "0")}:00</span>
+                  {canExpand ? (
+                    <button
+                      type="button"
+                      className="mt-2 grid h-7 w-7 cursor-pointer place-items-center rounded-full border border-subtle bg-surface text-muted shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand hover:bg-brand-soft hover:text-brand-strong hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                      aria-label={isExpanded ? "Ocultar turnos de esta hora" : "Mostrar turnos de esta hora"}
+                      title={isExpanded ? "Ocultar turnos" : "Mostrar turnos"}
+                      onClick={() => toggleExpandedHour(hour)}
+                    >
+                      <FiChevronDown className={cx("transition-transform", isExpanded ? "rotate-180" : "")} aria-hidden="true" />
+                    </button>
+                  ) : null}
                 </div>
-                <div className="grid max-h-24 content-start gap-1.5 overflow-y-auto px-4 py-2">
+                <div ref={(node) => setHourContentRef(hour, node)} className="grid content-start gap-1.5 px-4 py-2">
                   {hourAppointments.map((appointment) => {
                     const service = services.find((item) => item.id === appointment.serviceId);
                     const employee = employees.find((item) => item.id === appointment.employeeId);
@@ -337,6 +425,19 @@ function getCurrentTimePosition(referenceDate: string) {
   return (minutes / (24 * 60)) * 100;
 }
 
+function getCurrentTimeDetails() {
+  const now = new Date();
+  const hour = now.getHours();
+  const minute = now.getMinutes();
+  const label = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+
+  return {
+    hour,
+    label,
+    minuteOffset: (minute / 60) * compactHourRowHeightPx
+  };
+}
+
 function getTodayDateValue() {
   const today = new Date();
   const year = today.getFullYear();
@@ -344,14 +445,6 @@ function getTodayDateValue() {
   const day = String(today.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
-}
-
-function getCurrentTimeLabel() {
-  const now = new Date();
-  const hours = String(now.getHours()).padStart(2, "0");
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-
-  return `${hours}:${minutes}`;
 }
 
 function formatMetricTrend(metric: DashboardMetric, messages: Messages) {

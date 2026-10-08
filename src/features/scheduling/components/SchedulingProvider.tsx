@@ -53,7 +53,9 @@ import {
 } from "@/lib/networking/endpoints/scheduling";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
 import { activateReferralProgram as activateReferralProgramRequest } from "@/lib/networking/endpoints/referrals";
-import { trackEvent } from "@/lib/analytics/ga";
+import { SubscriptionPurchase } from "@/lib/networking/endpoints/subscription";
+import { trackGoogleEvent } from "@/lib/analytics/ga";
+import { trackMetaEvent, trackMetaEventOnce } from "@/lib/analytics/meta";
 
 type SchedulingContextValue = {
   appointments: Appointment[];
@@ -93,9 +95,9 @@ type SchedulingContextValue = {
   setEmployeeQuery: (query: string) => void;
   setFocusedDate: (date: string) => void;
   setLocale: (locale: Locale) => Promise<boolean>;
-  startProSubscription: () => Promise<{ checkoutUrl: string; subscriptionTier: SubscriptionTier } | null>;
+  startProSubscription: () => Promise<{ checkoutUrl: string; purchase: SubscriptionPurchase | null; subscriptionTier: SubscriptionTier } | null>;
   cancelProSubscription: () => Promise<boolean>;
-  refreshWorkspaceSubscription: (preapprovalId?: string) => Promise<{ status: string; subscriptionTier: SubscriptionTier } | null>;
+  refreshWorkspaceSubscription: (preapprovalId?: string) => Promise<{ purchase: SubscriptionPurchase | null; status: string; subscriptionTier: SubscriptionTier } | null>;
   activateReferralProgram: () => Promise<boolean>;
   setTheme: (theme: ThemeId) => Promise<boolean>;
   showToast: (toast: Omit<ToastMessage, "id">) => void;
@@ -167,6 +169,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const toastCounter = useRef(1);
   const didAttemptWorkspaceRepair = useRef(false);
   const didTrackPremiumStarted = useRef(false);
+  const trackedPurchasePaymentIds = useRef(new Set<string>());
   const latestHydrateRequestId = useRef(0);
   const loadedSnapshotUserIdRef = useRef<string | null>(null);
   const loadedSnapshotScopesRef = useRef<Set<SchedulingSnapshotScope>>(new Set());
@@ -209,6 +212,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   function clearWorkspace() {
     didAttemptWorkspaceRepair.current = false;
     didTrackPremiumStarted.current = false;
+    trackedPurchasePaymentIds.current = new Set();
     latestHydrateRequestId.current += 1;
     loadedSnapshotUserIdRef.current = null;
     loadedSnapshotScopesRef.current = new Set();
@@ -259,7 +263,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         const bootstrapResult = await bootstrapWorkspace();
 
         if (bootstrapResult.businessCreated) {
-          trackEvent("business_created");
+          trackGoogleEvent("business_created");
+          trackMetaEvent("BusinessCreated");
         }
       } catch {
         throw new Error("No pudimos cargar tu espacio. Refrescá la página o volvé a iniciar sesión.");
@@ -412,7 +417,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     );
 
     if (didSave && isNewService) {
-      trackEvent("service_created");
+      trackGoogleEvent("service_created");
+      trackMetaEvent("ServiceCreated");
     }
 
     return didSave;
@@ -502,7 +508,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     );
 
     if (didSave && isNewEmployee) {
-      trackEvent("staff_created");
+      trackGoogleEvent("staff_created");
+      trackMetaEvent("StaffCreated");
     }
 
     return didSave;
@@ -637,6 +644,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
       if (result.subscriptionTier === "pro") {
         trackPremiumStartedOnce(profileState.subscriptionTier);
+        trackSubscriptionPurchaseOnce(result.purchase);
 
         const didRefresh = await hydrateWorkspace();
 
@@ -646,6 +654,10 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
             title: copy.profile.subscribedToast
           });
         }
+      } else if (result.checkoutUrl) {
+        trackMetaEvent("InitiateCheckout", {
+          content_name: "Premium"
+        });
       }
 
       return result;
@@ -705,6 +717,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       if (!wasPremium && result.subscriptionTier === "pro") {
         trackPremiumStartedOnce(profileState.subscriptionTier);
       }
+      trackSubscriptionPurchaseOnce(result.purchase);
 
       if (!didRefresh) {
         return result;
@@ -897,7 +910,26 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     }
 
     didTrackPremiumStarted.current = true;
-    trackEvent("premium_started");
+    trackGoogleEvent("premium_started");
+  }
+
+  function trackSubscriptionPurchaseOnce(purchase: SubscriptionPurchase | null) {
+    if (!purchase?.paymentId || trackedPurchasePaymentIds.current.has(purchase.paymentId)) {
+      return;
+    }
+
+    trackedPurchasePaymentIds.current.add(purchase.paymentId);
+    trackGoogleEvent("purchase", {
+      currency: purchase.currency,
+      transaction_id: purchase.paymentId,
+      value: purchase.amount
+    });
+    trackMetaEventOnce("Purchase", `premium-${purchase.paymentId}`, {
+      content_name: "Premium",
+      currency: purchase.currency,
+      payment_id: purchase.paymentId,
+      value: purchase.amount
+    });
   }
 
   return (

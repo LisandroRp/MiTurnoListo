@@ -18,7 +18,7 @@ export function isGoogleAnalyticsEnabled() {
   return Boolean(getGoogleAnalyticsMeasurementId());
 }
 
-export function trackEvent(name: string, params: AnalyticsEventParams = {}) {
+export function trackGoogleEvent(name: string, params: AnalyticsEventParams = {}) {
   if (!ensureGoogleAnalytics() || !name.trim()) {
     return;
   }
@@ -26,7 +26,7 @@ export function trackEvent(name: string, params: AnalyticsEventParams = {}) {
   window.gtag?.("event", name, cleanEventParams(params));
 }
 
-export function trackPageView(url: string) {
+export function trackGooglePageView(url: string) {
   if (!ensureGoogleAnalytics()) {
     return;
   }

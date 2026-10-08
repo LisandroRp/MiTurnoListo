@@ -4,13 +4,21 @@ import { getAccessToken } from "@/lib/networking/endpoints/auth";
 
 export type SubscriptionCheckoutResult = {
   checkoutUrl: string;
+  purchase: SubscriptionPurchase | null;
   status: string;
   subscriptionTier: "free" | "pro";
 };
 
 export type SubscriptionStatusResult = {
+  purchase: SubscriptionPurchase | null;
   status: string;
   subscriptionTier: "free" | "pro";
+};
+
+export type SubscriptionPurchase = {
+  amount: number;
+  currency: string;
+  paymentId: string;
 };
 
 export async function createProSubscriptionCheckout(businessId: string) {
@@ -27,6 +35,7 @@ export async function createProSubscriptionCheckout(businessId: string) {
   const payload = await response.json().catch(() => null) as {
     checkoutUrl?: string;
     error?: string;
+    purchase?: SubscriptionPurchase | null;
     status?: string;
     subscriptionTier?: "free" | "pro";
   } | null;
@@ -37,6 +46,7 @@ export async function createProSubscriptionCheckout(businessId: string) {
 
   return {
     checkoutUrl: payload.checkoutUrl,
+    purchase: payload.purchase ?? null,
     status: payload.status,
     subscriptionTier: payload.subscriptionTier
   } satisfies SubscriptionCheckoutResult;
@@ -61,6 +71,7 @@ export async function syncProSubscriptionStatus(businessId: string, preapprovalI
 
   const payload = await response.json().catch(() => null) as {
     error?: string;
+    purchase?: SubscriptionPurchase | null;
     status?: string;
     subscriptionTier?: "free" | "pro";
   } | null;
@@ -70,6 +81,7 @@ export async function syncProSubscriptionStatus(businessId: string, preapprovalI
   }
 
   return {
+    purchase: payload.purchase ?? null,
     status: payload.status,
     subscriptionTier: payload.subscriptionTier
   } satisfies SubscriptionStatusResult;
@@ -97,6 +109,7 @@ export async function cancelProSubscription(businessId: string) {
   }
 
   return {
+    purchase: null,
     status: payload.status,
     subscriptionTier: payload.subscriptionTier
   } satisfies SubscriptionStatusResult;

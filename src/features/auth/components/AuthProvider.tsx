@@ -12,7 +12,8 @@ import {
 import { getSupabaseBrowserClient } from "@/lib/networking/clients/supabase-browser";
 import { bootstrapWorkspace } from "@/lib/networking/endpoints/auth";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
-import { trackEvent } from "@/lib/analytics/ga";
+import { trackGoogleEvent } from "@/lib/analytics/ga";
+import { trackMetaEvent } from "@/lib/analytics/meta";
 
 const passwordRecoverySessionKey = "miturnolisto_password_recovery";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -292,7 +293,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthState((current) => ({ ...current, status: "bootstrapping" }));
 
       try {
-        trackEvent("sign_up", {
+        trackGoogleEvent("sign_up", {
+          method: "email"
+        });
+        trackMetaEvent("CompleteRegistration", {
           method: "email"
         });
         trackBusinessCreated(await bootstrapWorkspace(data.session.access_token));
@@ -318,7 +322,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthActionInProgress.current = false;
       clearLocalAuthStorage();
       setAuthState({ status: "guest", userEmail: null, userId: null });
-      trackEvent("sign_up", {
+      trackGoogleEvent("sign_up", {
+        method: "email"
+      });
+      trackMetaEvent("CompleteRegistration", {
         method: "email"
       });
 
@@ -468,5 +475,6 @@ function trackBusinessCreated(payload: { businessCreated?: boolean }) {
     return;
   }
 
-  trackEvent("business_created");
+  trackGoogleEvent("business_created");
+  trackMetaEvent("BusinessCreated");
 }

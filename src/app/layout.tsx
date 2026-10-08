@@ -3,6 +3,7 @@ import "./globals.css";
 
 import { GoogleAnalytics } from "@/components/composed/GoogleAnalytics";
 import { MarketingEventTracker } from "@/components/composed/MarketingEventTracker";
+import { MetaPixel } from "@/components/composed/MetaPixel";
 import { AuthProvider } from "@/features/auth/components/AuthProvider";
 import { SchedulingProvider } from "@/features/scheduling/components/SchedulingProvider";
 
@@ -96,6 +97,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="es">
       <body>
         <GoogleAnalytics />
+        <MetaPixel />
         <MarketingEventTracker />
         <AuthProvider>
           <SchedulingProvider>{children}</SchedulingProvider>

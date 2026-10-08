@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { trackEvent } from "@/lib/analytics/ga";
+import { trackGoogleEvent } from "@/lib/analytics/ga";
 
 const ctaLocations = new Set(["hero_signup", "how_it_works", "pricing_signup", "bottom_signup"]);
 const verticals = new Set(["home", "barberias", "peluquerias", "estetica"]);
@@ -25,7 +25,7 @@ export function MarketingEventTracker() {
         return;
       }
 
-      trackEvent("marketing_cta_click", {
+      trackGoogleEvent("marketing_cta_click", {
         location,
         vertical
       });

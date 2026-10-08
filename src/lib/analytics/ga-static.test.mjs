@@ -19,7 +19,21 @@ test("Google Analytics uses the public environment variable without duplicating 
   assert.equal(googleAnalytics.includes("send_page_view: false"), true);
   assert.equal(pageViews.includes("usePathname"), true);
   assert.equal(pageViews.includes("useSearchParams"), true);
-  assert.equal(pageViews.includes('trackPageView(url)'), true);
+  assert.equal(pageViews.includes('trackGooglePageView(url)'), true);
+});
+
+test("Meta Pixel uses the public environment variable and client-side page views", () => {
+  const rootLayout = readProjectFile("src/app/layout.tsx");
+  const metaPixel = readProjectFile("src/components/composed/MetaPixel.tsx");
+  const pageViews = readProjectFile("src/components/composed/MetaPixelPageViews.tsx");
+  const metaHelper = readProjectFile("src/lib/analytics/meta.ts");
+
+  assert.equal(rootLayout.includes("<MetaPixel />"), true);
+  assert.equal(metaPixel.includes("process.env.NEXT_PUBLIC_META_PIXEL_ID"), true);
+  assert.equal(metaPixel.includes("1086712663988091"), false);
+  assert.equal(metaPixel.includes("connect.facebook.net/en_US/fbevents.js"), true);
+  assert.equal(pageViews.includes('trackMetaEvent("PageView")'), true);
+  assert.equal(metaHelper.includes("trackMetaEvent"), true);
 });
 
 test("marketing CTA analytics are delegated through typed tracking", () => {
@@ -27,7 +41,7 @@ test("marketing CTA analytics are delegated through typed tracking", () => {
   const verticalLanding = readProjectFile("src/features/landing/components/VerticalLanding.tsx");
   const publicLanding = readProjectFile("src/features/landing/components/PublicLanding.tsx");
 
-  assert.equal(marketingTracker.includes('trackEvent("marketing_cta_click"'), true);
+  assert.equal(marketingTracker.includes('trackGoogleEvent("marketing_cta_click"'), true);
   assert.equal(marketingTracker.includes("location"), true);
   assert.equal(marketingTracker.includes("vertical"), true);
   assert.equal(verticalLanding.includes('cta: "hero_signup" | "pricing_signup" | "bottom_signup"'), true);
@@ -41,13 +55,24 @@ test("funnel events fire only after confirmed product actions", () => {
   const schedulingProvider = readProjectFile("src/features/scheduling/components/SchedulingProvider.tsx");
   const bootstrapRoute = readProjectFile("src/app/api/auth/bootstrap/route.ts");
 
-  assert.equal(authProvider.includes('trackEvent("sign_up"'), true);
+  assert.equal(authProvider.includes('trackGoogleEvent("sign_up"'), true);
   assert.equal(authProvider.includes('method: "email"'), true);
-  assert.equal(authProvider.includes('trackEvent("business_created"'), true);
+  assert.equal(authProvider.includes('trackMetaEvent("CompleteRegistration"'), true);
+  assert.equal(authProvider.includes('trackGoogleEvent("business_created"'), true);
+  assert.equal(authProvider.includes('trackMetaEvent("BusinessCreated"'), true);
   assert.equal(bootstrapRoute.includes("businessCreated"), true);
-  assert.equal(schedulingProvider.includes('trackEvent("service_created"'), true);
-  assert.equal(schedulingProvider.includes('trackEvent("staff_created"'), true);
-  assert.equal(schedulingProvider.includes('trackEvent("premium_started"'), true);
+  assert.equal(schedulingProvider.includes('trackGoogleEvent("service_created"'), true);
+  assert.equal(schedulingProvider.includes('trackMetaEvent("ServiceCreated"'), true);
+  assert.equal(schedulingProvider.includes('trackGoogleEvent("staff_created"'), true);
+  assert.equal(schedulingProvider.includes('trackMetaEvent("StaffCreated"'), true);
+  assert.equal(schedulingProvider.includes('trackGoogleEvent("premium_started"'), true);
+  assert.equal(schedulingProvider.includes('trackMetaEvent("InitiateCheckout"'), true);
+  assert.equal(schedulingProvider.includes('trackMetaEventOnce("Purchase"'), true);
+  assert.equal(schedulingProvider.includes('trackGoogleEvent("purchase"'), true);
+  assert.equal(schedulingProvider.includes("transaction_id: purchase.paymentId"), true);
+  assert.equal(schedulingProvider.includes("trackedPurchasePaymentIds"), true);
+  assert.equal(schedulingProvider.includes("payment_id: purchase.paymentId"), true);
+  assert.equal(schedulingProvider.includes("value: purchase.amount"), true);
 });
 
 test("booking page readiness is not emitted from public customer visits", () => {

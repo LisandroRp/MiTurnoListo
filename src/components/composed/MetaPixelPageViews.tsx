@@ -3,9 +3,9 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
-import { trackGooglePageView } from "@/lib/analytics/ga";
+import { trackMetaEvent } from "@/lib/analytics/meta";
 
-export function GoogleAnalyticsPageViews() {
+export function MetaPixelPageViews() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const lastTrackedUrl = useRef("");
@@ -20,7 +20,7 @@ export function GoogleAnalyticsPageViews() {
     }
 
     lastTrackedUrl.current = url;
-    trackGooglePageView(url);
+    trackMetaEvent("PageView");
   }, [pathname, searchParams]);
 
   return null;

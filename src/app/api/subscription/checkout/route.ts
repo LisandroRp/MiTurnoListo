@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
     if (currentStatus.subscriptionTier === "pro") {
       return NextResponse.json({
         checkoutUrl: "/perfil",
+        purchase: await getLatestApprovedSubscriptionPurchase(body.businessId),
         status: currentStatus.status,
         subscriptionTier: "pro"
       });
@@ -52,6 +53,29 @@ export async function POST(request: NextRequest) {
       status: 502
     });
   }
+}
+
+async function getLatestApprovedSubscriptionPurchase(businessId: string) {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("business_subscription_payments")
+    .select("amount, currency, provider_payment_id")
+    .eq("business_id", businessId)
+    .eq("provider", "mercadopago")
+    .eq("provider_status", "approved")
+    .order("paid_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data?.provider_payment_id) {
+    return null;
+  }
+
+  return {
+    amount: Number(data.amount ?? 0),
+    currency: data.currency ?? "ARS",
+    paymentId: String(data.provider_payment_id)
+  };
 }
 
 async function authenticateBusinessRequest(

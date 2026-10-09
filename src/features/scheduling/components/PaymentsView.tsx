@@ -36,7 +36,19 @@ const perPageOptions = [10, 20, 50, 100];
 
 const defaultPaginationMeta: PaymentsPaginationMeta = {
   currentPage: 1,
+  methodSummary: {
+    card: { totalAmount: 0, totalItems: 0 },
+    cash: { totalAmount: 0, totalItems: 0 },
+    mixed: { totalAmount: 0, totalItems: 0 },
+    transfer: { totalAmount: 0, totalItems: 0 }
+  },
   perPage: 10,
+  statusSummary: {
+    cancelled: { totalAmount: 0, totalItems: 0 },
+    paid: { totalAmount: 0, totalItems: 0 },
+    pending: { totalAmount: 0, totalItems: 0 },
+    refunded: { totalAmount: 0, totalItems: 0 }
+  },
   totalAmount: 0,
   totalItems: 0,
   totalPages: 1
@@ -110,8 +122,20 @@ export function PaymentsView({ businessId, messages, onMarkAppointmentPaid }: Pa
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <PaymentMetricCard label={messages.payments.totalPayments} value={String(paginationMeta.totalItems)} helper={messages.payments.currentFilterHint} tone="brand" isLoading={isLoading} />
         <PaymentMetricCard label={messages.payments.filteredAmount} value={formatCurrency(paginationMeta.totalAmount)} helper={messages.payments.currentFilterHint} tone="success" isLoading={isLoading} />
-        <PaymentMetricCard label={messages.payments.currentPage} value={`${paginationMeta.currentPage}/${paginationMeta.totalPages}`} helper={messages.payments.pageHint} tone="warning" isLoading={isLoading} />
-        <PaymentMetricCard label={messages.payments.perPage} value={String(paginationMeta.perPage)} helper={messages.payments.perPageHint} tone="brand" isLoading={isLoading} />
+        <PaymentMetricCard
+          label={messages.payments.pendingTotal}
+          value={String(paginationMeta.statusSummary.pending.totalItems)}
+          helper={messages.payments.statusAmountHint.replace("{amount}", formatCurrency(paginationMeta.statusSummary.pending.totalAmount))}
+          tone="warning"
+          isLoading={isLoading}
+        />
+        <PaymentMetricCard
+          label={messages.payments.collectedTotal}
+          value={String(paginationMeta.statusSummary.paid.totalItems)}
+          helper={messages.payments.statusAmountHint.replace("{amount}", formatCurrency(paginationMeta.statusSummary.paid.totalAmount))}
+          tone="success"
+          isLoading={isLoading}
+        />
       </div>
 
       <Card className="grid gap-4">

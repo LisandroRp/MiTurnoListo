@@ -151,7 +151,7 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className={`theme-${theme} flex min-h-screen bg-shell text-primary`}>
-      <div className="hidden lg:sticky lg:top-0 lg:block lg:h-screen">
+      <div className="hidden xl:sticky xl:top-0 xl:block xl:h-screen">
         <NavigationSidebar
           items={navigationItems}
           activeView={activeView}
@@ -163,7 +163,7 @@ export function AppShell({ children }: AppShellProps) {
       </div>
 
       <div
-        className={`fixed inset-0 z-40 transition lg:hidden ${
+        className={`fixed inset-0 z-40 transition xl:hidden ${
           isMobileSidebarOpen ? "pointer-events-auto" : "pointer-events-none"
         }`}
         aria-hidden={!isMobileSidebarOpen}
@@ -195,7 +195,7 @@ export function AppShell({ children }: AppShellProps) {
       </div>
 
       <main className="min-w-0 flex-1 overflow-x-hidden">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-subtle bg-sidebar px-4 lg:hidden">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-subtle bg-sidebar px-4 xl:hidden">
           <Button
             size="icon"
             variant="ghost"

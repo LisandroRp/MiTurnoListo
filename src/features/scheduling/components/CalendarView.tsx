@@ -88,6 +88,9 @@ type CalendarViewProps = {
 };
 
 const modes: CalendarMode[] = ["day", "week", "month"];
+const monthWeekdayLabels = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const dayAppointmentCardHeightPx = 148;
+const dayEmptyHourHeightPx = 64;
 
 export function CalendarView({
   messages,
@@ -112,6 +115,7 @@ export function CalendarView({
   onSaveBusinessDayBlock
 }: CalendarViewProps) {
   const [isDayBlocksModalOpen, setIsDayBlocksModalOpen] = useState(false);
+  const [showOnlyWithAppointments, setShowOnlyWithAppointments] = useState(false);
   const calendarEmployees = employees.map((employee, index) => ({
     ...employee,
     color: calendarEmployeeColorKeys[index % calendarEmployeeColorKeys.length]
@@ -119,9 +123,6 @@ export function CalendarView({
   const selectableEmployees = calendarEmployees.filter((employee) => !employee.isArchived);
   const selectableEmployeeIds = new Set(selectableEmployees.map((employee) => employee.id));
   const visibleEmployees = selectableEmployees.filter((employee) => selectedEmployeeIds.includes(employee.id));
-  const filteredEmployeeOptions = selectableEmployees.filter((employee) =>
-    employee.name.toLowerCase().includes(employeeQuery.toLowerCase())
-  );
   const safeFocusedDate = getSafeFocusedDate(focusedDate);
   const activeAppointments = appointments.filter((appointment) => appointment.appointmentStatus !== "cancelled");
   const visibleAppointments = appointments.filter((appointment) => (
@@ -132,7 +133,27 @@ export function CalendarView({
   const shouldShowFreeLimit = isFreePlan(subscriptionTier);
   const hasReachedFreeLimit = monthlyAppointmentUsage >= freePlanLimits.monthlyAppointments;
   const weekDates = getWeekDates(safeFocusedDate);
-  const monthDates = getMonthDates(safeFocusedDate);
+  const monthGridDates = getMonthGridDates(safeFocusedDate);
+  const periodDates = mode === "day"
+    ? [safeFocusedDate]
+    : mode === "week"
+      ? weekDates
+      : monthGridDates.filter((date): date is string => Boolean(date));
+  const periodDateSet = new Set(periodDates);
+  const periodVisibleAppointments = visibleAppointments.filter((appointment) => periodDateSet.has(appointment.date));
+  const periodActiveAppointments = activeAppointments.filter((appointment) => periodDateSet.has(appointment.date));
+  const contextualEmployees = selectableEmployees.filter((employee) => {
+    const hasPeriodAppointment = hasEmployeeAppointmentInDates(employee.id, periodActiveAppointments);
+
+    if (showOnlyWithAppointments) {
+      return hasPeriodAppointment;
+    }
+
+    return hasPeriodAppointment || doesEmployeeWorkInDates(employee, periodDates);
+  });
+  const filteredEmployeeOptions = contextualEmployees.filter((employee) =>
+    employee.name.toLowerCase().includes(employeeQuery.toLowerCase())
+  );
   const periodLabel = getPeriodLabel(safeFocusedDate, mode);
 
   function movePeriod(direction: "previous" | "next") {
@@ -225,21 +246,30 @@ export function CalendarView({
             <div className="min-w-0">
               <h2 className="text-lg font-bold text-primary">{messages.calendar.visibleEmployees}</h2>
               <div className="mt-2 flex max-w-4xl flex-wrap gap-2">
-                {visibleEmployees.map((employee) => (
-                  <span
-                    key={employee.id}
-                    className={cx(
-                      "max-w-56 truncate rounded-lg border px-3 py-1.5 text-xs font-semibold text-primary",
-                      appointmentToneClasses[employee.color]
-                    )}
-                  >
-                    {employee.name}
-                  </span>
-                ))}
+                {contextualEmployees.map((employee) => {
+                  const isSelected = selectedEmployeeIds.includes(employee.id);
+
+                  return (
+                    <button
+                      key={employee.id}
+                      type="button"
+                      onClick={() => onToggleEmployee(employee.id)}
+                      className={cx(
+                        "grid max-w-64 cursor-pointer gap-0.5 rounded-lg border px-3 py-2 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-sm",
+                        appointmentToneClasses[employee.color],
+                        isSelected ? "opacity-100 ring-2 ring-brand/20" : "opacity-45 grayscale hover:opacity-70"
+                      )}
+                      aria-pressed={isSelected}
+                    >
+                      <span className="block truncate text-xs font-bold leading-4 text-primary">{employee.name}</span>
+                      <span className="block truncate text-[11px] font-semibold leading-4 text-muted">{employee.role}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 rounded-lg border border-subtle bg-input p-1">
+            <div className="grid w-full gap-2 sm:w-80">
+              <div className="flex w-full items-center justify-around gap-2 rounded-lg border border-subtle bg-input p-1">
                 <Button
                   size="icon"
                   variant="ghost"
@@ -268,8 +298,16 @@ export function CalendarView({
                 onEmployeeQueryChange={onEmployeeQueryChange}
                 onToggleEmployee={onToggleEmployee}
               />
-              <span className="text-sm font-semibold text-muted">
-                {visibleAppointments.length} {messages.calendar.appointments}
+              <Button
+                size="sm"
+                variant={showOnlyWithAppointments ? "primary" : "secondary"}
+                className="w-full justify-center"
+                onClick={() => setShowOnlyWithAppointments((current) => !current)}
+              >
+                {messages.calendar.withAppointments}
+              </Button>
+              <span className="px-1 text-sm font-semibold text-muted">
+                {periodVisibleAppointments.length} {messages.calendar.appointments}
               </span>
             </div>
           </div>
@@ -283,7 +321,7 @@ export function CalendarView({
               allEmployees={calendarEmployees}
               services={services}
               allAppointments={activeAppointments}
-              appointments={visibleAppointments.filter((appointment) => appointment.date === safeFocusedDate)}
+              appointments={periodVisibleAppointments.filter((appointment) => appointment.date === safeFocusedDate)}
               onDeleteAppointment={onDeleteAppointment}
               onMarkAppointmentNoShow={onMarkAppointmentNoShow}
               onMarkAppointmentPaid={onMarkAppointmentPaid}
@@ -300,7 +338,7 @@ export function CalendarView({
               services={services}
               employees={calendarEmployees}
               allAppointments={activeAppointments}
-              appointments={visibleAppointments}
+              appointments={periodVisibleAppointments}
               onDateClick={(date) => {
                 onFocusedDateChange(date);
                 onModeChange("day");
@@ -315,9 +353,9 @@ export function CalendarView({
           {mode === "month" ? (
             <MonthCalendar
               messages={messages}
-              dates={monthDates}
+              dates={monthGridDates}
               employees={calendarEmployees}
-              appointments={visibleAppointments}
+              appointments={periodVisibleAppointments}
               businessDayBlocks={businessDayBlocks}
               focusedDate={safeFocusedDate}
               onDateClick={(date) => {
@@ -355,7 +393,7 @@ function EmployeeDropdown({
     <div className="relative">
       <Button
         variant="secondary"
-        className="h-[50px] min-w-48 justify-between px-5"
+        className="h-[50px] w-full min-w-48 justify-between px-5"
         onClick={() => setIsOpen((current) => !current)}
       >
         <span>{messages.calendar.employees}</span>
@@ -429,7 +467,6 @@ function DayCalendar({
   messages,
   focusedDate,
   businessDayBlocks,
-  employees,
   allEmployees,
   services,
   allAppointments,
@@ -440,13 +477,10 @@ function DayCalendar({
   onRescheduleAppointment
 }: CalendarContentProps) {
   const dayBlock = focusedDate ? getDateBlock(focusedDate, businessDayBlocks) : null;
-
-  if (appointments.length === 0) {
-    return dayBlock ? <BlockedDayEmpty messages={messages} dayBlock={dayBlock} /> : <EmptyCalendar messages={messages} />;
-  }
+  const hourLabels = getDayCalendarHourLabels(appointments);
 
   return (
-    <div className="max-w-full min-w-0 overflow-x-auto">
+    <div className="max-w-full min-w-0">
       <div className="border-b border-subtle bg-input px-4 py-3 text-sm font-semibold capitalize text-primary">
         {focusedDate ? getDateLabel(focusedDate) : ""}
       </div>
@@ -455,51 +489,49 @@ function DayCalendar({
           {messages.calendar.closedDay}: {dayBlock.reason}
         </div>
       ) : null}
-      <div
-        className="grid min-w-[760px]"
-        style={{ gridTemplateColumns: `6rem repeat(${Math.max(employees.length, 1)}, minmax(10rem, 1fr))` }}
-      >
-        <div className="border-b border-r border-subtle bg-surface-strong p-3 text-sm font-semibold text-muted">
-          {messages.home.time}
-        </div>
-        {employees.map((employee) => (
-          <div key={employee.id} className="border-b border-r border-subtle bg-surface-strong p-3">
-            <p className="text-sm font-bold text-primary">{employee.name}</p>
-            <p className="text-xs text-muted">{employee.role}</p>
-          </div>
-        ))}
+      {appointments.length === 0 && !dayBlock ? (
+        <EmptyCalendar messages={messages} />
+      ) : (
+        <div className="divide-y divide-subtle">
+          {hourLabels.map((time) => {
+            const hourAppointments = appointments
+              .filter((appointment) => appointment.startTime.startsWith(time.slice(0, 2)))
+              .sort((left, right) => left.startTime.localeCompare(right.startTime) || left.endTime.localeCompare(right.endTime));
 
-        {["09:00", "10:00", "11:00", "12:00", "15:00", "16:00", "17:00"].map((time) => (
-          <div key={time} className="contents">
-            <div className="border-b border-r border-subtle p-3 text-sm font-semibold text-muted">{time}</div>
-            {employees.map((employee) => {
-              const appointment = appointments.find((item) => item.employeeId === employee.id && item.startTime.startsWith(time.slice(0, 2)));
-              const service = services.find((item) => item.id === appointment?.serviceId);
+            return (
+              <div key={time} className="grid grid-cols-[5rem_minmax(0,1fr)]">
+                <div className="border-r border-subtle bg-surface p-3 text-sm font-semibold text-muted">{time}</div>
+                <div className={cx("grid gap-3 p-3", hourAppointments.length === 0 ? "min-h-16" : "")}>
+                  {hourAppointments.map((appointment) => {
+                    const employee = allEmployees.find((item) => item.id === appointment.employeeId);
+                    const service = services.find((item) => item.id === appointment.serviceId);
 
-              return (
-                <div key={`${employee.id}-${time}`} className="min-h-24 border-b border-r border-subtle p-2">
-                  {appointment ? (
-                    <AppointmentCard
-                      messages={messages}
-                      appointment={appointment}
-                      employee={employee}
-                      service={service}
-                      serviceName={service?.name}
-                      employees={allEmployees}
-                      appointments={allAppointments}
-                      businessDayBlocks={businessDayBlocks}
-                      onDeleteAppointment={onDeleteAppointment}
-                      onMarkAppointmentNoShow={onMarkAppointmentNoShow}
-                      onMarkAppointmentPaid={onMarkAppointmentPaid}
-                      onRescheduleAppointment={onRescheduleAppointment}
-                    />
-                  ) : null}
+                    return (
+                      <div key={appointment.id} className="[&>button]:h-full [&>button]:overflow-hidden" style={{ height: dayAppointmentCardHeightPx }}>
+                        <AppointmentCard
+                          messages={messages}
+                          appointment={appointment}
+                          employee={employee}
+                          service={service}
+                          serviceName={service?.name}
+                          employeeName={employee?.name}
+                          employees={allEmployees}
+                          appointments={allAppointments}
+                          businessDayBlocks={businessDayBlocks}
+                          onDeleteAppointment={onDeleteAppointment}
+                          onMarkAppointmentNoShow={onMarkAppointmentNoShow}
+                          onMarkAppointmentPaid={onMarkAppointmentPaid}
+                          onRescheduleAppointment={onRescheduleAppointment}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1333,7 +1365,7 @@ function MonthCalendar({
   onDateClick
 }: {
   messages: Messages;
-  dates: string[];
+  dates: Array<string | null>;
   employees: Employee[];
   appointments: Appointment[];
   businessDayBlocks: BusinessDayBlock[];
@@ -1344,60 +1376,73 @@ function MonthCalendar({
 
   return (
     <div className="max-w-full min-w-0 overflow-x-auto">
-      <div className="grid min-w-[980px] grid-cols-7 gap-px bg-subtle p-px">
-        {dates.map((date) => {
-          const dayAppointments = appointments.filter((appointment) => appointment.date === date);
-          const dayEmployees = getDayAppointmentEmployees(dayAppointments, employees);
-          const visibleDayEmployees = dayEmployees.slice(0, 5);
-          const hiddenEmployeeCount = Math.max(dayEmployees.length - visibleDayEmployees.length, 0);
-          const timeRanges = getDayEmployeeScheduleRanges(date, dayEmployees);
-          const visibleTimeRanges = timeRanges.slice(0, 2);
-          const hiddenTimeRangeCount = Math.max(timeRanges.length - visibleTimeRanges.length, 0);
-          const isFocused = focusedDate === date;
-          const isToday = todayDate === date;
-          const isBlocked = isDateBlocked(date, businessDayBlocks);
+      <div className="min-w-[980px]">
+        <div className="grid grid-cols-7 border-b border-subtle bg-surface-strong">
+          {monthWeekdayLabels.map((label) => (
+            <div key={label} className="px-3 py-2 text-xs font-bold uppercase tracking-[0.08em] text-muted">
+              {label}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-px bg-subtle p-px">
+          {dates.map((date, index) => {
+            if (!date) {
+              return <div key={`empty-${index}`} className="min-h-28 bg-surface-strong" aria-hidden="true" />;
+            }
 
-          return (
-            <button
-              key={date}
-              type="button"
-              onClick={() => onDateClick(date)}
-              className={cx(
-                "min-h-28 cursor-pointer p-3 text-left transition-all hover:bg-surface-strong",
-                isBlocked ? "bg-warning-soft" : isToday ? "bg-surface-strong shadow-inner" : "bg-surface",
-                isFocused ? "ring-2 ring-brand ring-inset" : ""
-              )}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-bold text-primary">{Number(date.slice(-2))}</p>
-                {isBlocked ? <Badge tone="warning">{messages.calendar.closedDayShort}</Badge> : null}
-              </div>
-              <p className="mt-6 text-xs font-semibold text-muted">
-                {dayAppointments.length} {messages.calendar.appointments}
-              </p>
-              {visibleTimeRanges.length > 0 ? (
-                <p className="mt-2 text-xs font-semibold text-muted-strong">
-                  {visibleTimeRanges.join(" · ")}
-                  {hiddenTimeRangeCount > 0 ? ` +${hiddenTimeRangeCount}` : ""}
-                </p>
-              ) : null}
-              {visibleDayEmployees.length > 0 ? (
-                <div className="mt-3 flex items-center gap-1.5">
-                  {visibleDayEmployees.map((employee) => (
-                    <span
-                      key={employee.id}
-                      className={cx("h-2.5 w-2.5 rounded-full ring-2 ring-surface", employeeDotClasses[employee.color])}
-                      title={employee.name}
-                    />
-                  ))}
-                  {hiddenEmployeeCount > 0 ? (
-                    <span className="text-xs font-bold text-muted">+{hiddenEmployeeCount}</span>
-                  ) : null}
+            const dayAppointments = appointments.filter((appointment) => appointment.date === date);
+            const dayEmployees = getDayAppointmentEmployees(dayAppointments, employees);
+            const visibleDayEmployees = dayEmployees.slice(0, 5);
+            const hiddenEmployeeCount = Math.max(dayEmployees.length - visibleDayEmployees.length, 0);
+            const timeRanges = getDayEmployeeScheduleRanges(date, dayEmployees);
+            const visibleTimeRanges = timeRanges.slice(0, 2);
+            const hiddenTimeRangeCount = Math.max(timeRanges.length - visibleTimeRanges.length, 0);
+            const isFocused = focusedDate === date;
+            const isToday = todayDate === date;
+            const isBlocked = isDateBlocked(date, businessDayBlocks);
+
+            return (
+              <button
+                key={date}
+                type="button"
+                onClick={() => onDateClick(date)}
+                className={cx(
+                  "min-h-28 cursor-pointer p-3 text-left transition-all hover:bg-surface-strong",
+                  isBlocked ? "bg-warning-soft" : isToday ? "bg-surface-strong shadow-inner" : "bg-surface",
+                  isFocused ? "ring-2 ring-brand ring-inset" : ""
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-bold text-primary">{Number(date.slice(-2))}</p>
+                  {isBlocked ? <Badge tone="warning">{messages.calendar.closedDayShort}</Badge> : null}
                 </div>
-              ) : null}
-            </button>
-          );
-        })}
+                <p className="mt-6 text-xs font-semibold text-muted">
+                  {dayAppointments.length} {messages.calendar.appointments}
+                </p>
+                {visibleTimeRanges.length > 0 ? (
+                  <p className="mt-2 text-xs font-semibold text-muted-strong">
+                    {visibleTimeRanges.join(" · ")}
+                    {hiddenTimeRangeCount > 0 ? ` +${hiddenTimeRangeCount}` : ""}
+                  </p>
+                ) : null}
+                {visibleDayEmployees.length > 0 ? (
+                  <div className="mt-3 flex items-center gap-1.5">
+                    {visibleDayEmployees.map((employee) => (
+                      <span
+                        key={employee.id}
+                        className={cx("h-2.5 w-2.5 rounded-full ring-2 ring-surface", employeeDotClasses[employee.color])}
+                        title={employee.name}
+                      />
+                    ))}
+                    {hiddenEmployeeCount > 0 ? (
+                      <span className="text-xs font-bold text-muted">+{hiddenEmployeeCount}</span>
+                    ) : null}
+                  </div>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -1407,6 +1452,24 @@ function getDayAppointmentEmployees(dayAppointments: Appointment[], employees: E
   const employeeIds = new Set(dayAppointments.map((appointment) => appointment.employeeId));
 
   return employees.filter((employee) => employeeIds.has(employee.id));
+}
+
+function getDayCalendarHourLabels(appointments: Appointment[]) {
+  const appointmentHours = appointments.map((appointment) => `${appointment.startTime.slice(0, 2)}:00`);
+  const defaultHours = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+
+  return Array.from(new Set([...defaultHours, ...appointmentHours])).sort((left, right) => left.localeCompare(right));
+}
+
+function hasEmployeeAppointmentInDates(employeeId: string, appointments: Appointment[]) {
+  return appointments.some((appointment) => appointment.employeeId === employeeId);
+}
+
+function doesEmployeeWorkInDates(employee: Employee, dates: string[]) {
+  return dates.some((date) => {
+    const dayKey = getDayKeyForDate(date);
+    return (employee.schedule[dayKey] ?? []).length > 0;
+  });
 }
 
 function getDayEmployeeScheduleRanges(date: string, dayEmployees: Employee[]) {

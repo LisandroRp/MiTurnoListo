@@ -224,15 +224,15 @@ export function AvailabilityHourList({
                   "cursor-pointer rounded-2xl border p-4 text-left transition-all",
                   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
                   isSelected
-                    ? "border-brand/45 border-2 bg-brand-soft text-on-brand shadow-sm"
+                    ? "border-brand/45 border-2 bg-brand-soft !text-brand-strong shadow-sm"
                     : "border-subtle bg-input text-primary hover:-translate-y-0.5 hover:shadow-sm"
                 )}
               >
                 <p className="text-base font-bold">{slot.startTime}</p>
-                <p className={cx("mt-1 text-sm", isSelected ? "text-on-brand/85" : "text-muted")}>
+                <p className={cx("mt-1 text-sm", isSelected ? "text-brand-strong/77" : "text-muted")}>
                   {slot.endTime}
                 </p>
-                <p className={cx("mt-3 text-xs font-semibold uppercase", isSelected ? "text-on-brand/85" : "text-brand-strong")}>
+                <p className={cx("mt-3 text-xs font-semibold uppercase", isSelected ? "text-brand-strong/77" : "text-brand-strong")}>
                   {formatRemainingCapacity(slot.remainingCapacity, copy)}
                 </p>
               </button>

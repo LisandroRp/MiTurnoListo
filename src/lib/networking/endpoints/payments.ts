@@ -1,15 +1,22 @@
 "use client";
 
-import { PaymentRecord } from "@/features/scheduling/types";
+import { PaymentMethod, PaymentRecord, PaymentStatus } from "@/features/scheduling/types";
 import { getAccessToken } from "@/lib/networking/endpoints/auth";
 import { getResponseErrorMessage } from "@/lib/networking/response-errors";
 
 export type PaymentsPaginationMeta = {
   currentPage: number;
   perPage: number;
+  methodSummary: Record<PaymentMethod, PaymentsSummaryBucket>;
+  statusSummary: Record<PaymentStatus, PaymentsSummaryBucket>;
   totalAmount: number;
   totalItems: number;
   totalPages: number;
+};
+
+export type PaymentsSummaryBucket = {
+  totalAmount: number;
+  totalItems: number;
 };
 
 export type PaymentsResponse = {
@@ -53,10 +60,37 @@ export async function getPayments(businessId: string, options: GetPaymentsOption
     data: payload.data ?? [],
     meta: {
       currentPage: payload.meta?.currentPage ?? options.page,
+      methodSummary: payload.meta?.methodSummary ?? getEmptyMethodSummary(),
       perPage: payload.meta?.perPage ?? options.perPage,
+      statusSummary: payload.meta?.statusSummary ?? getEmptyStatusSummary(),
       totalAmount: payload.meta?.totalAmount ?? 0,
       totalItems: payload.meta?.totalItems ?? 0,
       totalPages: payload.meta?.totalPages ?? 1
     }
+  };
+}
+
+function getEmptyStatusSummary(): Record<PaymentStatus, PaymentsSummaryBucket> {
+  return {
+    cancelled: getEmptySummaryBucket(),
+    paid: getEmptySummaryBucket(),
+    pending: getEmptySummaryBucket(),
+    refunded: getEmptySummaryBucket()
+  };
+}
+
+function getEmptyMethodSummary(): Record<PaymentMethod, PaymentsSummaryBucket> {
+  return {
+    card: getEmptySummaryBucket(),
+    cash: getEmptySummaryBucket(),
+    mixed: getEmptySummaryBucket(),
+    transfer: getEmptySummaryBucket()
+  };
+}
+
+function getEmptySummaryBucket(): PaymentsSummaryBucket {
+  return {
+    totalAmount: 0,
+    totalItems: 0
   };
 }

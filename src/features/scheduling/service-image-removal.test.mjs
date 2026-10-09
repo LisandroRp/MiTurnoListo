@@ -126,6 +126,9 @@ test("sidebar shows personnel before services", () => {
   const appShell = readProjectFile("src/features/scheduling/components/AppShell.tsx");
 
   assert.equal(appShell.indexOf('id: "personnel"') < appShell.indexOf('id: "services"'), true);
+  assert.equal(appShell.includes("hidden xl:sticky xl:top-0 xl:block xl:h-screen"), true);
+  assert.equal(appShell.includes("transition xl:hidden"), true);
+  assert.equal(appShell.includes("px-4 xl:hidden"), true);
 });
 
 test("today agenda expands overflowing hour rows without an inner scroll", () => {
@@ -149,6 +152,8 @@ test("today agenda expands overflowing hour rows without an inner scroll", () =>
   assert.equal(dashboardView.includes("useMemo("), true);
   assert.equal(dashboardView.includes("}, [currentTimeDetails]);"), true);
   assert.equal(dashboardView.includes("compactHourRowHeightPx"), true);
+  assert.equal(dashboardView.includes("absolute left-0 right-0 z-30 flex w-full items-center"), true);
+  assert.equal(dashboardView.includes("absolute left-4 bottom-full rounded-full bg-surface"), true);
 });
 
 test("calendar employee filter uses varied colors and compact truncated rows", () => {
@@ -163,7 +168,14 @@ test("calendar employee filter uses varied colors and compact truncated rows", (
   assert.equal(calendarView.includes("grid-cols-[minmax(0,1fr)_auto]"), true);
   assert.equal(calendarView.includes("block truncate text-sm font-semibold leading-5 text-primary"), true);
   assert.equal(calendarView.includes('visibleEmployees.map((employee) => employee.name).join(", ")'), false);
-  assert.equal(calendarView.includes("max-w-56 truncate rounded-lg border px-3 py-1.5 text-xs font-semibold text-primary"), true);
+  assert.equal(calendarView.includes("contextualEmployees.map((employee)"), true);
+  assert.equal(calendarView.includes("onClick={() => onToggleEmployee(employee.id)}"), true);
+  assert.equal(calendarView.includes("showOnlyWithAppointments"), true);
+  assert.equal(calendarView.includes("doesEmployeeWorkInDates(employee, periodDates)"), true);
+  assert.equal(calendarView.includes("hasEmployeeAppointmentInDates(employee.id, periodActiveAppointments)"), true);
+  assert.equal(calendarView.includes("grid max-w-64 cursor-pointer gap-0.5 rounded-lg border px-3 py-2 text-left"), true);
+  assert.equal(calendarView.includes("block truncate text-xs font-bold leading-4 text-primary"), true);
+  assert.equal(calendarView.includes("block truncate text-[11px] font-semibold leading-4 text-muted"), true);
   assert.equal(globals.includes("--color-employee-amber: var(--employee-amber);"), true);
   assert.equal(globals.includes("--color-employee-teal: var(--employee-teal);"), true);
 });
@@ -172,6 +184,10 @@ test("month calendar shows daily time range and employee color dots", () => {
   const calendarView = readProjectFile("src/features/scheduling/components/CalendarView.tsx");
 
   assert.equal(calendarView.includes("employeeDotClasses"), true);
+  assert.equal(calendarView.includes('monthWeekdayLabels = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]'), true);
+  assert.equal(calendarView.includes("const monthGridDates = getMonthGridDates(safeFocusedDate);"), true);
+  assert.equal(calendarView.includes("dates: Array<string | null>;"), true);
+  assert.equal(calendarView.includes('key={`empty-${index}`}'), true);
   assert.equal(calendarView.includes("getDayAppointmentEmployees"), true);
   assert.equal(calendarView.includes("getDayEmployeeScheduleRanges"), true);
   assert.equal(calendarView.includes("getDayKeyForDate(date)"), true);
@@ -185,6 +201,25 @@ test("month calendar shows daily time range and employee color dots", () => {
   assert.equal(calendarView.includes('className={cx("h-2.5 w-2.5 rounded-full ring-2 ring-surface", employeeDotClasses[employee.color])}'), true);
 });
 
+test("day calendar groups appointments by start hour in full-width rows", () => {
+  const calendarView = readProjectFile("src/features/scheduling/components/CalendarView.tsx");
+  const messages = readProjectFile("src/features/scheduling/i18n/messages.ts");
+
+  assert.equal(calendarView.includes("dayAppointmentCardHeightPx"), true);
+  assert.equal(calendarView.includes("getDayCalendarHourLabels"), true);
+  assert.equal(calendarView.includes("appointment.startTime.startsWith(time.slice(0, 2))"), true);
+  assert.equal(calendarView.includes("left.startTime.localeCompare(right.startTime)"), true);
+  assert.equal(calendarView.includes("grid grid-cols-[5rem_minmax(0,1fr)]"), true);
+  assert.equal(calendarView.includes("hourAppointments.length === 0 ? \"min-h-16\""), true);
+  assert.equal(calendarView.includes("getDayCalendarLayout"), false);
+  assert.equal(calendarView.includes("getDayAppointmentOverlapGroups"), false);
+  assert.equal(calendarView.includes("getPositionedDayAppointments"), false);
+  assert.equal(calendarView.includes("gridTemplateColumns: `6rem repeat("), false);
+  assert.equal(calendarView.includes("messages.home.time"), false);
+  assert.equal(messages.includes('withAppointments: "Con turnos"'), true);
+  assert.equal(messages.includes('withAppointments: "With appointments"'), true);
+});
+
 test("public booking selects date and time before professional", () => {
   const bookingConfig = readProjectFile("src/features/booking-flow/components/BookingFlow/utils/bookingFlowConfig.ts");
   const bookingFlow = readProjectFile("src/features/booking-flow/components/BookingFlow/index.tsx");
@@ -194,6 +229,39 @@ test("public booking selects date and time before professional", () => {
   assert.equal(bookingFlow.includes("getAvailableSlotsForEmployees"), true);
   assert.equal(bookingFlow.includes("selectableEmployees"), true);
   assert.equal(availabilityCalendar.includes("remainingSpot"), true);
+});
+
+test("assisted booking success keeps submitted date time and employee", () => {
+  const bookingFlow = readProjectFile("src/features/booking-flow/components/BookingFlow/index.tsx");
+
+  assert.equal(bookingFlow.includes("confirmedBookingSummary"), true);
+  assert.equal(bookingFlow.includes("const submittedDraft = {"), true);
+  assert.equal(bookingFlow.includes("employeeId: selectedEmployee.id"), true);
+  assert.equal(bookingFlow.includes("selectedSlot"), true);
+  assert.equal(bookingFlow.includes("employeeName: selectedEmployee.name"), true);
+  assert.equal(bookingFlow.includes("setConfirmedBookingSummary(submittedSummary);"), true);
+  assert.equal(bookingFlow.includes("draft={confirmedBookingSummary?.draft ?? { ...draft, paymentOption: selectedPaymentOption, selectedSlot }}"), true);
+  assert.equal(bookingFlow.includes("employeeName={confirmedBookingSummary?.employeeName ?? selectedEmployee?.name ?? \"\"}"), true);
+});
+
+test("payments dashboard shows useful payment summary metrics", () => {
+  const paymentsView = readProjectFile("src/features/scheduling/components/PaymentsView.tsx");
+  const paymentsEndpoint = readProjectFile("src/lib/networking/endpoints/payments.ts");
+  const paymentsRoute = readProjectFile("src/app/api/payments/route.ts");
+  const messages = readProjectFile("src/features/scheduling/i18n/messages.ts");
+
+  assert.equal(paymentsEndpoint.includes("statusSummary: Record<PaymentStatus, PaymentsSummaryBucket>;"), true);
+  assert.equal(paymentsEndpoint.includes("methodSummary: Record<PaymentMethod, PaymentsSummaryBucket>;"), true);
+  assert.equal(paymentsRoute.includes("getPaymentStatusSummary"), true);
+  assert.equal(paymentsRoute.includes("getPaymentMethodSummary"), true);
+  assert.equal(paymentsRoute.includes("page_size: 1"), true);
+  assert.equal(paymentsView.includes("paginationMeta.statusSummary.pending.totalItems"), true);
+  assert.equal(paymentsView.includes("paginationMeta.statusSummary.paid.totalAmount"), true);
+  assert.equal(paymentsView.includes("getVisiblePaymentSummary"), false);
+  assert.equal(paymentsView.includes("value={`${paginationMeta.currentPage}/${paginationMeta.totalPages}`}"), false);
+  assert.equal(paymentsView.includes("value={String(paginationMeta.perPage)}"), false);
+  assert.equal(messages.includes('pendingTotal: "Pendientes"'), true);
+  assert.equal(messages.includes('collectedTotal: "Cobrados"'), true);
 });
 
 test("admin assisted booking suggests existing customers after a debounce", () => {

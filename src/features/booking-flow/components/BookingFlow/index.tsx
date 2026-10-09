@@ -18,7 +18,7 @@ import { DetailsStep } from "@/features/booking-flow/components/BookingFlow/step
 import { EmployeeStep } from "@/features/booking-flow/components/BookingFlow/steps/EmployeeStep";
 import { ServiceStep } from "@/features/booking-flow/components/BookingFlow/steps/ServiceStep";
 import { StateCard } from "@/features/booking-flow/components/BookingFlow/shared/bookingFlowPrimitives";
-import { BookingCustomerSuggestion } from "@/features/booking-flow/types";
+import { BookingCustomerSuggestion, BookingDraft } from "@/features/booking-flow/types";
 import {
   bookingLocaleMap,
   bookingStepOrder,
@@ -82,6 +82,10 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
   const [customerLookupQuery, setCustomerLookupQuery] = useState("");
   const [customerSuggestions, setCustomerSuggestions] = useState<BookingCustomerSuggestion[]>([]);
   const [isLoadingCustomerSuggestions, setIsLoadingCustomerSuggestions] = useState(false);
+  const [confirmedBookingSummary, setConfirmedBookingSummary] = useState<{
+    draft: BookingDraft;
+    employeeName: string;
+  } | null>(null);
   const topToastTimeoutRef = useRef<number | null>(null);
   const locale: Locale = isPreview ? previewLocale : publicPayload?.locale ?? unavailableDetails?.locale ?? "es";
   const messages = schedulingMessages[locale];
@@ -347,6 +351,7 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
 
   function restartBookingFlow() {
     setDraft(createInitialBookingDraft());
+    setConfirmedBookingSummary(null);
     setCurrentStepIndex(0);
     setMonthDate(new Date());
     setSelectedDate(null);
@@ -373,6 +378,16 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
 
     setIsSubmitting(true);
     setValidationMessage("");
+    const submittedDraft = {
+      ...draft,
+      employeeId: selectedEmployee.id,
+      paymentOption: selectedPaymentOption,
+      selectedSlot
+    };
+    const submittedSummary = {
+      draft: submittedDraft,
+      employeeName: selectedEmployee.name
+    };
 
     try {
       if (isPreview) {
@@ -398,6 +413,7 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
         } satisfies Appointment, draft.selectedAddonIds);
 
         if (didCreate) {
+          setConfirmedBookingSummary(submittedSummary);
           setCurrentStepIndex(bookingSteps.length);
         }
 
@@ -424,6 +440,7 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
         return;
       }
 
+      setConfirmedBookingSummary(submittedSummary);
       setCurrentStepIndex(bookingSteps.length);
     } catch (error) {
       setValidationMessage(getErrorMessage(error, copy.submitError));
@@ -655,8 +672,8 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
           messages={messages}
           locale={localeCode}
           service={service}
-          draft={{ ...draft, paymentOption: selectedPaymentOption, selectedSlot }}
-          employeeName={selectedEmployee?.name ?? ""}
+          draft={confirmedBookingSummary?.draft ?? { ...draft, paymentOption: selectedPaymentOption, selectedSlot }}
+          employeeName={confirmedBookingSummary?.employeeName ?? selectedEmployee?.name ?? ""}
           paymentSettings={paymentSettings.transfers}
           onMissingCustomerName={() => showTopToast(messages.bookingFlow.validation.nameRequired)}
           onReserveAnother={restartBookingFlow}

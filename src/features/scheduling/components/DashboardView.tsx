@@ -356,12 +356,12 @@ function DayAgenda({
               >
                 {isCurrentHour && currentTimeDetails ? (
                   <div
-                    className="pointer-events-none absolute left-0 right-0 z-10 flex w-full items-center"
+                    className="pointer-events-none absolute left-0 right-0 z-30 flex w-full items-center"
                     style={{ top: `${currentTimeDetails.minuteOffset}px` }}
                   >
                     <span className="h-2 w-2 rounded-full bg-danger" />
                     <span className="h-px flex-1 bg-danger" />
-                    <span className="absolute left-4 bottom-1 text-xs font-bold text-danger">
+                    <span className="absolute left-4 bottom-full rounded-full bg-surface px-1 text-xs font-bold leading-5 text-danger">
                       {currentTimeDetails.label}
                     </span>
                   </div>

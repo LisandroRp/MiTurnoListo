@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { PaymentRecord, PaymentStatus } from "@/features/scheduling/types";
+import { PaymentMethod, PaymentRecord, PaymentStatus } from "@/features/scheduling/types";
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 import { formatDateForTimeZone, formatTimeForTimeZone } from "@/lib/networking/utils/date-time";
@@ -50,6 +50,25 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  let statusSummary: Record<PaymentStatus, PaymentSummaryBucket>;
+  let methodSummary: Record<PaymentMethod, PaymentSummaryBucket>;
+
+  try {
+    [statusSummary, methodSummary] = await Promise.all([
+      getPaymentStatusSummary(supabase, businessId, method),
+      getPaymentMethodSummary(supabase, businessId, status)
+    ]);
+  } catch (error) {
+    return createApiErrorResponse(
+      error,
+      {
+        code: "PAYMENTS_SUMMARY_LOAD_FAILED",
+        fallbackMessage: "Unable to load payment summaries.",
+        status: 500
+      }
+    );
+  }
+
   const timeZone = businessResult.data?.timezone ?? "America/Argentina/Buenos_Aires";
   const rows = (paymentsResult.data ?? []) as PaymentSummaryRow[];
   const firstRow = rows[0];
@@ -73,7 +92,9 @@ export async function GET(request: NextRequest) {
     })),
     meta: {
       currentPage: Math.min(page, totalPages),
+      methodSummary,
       perPage,
+      statusSummary,
       totalAmount: Number(firstRow?.total_amount ?? 0),
       totalItems,
       totalPages
@@ -97,6 +118,82 @@ type PaymentSummaryRow = {
   total_amount: number | string | null;
 };
 
+type PaymentSummaryBucket = {
+  totalAmount: number;
+  totalItems: number;
+};
+
+const paymentStatuses: PaymentStatus[] = ["pending", "paid", "cancelled", "refunded"];
+const paymentMethods: PaymentMethod[] = ["cash", "card", "transfer", "mixed"];
+
+async function getPaymentStatusSummary(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  businessId: string,
+  method: PaymentMethod | "all"
+): Promise<Record<PaymentStatus, PaymentSummaryBucket>> {
+  const entries = await Promise.all(
+    paymentStatuses.map(async (status) => {
+      const summary = await getPaymentSummaryBucket(supabase, {
+        businessId,
+        method,
+        status
+      });
+
+      return [status, summary] as const;
+    })
+  );
+
+  return Object.fromEntries(entries) as Record<PaymentStatus, PaymentSummaryBucket>;
+}
+
+async function getPaymentMethodSummary(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  businessId: string,
+  status: PaymentStatus | "all"
+): Promise<Record<PaymentMethod, PaymentSummaryBucket>> {
+  const entries = await Promise.all(
+    paymentMethods.map(async (method) => {
+      const summary = await getPaymentSummaryBucket(supabase, {
+        businessId,
+        method,
+        status
+      });
+
+      return [method, summary] as const;
+    })
+  );
+
+  return Object.fromEntries(entries) as Record<PaymentMethod, PaymentSummaryBucket>;
+}
+
+async function getPaymentSummaryBucket(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  filters: {
+    businessId: string;
+    method: PaymentMethod | "all";
+    status: PaymentStatus | "all";
+  }
+): Promise<PaymentSummaryBucket> {
+  const result = await supabase.rpc("get_payment_summaries", {
+    method_filter: filters.method,
+    page_number: 1,
+    page_size: 1,
+    status_filter: filters.status,
+    target_business_id: filters.businessId
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  const firstRow = ((result.data ?? []) as PaymentSummaryRow[])[0];
+
+  return {
+    totalAmount: Number(firstRow?.total_amount ?? 0),
+    totalItems: Number(firstRow?.total_items ?? 0)
+  };
+}
+
 function getPaymentStatus(value: string | null): PaymentStatus {
   if (value === "paid" || value === "cancelled" || value === "refunded") {
     return value;
@@ -113,7 +210,7 @@ function getPaymentMethod(value: string | null): PaymentRecord["method"] {
   return "cash";
 }
 
-function getPaymentStatusFilter(value: string | null) {
+function getPaymentStatusFilter(value: string | null): PaymentStatus | "all" {
   if (value === "pending" || value === "paid" || value === "cancelled" || value === "refunded") {
     return value;
   }
@@ -121,7 +218,7 @@ function getPaymentStatusFilter(value: string | null) {
   return "all";
 }
 
-function getPaymentMethodFilter(value: string | null) {
+function getPaymentMethodFilter(value: string | null): PaymentMethod | "all" {
   if (value === "cash" || value === "card" || value === "transfer" || value === "mixed") {
     return value;
   }

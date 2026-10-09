@@ -53,7 +53,7 @@ export function PersonnelFilters({
                   type="button"
                   className={cx(
                     "cursor-pointer rounded-lg px-4 py-2 text-sm font-bold transition-colors",
-                    isSelected ? "bg-brand-soft text-on-brand" : "text-muted hover:bg-surface-strong hover:text-primary"
+                    isSelected ? "bg-brand text-on-brand" : "text-muted hover:bg-surface-strong hover:text-primary"
                   )}
                   onClick={() => onFilterChange(option.value)}
                 >

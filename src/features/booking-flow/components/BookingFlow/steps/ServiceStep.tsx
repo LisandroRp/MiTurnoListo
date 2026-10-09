@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { SelectField } from "@/components/ui/SelectField";
 import { MetricPill } from "@/features/booking-flow/components/BookingFlow/shared/bookingFlowPrimitives";
+import { getProfessionalLabel } from "@/features/booking-flow/utils/catalog";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { Employee, Service } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
@@ -32,7 +33,7 @@ export function ServiceStep({
         <p className="mt-3 text-sm leading-6 text-muted">{service.description}</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <EmployeeFact label={messages.services.professionalsColumn} names={employees.map((employee) => employee.name)} />
+        <EmployeeFact label={getProfessionalLabel(employees.length, messages)} names={employees.map((employee) => employee.name)} />
         <MetricPill label={messages.services.duration} value={`${service.durationMinutes} ${messages.services.minutes}`} />
         <MetricPill label={messages.services.price} value={formatCurrency(service.price)} />
         {service.deposit > 0 ? (

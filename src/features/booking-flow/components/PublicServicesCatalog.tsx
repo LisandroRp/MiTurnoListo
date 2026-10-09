@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
 import { Messages, messages as schedulingMessages } from "@/features/scheduling/i18n/messages";
+import { getCatalogDescription, getProfessionalLabel, getServiceTitleOverflowClass } from "@/features/booking-flow/utils/catalog";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 import {
   getPublicServicesPayload,
@@ -192,17 +193,19 @@ function PublicServiceCard({
   messages: Messages;
   service: PublicServiceSummary;
 }) {
+  const description = getCatalogDescription(service.description);
+
   return (
-    <Link href={`/${businessSlug}/${service.publicSlug || service.id}`} className="group block h-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus">
-      <Card className="flex h-full flex-col gap-5 transition-all duration-200 group-hover:-translate-y-1 group-hover:border-brand group-hover:shadow-lg group-focus-visible:border-brand group-focus-visible:shadow-lg">
-        <div className="flex flex-1 flex-col gap-5">
+    <Link href={`/${businessSlug}/${service.publicSlug || service.id}`} className="group block min-w-0 h-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus">
+      <Card className="flex min-w-0 h-full flex-col gap-5 transition-all duration-200 group-hover:-translate-y-1 group-hover:border-brand group-hover:shadow-lg group-focus-visible:border-brand group-focus-visible:shadow-lg">
+        <div className="flex min-w-0 flex-1 flex-col gap-5">
           <div>
-            <h2 className="text-2xl font-bold text-primary">{service.name}</h2>
-            <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted">{service.description || messages.services.emptyDescription}</p>
+            <h2 className={cx("min-w-0 text-2xl font-bold text-primary", getServiceTitleOverflowClass(service.name))} title={service.name}>{service.name}</h2>
+            {description ? <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted">{description}</p> : null}
           </div>
 
-          <div className="grid gap-3 text-sm">
-            <EmployeeFact icon={<FiUserCheck />} label={messages.services.professionalsColumn} names={service.employeeNames} />
+          <div className="grid min-w-0 gap-3 text-sm">
+            <EmployeeFact icon={<FiUserCheck />} label={getProfessionalLabel(service.employeeNames.length, messages)} names={service.employeeNames} />
             <CatalogFact icon={<FiShield />} label={messages.services.price} value={formatCurrency(service.price)} />
             <CatalogFact icon={<FiClock />} label={messages.services.duration} value={`${service.durationMinutes} ${messages.services.minutes}`} />
             {service.capacity > 1 ? (
@@ -230,13 +233,13 @@ function EmployeeFact({ icon, label, names }: { icon: ReactNode; label: string; 
   const hiddenCount = Math.max(names.length - visibleNames.length, 0);
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-subtle bg-input p-3">
-      <span className="text-brand-strong" aria-hidden="true">{icon}</span>
-      <div className="min-w-0">
+    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-subtle bg-input p-3">
+      <span className="shrink-0 text-brand-strong" aria-hidden="true">{icon}</span>
+      <div className="min-w-0 flex-1">
         <p className="text-xs font-semibold uppercase text-muted">{label}</p>
-        <div className="mt-2 flex flex-nowrap gap-2 overflow-hidden">
+        <div className="mt-2 flex min-w-0 flex-wrap gap-2">
           {visibleNames.map((name) => (
-            <span key={name} className="min-w-0 truncate rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand-strong">
+            <span key={name} className="block min-w-0 max-w-full truncate rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand-strong" title={name}>
               {name}
             </span>
           ))}

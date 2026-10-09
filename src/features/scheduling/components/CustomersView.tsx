@@ -12,8 +12,10 @@ import { cx } from "@/components/ui/utils";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
 import { CustomersPaginationMeta, getCustomers } from "@/lib/networking/endpoints/customers";
 import { LoadingDotsText } from "@/features/scheduling/components/LoadingDotsText";
+import { CustomerFilters } from "@/features/scheduling/components/CustomerFilters";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { Customer } from "@/features/scheduling/types";
+import { CustomerSortOption, CustomerTagFilter, getCustomerTag as getCustomerTagKey } from "@/features/scheduling/utils/customer-list";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 
 const tableHeaderClassName = "px-4 py-3 text-xs font-bold uppercase tracking-[0.04em] text-muted";
@@ -40,6 +42,10 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
+  const [sort, setSort] = useState<CustomerSortOption>("lastBookingDesc");
+  const [tag, setTag] = useState<CustomerTagFilter>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [paginationMeta, setPaginationMeta] = useState<CustomersPaginationMeta>(defaultPaginationMeta);
   const [isLoading, setIsLoading] = useState(Boolean(businessId));
   const [errorMessage, setErrorMessage] = useState("");
@@ -63,9 +69,13 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
     let isActive = true;
 
     void getCustomers(businessId, {
+      dateFrom,
+      dateTo,
       page: currentPage,
       perPage,
-      search: debouncedSearchQuery
+      search: debouncedSearchQuery,
+      sort,
+      tag
     })
       .then((response) => {
         if (isActive) {
@@ -88,7 +98,19 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
     return () => {
       isActive = false;
     };
-  }, [businessId, currentPage, debouncedSearchQuery, messages.customers.loadError, perPage]);
+  }, [businessId, currentPage, dateFrom, dateTo, debouncedSearchQuery, messages.customers.loadError, perPage, sort, tag]);
+
+  function resetFilters() {
+    if (!searchQuery && sort === "lastBookingDesc" && tag === "all" && !dateFrom && !dateTo) return;
+    setIsLoading(true);
+    setSearchQuery("");
+    setDebouncedSearchQuery("");
+    setSort("lastBookingDesc");
+    setTag("all");
+    setDateFrom("");
+    setDateTo("");
+    setCurrentPage(1);
+  }
 
   return (
     <div className="grid gap-6">
@@ -105,8 +127,8 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
         <CustomerMetricCard label={messages.customers.estimatedRevenue} value={formatCurrency(paginationMeta.totalRevenue)} isLoading={isLoading} />
       </div>
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <label className="relative block lg:min-w-[28rem] xl:max-w-xl">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_9rem] lg:items-end">
+        <label className="relative block w-full">
           <FiSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
           <span className="sr-only">{messages.actions.search}</span>
           <input
@@ -124,7 +146,7 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
           label={messages.customers.perPage}
           name="customers-per-page"
           value={String(perPage)}
-          className="lg:w-36"
+          className="w-full"
           options={perPageOptions.map((option) => ({ value: String(option), label: String(option) }))}
           onChange={(event) => {
             setIsLoading(true);
@@ -134,14 +156,46 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
         />
       </div>
 
+      <CustomerFilters
+        canClear={Boolean(searchQuery || sort !== "lastBookingDesc" || tag !== "all" || dateFrom || dateTo)}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        messages={messages}
+        sort={sort}
+        tag={tag}
+        onClear={resetFilters}
+        onDateFromChange={(value) => {
+          setIsLoading(true);
+          setDateFrom(value);
+          if (dateTo && value > dateTo) setDateTo("");
+          setCurrentPage(1);
+        }}
+        onDateToChange={(value) => {
+          setIsLoading(true);
+          setDateTo(value);
+          if (dateFrom && value < dateFrom) setDateFrom("");
+          setCurrentPage(1);
+        }}
+        onSortChange={(value) => {
+          setIsLoading(true);
+          setSort(value);
+          setCurrentPage(1);
+        }}
+        onTagChange={(value) => {
+          setIsLoading(true);
+          setTag(value);
+          setCurrentPage(1);
+        }}
+      />
+
       <section className="overflow-hidden rounded-3xl border border-subtle bg-surface shadow-sm">
         {isLoading ? (
           <CustomersState title={<LoadingDotsText text={messages.customers.loading} />} />
         ) : errorMessage ? (
           <CustomersState title={messages.customers.loadError} description={errorMessage} />
         ) : customers.length === 0 ? (
-          debouncedSearchQuery ? (
-            <CustomersState title={messages.customers.noResults} />
+          debouncedSearchQuery || tag !== "all" || dateFrom || dateTo ? (
+            <CustomersState title={messages.customers.noFilteredResults} />
           ) : (
             <CustomersState title={messages.customers.emptyTitle} description={messages.customers.emptyDescription} />
           )
@@ -298,8 +352,6 @@ function CustomerMobileCard({ customer, messages }: { customer: Customer; messag
 }
 
 function CustomerIdentity({ customer }: { customer: Customer }) {
-  const initials = getCustomerInitials(customer.fullName || customer.email);
-
   return (
     <div className="flex min-w-0 items-center gap-3">
       <div className="min-w-0">
@@ -391,15 +443,6 @@ function formatPhoneForDisplay(value: string) {
   return compactValue || "-";
 }
 
-function getCustomerInitials(value: string) {
-  return value
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "CL";
-}
-
 function getVisiblePages(currentPage: number, totalPages: number) {
   const start = Math.max(1, currentPage - 2);
   const end = Math.min(totalPages, start + 4);
@@ -409,38 +452,8 @@ function getVisiblePages(currentPage: number, totalPages: number) {
 }
 
 function getCustomerTag(customer: Customer, messages: Messages) {
-  if (isCustomerAtRisk(customer.lastBookedAt)) {
-    return { label: messages.customers.tags.atRisk, tone: "danger" as const };
-  }
-
-  if (customer.bookingCount > 20) {
-    return { label: messages.customers.tags.vip, tone: "warning" as const, className: "bg-warning-soft text-warning" };
-  }
-
-  if (customer.bookingCount > 10) {
-    return { label: messages.customers.tags.frequent, tone: "brand" as const };
-  }
-
-  if (customer.bookingCount <= 2) {
-    return { label: messages.customers.tags.new, tone: "neutral" as const, className: "bg-shell !text-black" };
-  }
-
-  return { label: messages.customers.tags.active, tone: "success" as const };
-}
-
-function isCustomerAtRisk(lastBookedAt: string) {
-  if (!lastBookedAt) {
-    return false;
-  }
-
-  const lastBookingDate = new Date(lastBookedAt);
-
-  if (Number.isNaN(lastBookingDate.getTime())) {
-    return false;
-  }
-
-  const riskThreshold = new Date();
-  riskThreshold.setDate(riskThreshold.getDate() - 45);
-
-  return lastBookingDate < riskThreshold;
+  const tag = getCustomerTagKey(customer);
+  const tone: "danger" | "warning" | "brand" | "neutral" | "success" = tag === "atRisk" ? "danger" : tag === "vip" ? "warning" : tag === "frequent" ? "brand" : tag === "new" ? "neutral" : "success";
+  const className = tag === "vip" ? "bg-warning-soft text-warning" : tag === "new" ? "bg-shell text-primary" : undefined;
+  return { label: messages.customers.tags[tag], tone, className };
 }

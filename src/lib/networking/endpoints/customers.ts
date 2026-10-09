@@ -1,6 +1,7 @@
 "use client";
 
 import { Customer } from "@/features/scheduling/types";
+import { CustomerSort, CustomerTagFilter } from "@/features/scheduling/utils/customer-list";
 import { getAccessToken } from "@/lib/networking/endpoints/auth";
 import { getResponseErrorMessage } from "@/lib/networking/response-errors";
 
@@ -20,9 +21,13 @@ export type CustomersResponse = {
 };
 
 type GetCustomersOptions = {
+  dateFrom?: string;
+  dateTo?: string;
   page: number;
   perPage: number;
   search?: string;
+  sort?: CustomerSort;
+  tag?: CustomerTagFilter;
 };
 
 export async function getCustomers(businessId: string, options: GetCustomersOptions): Promise<CustomersResponse> {
@@ -36,6 +41,11 @@ export async function getCustomers(businessId: string, options: GetCustomersOpti
   if (options.search?.trim()) {
     searchParams.set("search", options.search.trim());
   }
+
+  if (options.sort && options.sort !== "default") searchParams.set("sort", options.sort);
+  if (options.tag && options.tag !== "all") searchParams.set("tag", options.tag);
+  if (options.dateFrom) searchParams.set("dateFrom", options.dateFrom);
+  if (options.dateTo) searchParams.set("dateTo", options.dateTo);
 
   const response = await fetch(`/api/customers?${searchParams.toString()}`, {
     headers: {

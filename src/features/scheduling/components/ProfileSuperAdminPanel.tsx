@@ -162,7 +162,7 @@ export function ProfileSuperAdminPanel({
         ) : (
           <>
             <div className="hidden overflow-x-auto lg:block">
-              <table className="w-full min-w-[1240px] text-left text-sm">
+              <table className="w-full min-w-[1360px] text-left text-sm">
                 <thead className="bg-input text-xs uppercase tracking-[0.04em] text-muted">
                   <tr>
                     <th className="px-5 py-3">{messages.profile.superAdminBusiness}</th>
@@ -172,6 +172,7 @@ export function ProfileSuperAdminPanel({
                     <th className="px-5 py-3">{messages.profile.superAdminReferrals}</th>
                     <th className="w-36 px-5 py-3">{messages.profile.superAdminUsage}</th>
                     <th className="px-5 py-3">{messages.profile.superAdminSubscription}</th>
+                    <th className="px-5 py-3 text-right">{messages.profile.superAdminTotalPaid}</th>
                     <th className="px-5 py-3 text-right">{messages.profile.superAdminActions}</th>
                   </tr>
                 </thead>
@@ -244,7 +245,7 @@ function SuperAdminTableSkeleton({ messages }: { messages: Messages }) {
   return (
     <>
       <div className="hidden overflow-x-auto lg:block" aria-busy="true" aria-label={messages.profile.superAdminLoading}>
-        <table className="w-full min-w-[1120px] text-left text-sm">
+        <table className="w-full min-w-[1360px] text-left text-sm">
           <thead className="bg-input text-xs uppercase tracking-[0.04em] text-muted">
             <tr>
               <th className="px-5 py-3">{messages.profile.superAdminBusiness}</th>
@@ -254,6 +255,7 @@ function SuperAdminTableSkeleton({ messages }: { messages: Messages }) {
               <th className="px-5 py-3">{messages.profile.superAdminReferrals}</th>
               <th className="w-36 px-5 py-3">{messages.profile.superAdminUsage}</th>
               <th className="px-5 py-3">{messages.profile.superAdminSubscription}</th>
+              <th className="px-5 py-3 text-right">{messages.profile.superAdminTotalPaid}</th>
               <th className="px-5 py-3 text-right">{messages.profile.superAdminActions}</th>
             </tr>
           </thead>
@@ -267,6 +269,7 @@ function SuperAdminTableSkeleton({ messages }: { messages: Messages }) {
                 <td className="px-5 py-4"><SkeletonLine className="w-32" /><SkeletonLine className="mt-2 w-24" /></td>
                 <td className="px-5 py-4"><SkeletonLine className="w-20" /><SkeletonLine className="mt-2 w-24" /><SkeletonLine className="mt-2 w-20" /></td>
                 <td className="px-5 py-4"><SkeletonLine className="w-24" /><SkeletonLine className="mt-2 w-32" /></td>
+                <td className="px-5 py-4"><SkeletonLine className="ml-auto w-20" /></td>
                 <td className="px-5 py-4"><SkeletonLine className="ml-auto w-28" /></td>
               </tr>
             ))}
@@ -361,9 +364,11 @@ function SuperAdminBusinessRow({
         <p className="mt-1">{business.serviceCount} {messages.nav.services}</p>
         <p className="mt-1">{business.employeeCount} {messages.nav.personnel}</p>
       </td>
-      <td className="px-5 py-4 text-muted">
-        <p className="font-semibold text-primary">{business.providerStatus}</p>
-        <p className="mt-1 text-xs">{business.providerSubscriptionId || messages.profile.superAdminManualPlan}</p>
+      <td className="px-5 py-4">
+        <SubscriptionStatusInfo business={business} messages={messages} />
+      </td>
+      <td className="whitespace-nowrap px-5 py-4 text-right font-semibold text-primary">
+        {formatCurrency(business.totalSubscriptionRevenue)}
       </td>
       <td className="px-5 py-4">
         <SuperAdminPlanAction
@@ -404,13 +409,14 @@ function SuperAdminBusinessCard({
         </div>
         <p>{business.monthlyAppointmentCount} {messages.calendar.appointments}</p>
         <p>{business.monthlyPaidSubscriptionCount} {messages.profile.superAdminPaidSubscriptions} · {formatCurrency(business.monthlySubscriptionRevenue)}</p>
+        <p>{messages.profile.superAdminTotalPaid}: <span className="font-semibold text-primary">{formatCurrency(business.totalSubscriptionRevenue)}</span></p>
         <div className="flex items-center gap-2">
           <span>{messages.profile.superAdminReferrals}: {business.referralRegisteredCount}/{business.referralPremiumCount}</span>
           <ReferralAdminInfo business={business} messages={messages} showCount={false} />
         </div>
         <p>{business.serviceCount} {messages.nav.services}</p>
         <p>{business.employeeCount} {messages.nav.personnel}</p>
-        <p>{business.providerStatus} · {business.providerSubscriptionId || messages.profile.superAdminManualPlan}</p>
+        <SubscriptionStatusInfo business={business} messages={messages} />
       </div>
       <SuperAdminPlanAction
         actionBusinessId={actionBusinessId}
@@ -424,9 +430,26 @@ function SuperAdminBusinessCard({
 
 function PlanBadge({ isReferralPro, plan, messages }: { isReferralPro: boolean; plan: string; messages: Messages }) {
   return (
-    <Badge tone={plan === "pro" ? "warning" : "neutral"} className={plan === "pro" ? "bg-warning text-primary" : ""}>
+    <Badge tone={plan === "pro" ? "warning" : "brand"} className={plan === "pro" ? "bg-warning text-primary" : ""}>
       {isReferralPro ? messages.profile.referralProPlan : plan === "pro" ? messages.profile.proPlan : messages.profile.freePlan}
     </Badge>
+  );
+}
+
+function SubscriptionStatusInfo({ business, messages }: { business: SuperAdminBusiness; messages: Messages }) {
+  const detail = business.providerSubscriptionId || messages.profile.superAdminManualPlan;
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="font-semibold text-primary">{business.providerStatus}</span>
+      <FloatingInfoPopover
+        ariaLabel={`${messages.profile.superAdminSubscription}: ${detail}`}
+        className="grid h-7 w-7 shrink-0 cursor-help place-items-center rounded-full border border-subtle bg-input text-muted transition-colors hover:border-brand hover:text-brand-strong focus:outline-none focus:ring-2 focus:ring-focus"
+        content={<span className="break-all">{detail}</span>}
+      >
+        <FiInfo aria-hidden="true" />
+      </FloatingInfoPopover>
+    </div>
   );
 }
 

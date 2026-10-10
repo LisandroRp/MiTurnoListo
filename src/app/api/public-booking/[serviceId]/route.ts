@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   getAvailablePaymentOptions,
-  getAvailableSlotsForEmployee
+  getAvailableSlotsForEmployee,
+  sanitizePublicDayBlocks
 } from "@/features/booking-flow/utils/booking";
 import { freePlanLimits, getCurrentMonthRange, isFreePlan } from "@/features/scheduling/plan-limits";
 import { buildCustomFieldResponses } from "@/features/scheduling/service-custom-fields";
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[]),
     supabase
       .from("business_day_blocks")
-      .select("id, starts_on, ends_on, reason")
+      .select("id, starts_on, ends_on, reason, employee_id")
       .eq("business_id", businessId)
       .order("starts_on", { ascending: true }),
     supabase
@@ -175,7 +176,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     appointments,
     address: businessResult.data.address ?? "",
     businessName: businessResult.data.name,
-    businessDayBlocks,
+    businessDayBlocks: sanitizePublicDayBlocks(businessDayBlocks),
     employees,
     locale: membershipResult.data?.locale ?? "es",
     paymentSettings: mapPaymentSettings(paymentSettingsResult.data),
@@ -326,7 +327,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[]),
       supabase
         .from("business_day_blocks")
-        .select("id, starts_on, ends_on, reason")
+        .select("id, starts_on, ends_on, reason, employee_id")
         .eq("business_id", service.business_id),
       supabase
         .from("business_payment_settings")

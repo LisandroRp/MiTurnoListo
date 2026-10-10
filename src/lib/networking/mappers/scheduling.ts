@@ -128,6 +128,7 @@ type BusinessDayBlockRow = {
   starts_on: string;
   ends_on: string;
   reason: string | null;
+  employee_id: string | null;
 };
 
 const dayKeys: readonly DayKey[] = [
@@ -424,7 +425,8 @@ export function mapBusinessDayBlocks(rows: BusinessDayBlockRow[]): BusinessDayBl
       id: row.id,
       startsOn: row.starts_on,
       endsOn: row.ends_on,
-      reason: row.reason ?? ""
+      reason: row.reason ?? "",
+      employeeId: row.employee_id
     }))
     .sort((left, right) => left.startsOn.localeCompare(right.startsOn));
 }

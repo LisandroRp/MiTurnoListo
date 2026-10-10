@@ -84,7 +84,7 @@ export function getAvailableSlotsForEmployee(
 
     const dateKey = toDateKey(date);
 
-    if (isDateBlocked(dateKey, dayBlocks)) {
+    if (isDateBlocked(dateKey, dayBlocks, employee.id)) {
       continue;
     }
 
@@ -186,8 +186,16 @@ export function getAvailableSlotsForEmployees(
     ));
 }
 
-export function isDateBlocked(date: string, dayBlocks: BusinessDayBlock[]) {
-  return dayBlocks.some((block) => date >= block.startsOn && date <= block.endsOn);
+export function isDateBlocked(date: string, dayBlocks: BusinessDayBlock[], employeeId?: string) {
+  return dayBlocks.some((block) => (
+    date >= block.startsOn &&
+    date <= block.endsOn &&
+    (!block.employeeId || block.employeeId === employeeId)
+  ));
+}
+
+export function sanitizePublicDayBlocks(dayBlocks: BusinessDayBlock[]): BusinessDayBlock[] {
+  return dayBlocks.map((block) => ({ ...block, reason: "" }));
 }
 
 export function getMonthGrid(monthDate: Date) {

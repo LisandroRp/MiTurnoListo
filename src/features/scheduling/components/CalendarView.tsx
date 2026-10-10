@@ -209,6 +209,7 @@ export function CalendarView({
 
       <BusinessDayBlocksModal
         dayBlocks={businessDayBlocks}
+        employees={employees}
         isOpen={isDayBlocksModalOpen}
         messages={messages}
         onClose={() => setIsDayBlocksModalOpen(false)}
@@ -1522,7 +1523,7 @@ function BlockedDayEmpty({ dayBlock, messages }: { dayBlock: BusinessDayBlock; m
 }
 
 function getDateBlock(date: string, dayBlocks: BusinessDayBlock[]) {
-  return dayBlocks.find((block) => date >= block.startsOn && date <= block.endsOn) ?? null;
+  return dayBlocks.find((block) => !block.employeeId && date >= block.startsOn && date <= block.endsOn) ?? null;
 }
 
 function getSafeFocusedDate(focusedDate: string) {

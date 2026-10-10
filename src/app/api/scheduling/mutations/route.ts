@@ -14,16 +14,17 @@ import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin"
 import { createApiErrorResponse, getSafeErrorMessage } from "@/lib/networking/api-errors";
 import {
   mapAppointments,
+  mapBusinessDayBlocks,
   mapEmployees,
   mapScheduleToAvailabilityRows,
   mapServices
 } from "@/lib/networking/mappers/scheduling";
 import { buildIsoInTimeZone, formatTodayForTimeZone } from "@/lib/networking/utils/date-time";
-import { getAvailableSlotsForEmployee } from "@/features/booking-flow/utils/booking";
+import { getAvailableSlotsForEmployee, isDateBlocked } from "@/features/booking-flow/utils/booking";
 import { sendBookingCancelledEmails } from "@/lib/email/booking-emails";
 import { refundMercadoPagoPayment } from "@/lib/mercadopago/checkout";
 import { notifyPlanLimitReached } from "@/lib/notifications/plan-limits";
-import { normalizeSlug } from "@/lib/slugs";
+import { isUuid, normalizeSlug } from "@/lib/slugs";
 
 type SchedulingMutationPayload =
   | {
@@ -485,19 +486,50 @@ async function saveBusinessDayBlock(
   const startsOn = dayBlock.startsOn?.trim() ?? "";
   const endsOn = dayBlock.endsOn?.trim() || startsOn;
   const reason = dayBlock.reason?.trim() || "Cerrado";
+  const employeeId = dayBlock.employeeId || null;
 
-  if (!isValidDateValue(startsOn) || !isValidDateValue(endsOn) || startsOn > endsOn) {
+  if (!isUuid(dayBlock.id) || !isValidDateValue(startsOn) || !isValidDateValue(endsOn) || startsOn > endsOn) {
     throw new Error("DAY_BLOCK_CONFIG:Revisá las fechas del día bloqueado.");
   }
 
+  const { data: existingBlock, error: existingBlockError } = await supabase
+    .from("business_day_blocks")
+    .select("business_id")
+    .eq("id", dayBlock.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingBlockError || (existingBlock && existingBlock.business_id !== businessId)) {
+    throw new Error("DAY_BLOCK_CONFIG:No se puede modificar ese bloqueo.");
+  }
+
+  if (employeeId) {
+    if (!isUuid(employeeId)) {
+      throw new Error("DAY_BLOCK_CONFIG:Seleccioná un profesional válido.");
+    }
+
+    const { data: employee, error: employeeError } = await supabase
+      .from("employees")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("id", employeeId)
+      .limit(1)
+      .maybeSingle();
+
+    if (employeeError || !employee) {
+      throw new Error("DAY_BLOCK_CONFIG:El profesional seleccionado no pertenece al negocio.");
+    }
+  }
+
   enforceBlockDateIsFuture(startsOn, context.timeZone);
-  await enforceNoAppointmentsInDateRange(supabase, businessId, startsOn, endsOn, context.timeZone);
+  await enforceNoAppointmentsInDateRange(supabase, businessId, startsOn, endsOn, context.timeZone, employeeId);
 
   const { error } = await supabase
     .from("business_day_blocks")
     .upsert({
       id: dayBlock.id,
       business_id: businessId,
+      employee_id: employeeId,
       starts_on: startsOn,
       ends_on: endsOn,
       reason
@@ -521,11 +553,12 @@ async function enforceNoAppointmentsInDateRange(
   businessId: string,
   startsOn: string,
   endsOn: string,
-  timeZone: string
+  timeZone: string,
+  employeeId: string | null
 ) {
   const startsAt = buildIsoInTimeZone(startsOn, "00:00", timeZone);
   const endsAt = buildIsoInTimeZone(addDays(endsOn, 1), "00:00", timeZone);
-  const { count, error } = await supabase
+  let appointmentQuery = supabase
     .from("appointments")
     .select("id", { count: "exact", head: true })
     .eq("business_id", businessId)
@@ -533,6 +566,12 @@ async function enforceNoAppointmentsInDateRange(
     .neq("appointment_status", "rescheduled")
     .gte("starts_at", startsAt)
     .lt("starts_at", endsAt);
+
+  if (employeeId) {
+    appointmentQuery = appointmentQuery.eq("employee_id", employeeId);
+  }
+
+  const { count, error } = await appointmentQuery;
 
   if (error) {
     throw new Error("Unable to validate appointments for the blocked day.");
@@ -836,7 +875,7 @@ async function createAppointment(
   timeZone: string,
   addonIds: string[]
 ) {
-  await enforceDateIsNotBlocked(supabase, businessId, appointment.date);
+  await enforceDateIsNotBlocked(supabase, businessId, appointment.date, appointment.employeeId);
 
   const appointmentId = appointment.id || crypto.randomUUID();
   const startsAt = buildIsoInTimeZone(appointment.date, appointment.startTime, timeZone);
@@ -1081,7 +1120,7 @@ async function rescheduleAppointment(
   endTime: string,
   timeZone: string
 ) {
-  await enforceDateIsNotBlocked(supabase, businessId, date);
+  await enforceDateIsNotBlocked(supabase, businessId, date, employeeId);
 
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
@@ -1267,10 +1306,10 @@ async function rescheduleAppointment(
   }
 }
 
-async function enforceDateIsNotBlocked(supabase: SupabaseClient, businessId: string, date: string) {
-  const { count, error } = await supabase
+async function enforceDateIsNotBlocked(supabase: SupabaseClient, businessId: string, date: string, employeeId: string) {
+  const { data, error } = await supabase
     .from("business_day_blocks")
-    .select("id", { count: "exact", head: true })
+    .select("id, starts_on, ends_on, reason, employee_id")
     .eq("business_id", businessId)
     .lte("starts_on", date)
     .gte("ends_on", date);
@@ -1279,7 +1318,7 @@ async function enforceDateIsNotBlocked(supabase: SupabaseClient, businessId: str
     throw new Error("Unable to validate blocked days.");
   }
 
-  if ((count ?? 0) > 0) {
+  if (isDateBlocked(date, mapBusinessDayBlocks(data ?? []), employeeId)) {
     throw new Error("DAY_BLOCK_CONFIG:Este día esta bloqueado para reservas.");
   }
 }

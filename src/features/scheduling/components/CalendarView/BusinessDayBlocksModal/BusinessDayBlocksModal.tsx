@@ -3,14 +3,17 @@ import { FiCalendar, FiTrash2, FiX } from "react-icons/fi";
 
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { SelectField } from "@/components/ui/SelectField";
 import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
 import { Messages } from "@/features/scheduling/i18n/messages";
-import { BusinessDayBlock } from "@/features/scheduling/types";
+import { BusinessDayBlock, Employee } from "@/features/scheduling/types";
+import { DayBlockTab, getVisibleDayBlocksForTab } from "@/features/scheduling/utils/day-blocks";
 import { getDateLabel } from "@/features/scheduling/utils/format";
 
 type BusinessDayBlocksModalProps = {
   dayBlocks: BusinessDayBlock[];
+  employees: Employee[];
   isOpen: boolean;
   messages: Messages;
   onClose: () => void;
@@ -20,18 +23,23 @@ type BusinessDayBlocksModalProps = {
 
 type Draft = {
   endsOn: string;
+  employeeId: string;
   reason: string;
   startsOn: string;
+  target: "business" | "employee";
 };
 
 const defaultDraft: Draft = {
   endsOn: "",
+  employeeId: "",
   reason: "",
-  startsOn: ""
+  startsOn: "",
+  target: "business"
 };
 
 export function BusinessDayBlocksModal({
   dayBlocks,
+  employees,
   isOpen,
   messages,
   onClose,
@@ -39,11 +47,13 @@ export function BusinessDayBlocksModal({
   onSave
 }: BusinessDayBlocksModalProps) {
   const [draft, setDraft] = useState(defaultDraft);
+  const [activeTab, setActiveTab] = useState<DayBlockTab>("business");
   const [error, setError] = useState("");
   const [loadingAction, setLoadingAction] = useState<"save" | string | null>(null);
   const minimumBlockDate = getTomorrowDateValue();
-  const visibleDayBlocks = dayBlocks.filter((dayBlock) => dayBlock.endsOn >= minimumBlockDate);
-  const sortedDayBlocks = [...visibleDayBlocks].sort((left, right) => left.startsOn.localeCompare(right.startsOn));
+  const sortedDayBlocks = getVisibleDayBlocksForTab(dayBlocks, activeTab, minimumBlockDate);
+  const availableEmployees = employees.filter((employee) => !employee.isArchived);
+  const employeeNames = new Map(employees.map((employee) => [employee.id, employee.name]));
 
   function updateDraft(key: keyof Draft, value: string) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -53,7 +63,9 @@ export function BusinessDayBlocksModal({
   async function saveDayBlock() {
     const startsOn = draft.startsOn.trim();
     const endsOn = (draft.endsOn.trim() || startsOn);
-    const reason = draft.reason.trim() || messages.calendar.blockedDayDefaultReason;
+    const reason = draft.reason.trim() || (draft.target === "employee"
+      ? messages.calendar.blockedEmployeeDefaultReason
+      : messages.calendar.blockedDayDefaultReason);
 
     if (!isValidDateRange(startsOn, endsOn)) {
       setError(messages.calendar.blockedDayInvalid);
@@ -65,6 +77,11 @@ export function BusinessDayBlocksModal({
       return;
     }
 
+    if (draft.target === "employee" && !availableEmployees.some((employee) => employee.id === draft.employeeId)) {
+      setError(messages.calendar.blockedEmployeeInvalid);
+      return;
+    }
+
     setLoadingAction("save");
 
     try {
@@ -72,11 +89,13 @@ export function BusinessDayBlocksModal({
         id: crypto.randomUUID(),
         startsOn,
         endsOn,
-        reason
+        reason,
+        employeeId: draft.target === "employee" ? draft.employeeId : null
       });
 
       if (didSave !== false) {
-        setDraft(defaultDraft);
+        setActiveTab(draft.target);
+        setDraft((current) => ({ ...current, startsOn: "", endsOn: "", reason: "" }));
       }
     } finally {
       setLoadingAction(null);
@@ -114,6 +133,29 @@ export function BusinessDayBlocksModal({
         </div>
 
         <div className="grid gap-4 rounded-xl border border-subtle bg-input p-4">
+          <SelectField
+            label={messages.calendar.blockedTarget}
+            name="blocked-day-target"
+            value={draft.target}
+            options={[
+              { value: "business", label: messages.calendar.blockedBusinessTarget },
+              { value: "employee", label: messages.calendar.blockedEmployeeTarget, disabled: availableEmployees.length === 0 }
+            ]}
+            onChange={(event) => updateDraft("target", event.target.value as Draft["target"])}
+          />
+          {draft.target === "employee" ? (
+            <SelectField
+              label={messages.calendar.blockedEmployeeLabel}
+              name="blocked-day-employee"
+              value={draft.employeeId}
+              required
+              options={[
+                { value: "", label: messages.calendar.blockedEmployeePlaceholder, disabled: true },
+                ...availableEmployees.map((employee) => ({ value: employee.id, label: employee.name }))
+              ]}
+              onChange={(event) => updateDraft("employeeId", event.target.value)}
+            />
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField
               label={messages.calendar.blockedFrom}
@@ -160,6 +202,24 @@ export function BusinessDayBlocksModal({
         </div>
 
         <div className="grid gap-3">
+          <div role="group" aria-label={messages.calendar.blockedDays} className="flex gap-2 border-b border-subtle pb-2">
+            <Button
+              aria-pressed={activeTab === "business"}
+              size="sm"
+              variant={activeTab === "business" ? "primary" : "ghost"}
+              onClick={() => setActiveTab("business")}
+            >
+              {messages.calendar.blockedBusinessTab}
+            </Button>
+            <Button
+              aria-pressed={activeTab === "employee"}
+              size="sm"
+              variant={activeTab === "employee" ? "primary" : "ghost"}
+              onClick={() => setActiveTab("employee")}
+            >
+              {messages.calendar.blockedEmployeeTab}
+            </Button>
+          </div>
           {sortedDayBlocks.length > 0 ? sortedDayBlocks.map((dayBlock) => (
             <div
               key={dayBlock.id}
@@ -167,6 +227,11 @@ export function BusinessDayBlocksModal({
             >
               <div className="min-w-0">
                 <p className="text-sm font-bold text-primary">{formatDayBlockRange(dayBlock)}</p>
+                {dayBlock.employeeId ? (
+                  <p className="mt-1 text-sm font-semibold text-primary">
+                    {employeeNames.get(dayBlock.employeeId) ?? messages.calendar.blockedEmployeeUnknown}
+                  </p>
+                ) : null}
                 <p className="mt-1 break-words text-sm text-muted">{dayBlock.reason}</p>
               </div>
               <Button

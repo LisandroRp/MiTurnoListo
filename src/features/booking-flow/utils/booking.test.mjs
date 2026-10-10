@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getAvailableSlotsForEmployee, getAvailableSlotsForEmployees } from "./booking.ts";
+import { getAvailableSlotsForEmployee, getAvailableSlotsForEmployees, isDateBlocked, sanitizePublicDayBlocks } from "./booking.ts";
 
 function createService(overrides = {}) {
   return {
@@ -156,4 +156,69 @@ test("getAvailableSlotsForEmployees blocks a professional with overlapping appoi
     employeeId: "employee-2",
     remainingCapacity: 2
   }]);
+});
+
+test("an employee block removes only that professional from the available slots", () => {
+  const secondEmployee = { ...createEmployee(), id: "employee-2", name: "John Doe" };
+  const dayBlocks = [{
+    id: "block-1",
+    startsOn: "2026-08-03",
+    endsOn: "2026-08-10",
+    reason: "Vacation",
+    employeeId: "employee-1"
+  }];
+  const slots = getAvailableSlotsForEmployees(
+    createService({ employeeIds: ["employee-1", "employee-2"] }),
+    [createEmployee(), secondEmployee],
+    [],
+    new Date("2026-08-03T12:00:00"),
+    1,
+    new Date("2026-08-01T12:00:00"),
+    dayBlocks
+  );
+  const blockedDateSlots = slots.filter((slot) => slot.date === "2026-08-03");
+
+  assert.equal(blockedDateSlots.length, 2);
+  assert.deepEqual(blockedDateSlots[0].employeeAvailability, [{ employeeId: "employee-2", remainingCapacity: 1 }]);
+  assert.equal(isDateBlocked("2026-08-03", dayBlocks), false);
+  assert.equal(isDateBlocked("2026-08-03", dayBlocks, "employee-1"), true);
+  assert.equal(isDateBlocked("2026-08-03", dayBlocks, "employee-2"), false);
+  assert.equal(isDateBlocked("2026-08-10", dayBlocks, "employee-1"), true);
+  assert.equal(isDateBlocked("2026-08-11", dayBlocks, "employee-1"), false);
+});
+
+test("a business block removes all professionals from the available slots", () => {
+  const dayBlocks = [{
+    id: "block-2",
+    startsOn: "2026-08-03",
+    endsOn: "2026-08-03",
+    reason: "Holiday",
+    employeeId: null
+  }];
+  const slots = getAvailableSlotsForEmployees(
+    createService({ employeeIds: ["employee-1", "employee-2"] }),
+    [createEmployee(), { ...createEmployee(), id: "employee-2" }],
+    [],
+    new Date("2026-08-03T12:00:00"),
+    1,
+    new Date("2026-08-01T12:00:00"),
+    dayBlocks
+  );
+
+  assert.equal(slots.some((slot) => slot.date === "2026-08-03"), false);
+  assert.equal(isDateBlocked("2026-08-03", dayBlocks), true);
+  assert.equal(isDateBlocked("2026-08-03", dayBlocks, "employee-2"), true);
+});
+
+test("public day blocks keep availability data without exposing absence reasons", () => {
+  const blocks = [{
+    id: "block-3",
+    startsOn: "2026-08-03",
+    endsOn: "2026-08-10",
+    reason: "Private absence details",
+    employeeId: "employee-1"
+  }];
+
+  assert.deepEqual(sanitizePublicDayBlocks(blocks), [{ ...blocks[0], reason: "" }]);
+  assert.equal(blocks[0].reason, "Private absence details");
 });

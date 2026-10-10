@@ -164,6 +164,7 @@ export type BusinessDayBlock = {
   startsOn: string;
   endsOn: string;
   reason: string;
+  employeeId?: string | null;
 };
 
 export type BookingCustomer = {

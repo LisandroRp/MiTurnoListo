@@ -42,3 +42,20 @@ export async function activateReferralProgram() {
 
   return payload.summary;
 }
+
+export async function activateReferralReward() {
+  const accessToken = await getAccessToken();
+  const response = await fetch("/api/referrals", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+  const payload = await response.json().catch(() => null) as ReferralResponse | null;
+
+  if (!response.ok || !payload?.summary) {
+    throw new Error(payload?.error ?? "No pudimos activar Pro con referidos.");
+  }
+
+  return payload.summary;
+}

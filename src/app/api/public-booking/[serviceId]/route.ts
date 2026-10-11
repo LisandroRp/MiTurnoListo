@@ -21,6 +21,7 @@ import {
 } from "@/lib/networking/mappers/scheduling";
 import { buildIsoInTimeZone, formatDateForTimeZone } from "@/lib/networking/utils/date-time";
 import { notifyPlanLimitReached } from "@/lib/notifications/plan-limits";
+import { reconcileExpiredReferralTierForBusiness } from "@/lib/referrals";
 import { isUuid } from "@/lib/slugs";
 
 type RouteContext = {
@@ -718,7 +719,17 @@ async function getMonthlyAppointmentLimitStatus(
   businessId: string,
   subscriptionTier: string
 ) {
-  if (!isFreePlan(subscriptionTier)) {
+  let currentTier: string;
+
+  try {
+    currentTier = await reconcileExpiredReferralTierForBusiness({ businessId, subscriptionTier, supabase });
+  } catch {
+    return {
+      response: NextResponse.json({ error: "Unable to validate referral access." }, { status: 500 })
+    };
+  }
+
+  if (!isFreePlan(currentTier)) {
     return { canBook: true };
   }
 

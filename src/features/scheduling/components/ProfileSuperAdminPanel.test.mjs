@@ -32,14 +32,19 @@ function InfoPopover({ ariaLabel, children, content }) {
 
   return createElement("button", { "aria-label": ariaLabel, type: "button" }, children);
 }
+function SelectField({ label, options, value }) {
+  return createElement("label", null, label, createElement("select", { defaultValue: value },
+    options.map((option) => createElement("option", { key: option.value, value: option.value }, option.label))));
+}
 const components = {
   "@/components/ui/Badge": { Badge: passthrough("span") },
   "@/components/ui/Button": { Button: passthrough("button") },
   "@/components/ui/Card": { Card: passthrough("section") },
   "@/components/ui/FloatingInfoPopover": { FloatingInfoPopover: InfoPopover },
-  "@/components/ui/SelectField": { SelectField: passthrough("select") },
+  "@/components/ui/SelectField": { SelectField },
   "@/components/ui/TextField": { TextField: passthrough("input") },
   "@/features/scheduling/utils/format": { formatCurrency: (value) => `ARS ${value}` },
+  "@/features/scheduling/utils/super-admin-businesses": require("../utils/super-admin-businesses.ts"),
   "react-icons/fi": {
     FiInfo: passthrough("span"),
     FiRefreshCw: passthrough("span"),
@@ -106,12 +111,16 @@ test("shows each business lifetime payments beside the monthly summary", () => {
       superAdminTotalPaid: "Total paid",
       superAdminMonthly: "Month",
       superAdminTotal: "Total",
-      superAdminPaidSubscriptions: "paid subscriptions"
+      superAdminPaidSubscriptions: "paid subscriptions",
+      superAdminSort: "Sort by",
+      superAdminSortName: "Name (A–Z)",
+      superAdminSortNewest: "Newest first",
+      superAdminSortOldest: "Oldest first"
     }
   };
   const html = renderToStaticMarkup(createElement(ProfileSuperAdminPanel, {
     actionBusinessId: "",
-    businesses: [business, manualBusiness],
+    businesses: [manualBusiness, business],
     errorMessage: "",
     hasLoadedBusinesses: true,
     isLoading: false,
@@ -122,6 +131,8 @@ test("shows each business lifetime payments beside the monthly summary", () => {
   const table = html.match(/<table\b[^>]*>(.*?)<\/table>/s)?.[1];
 
   assert.ok(table);
+  assert.ok(table.indexOf("Example business") < table.indexOf("Manual business"));
+  assert.match(html, /Sort by<select[^>]*><option value="name" selected="">Name \(A–Z\)<\/option><option value="newest">Newest first<\/option><option value="oldest">Oldest first<\/option><\/select>/);
   assert.match(table, /<th[^>]*>Total paid<\/th>/);
   assert.match(table, /<td[^>]*>ARS 1000<\/td>/);
   assert.match(html, /Total paid: <span[^>]*>ARS 1000<\/span>/);

@@ -11,10 +11,14 @@ type BootstrapWorkspaceResponse = {
   role: string;
 };
 
+type BootstrapWorkspaceOptions = {
+  businessName?: string;
+};
+
 const referralStorageKey = "miturnolisto_referral_code";
 const referralCookieName = "miturnolisto_referral_code";
 
-export async function bootstrapWorkspace(accessToken?: string) {
+export async function bootstrapWorkspace(accessToken?: string, options: BootstrapWorkspaceOptions = {}) {
   const token = accessToken ?? await getAccessToken();
   const response = await fetch("/api/auth/bootstrap", {
     method: "POST",
@@ -23,6 +27,7 @@ export async function bootstrapWorkspace(accessToken?: string) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
+      businessName: options.businessName,
       referralCode: getPendingReferralCode(),
       timeZone: getBrowserTimeZone()
     })

@@ -21,7 +21,7 @@ export function ReferralProgramPanel({
   const [isActivating, setIsActivating] = useState(false);
   const [copiedReferralLink, setCopiedReferralLink] = useState(false);
   const summary = profile.referralSummary;
-  const isMaxed = summary.availableMonths >= 3;
+  const isMaxed = summary.availableDays >= 90;
 
   async function handleActivate() {
     setIsActivating(true);
@@ -76,7 +76,7 @@ export function ReferralProgramPanel({
             <ReferralMetric label={messages.profile.referralsPremiumMetric} value={summary.premiumReferralCount} />
             <ReferralMetric
               label={messages.profile.referralsAvailableMetric}
-              value={summary.availableMonths}
+              value={summary.availableDays}
               suffix={isMaxed ? "MAX" : undefined}
               isBrand={isMaxed}
             />

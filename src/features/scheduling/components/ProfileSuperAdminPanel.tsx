@@ -9,6 +9,8 @@ import { SelectField } from "@/components/ui/SelectField";
 import { TextField } from "@/components/ui/TextField";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { formatCurrency } from "@/features/scheduling/utils/format";
+import { sortSuperAdminBusinesses } from "@/features/scheduling/utils/super-admin-businesses";
+import type { SuperAdminBusinessSort } from "@/features/scheduling/utils/super-admin-businesses";
 import { SuperAdminAction, SuperAdminBusiness } from "@/lib/networking/endpoints/super-admin";
 
 type ProfileSuperAdminPanelProps = {
@@ -37,12 +39,13 @@ export function ProfileSuperAdminPanel({
 }: ProfileSuperAdminPanelProps) {
   const [query, setQuery] = useState("");
   const [planFilter, setPlanFilter] = useState<PlanFilter>("all");
+  const [sortOrder, setSortOrder] = useState<SuperAdminBusinessSort>("newest");
   const [revenueMode, setRevenueMode] = useState<RevenueMode>("monthly");
   const isInitialLoading = !hasLoadedBusinesses || (isLoading && businesses.length === 0);
   const filteredBusinesses = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return businesses.filter((business) => {
+    const matchingBusinesses = businesses.filter((business) => {
       const matchesPlan = planFilter === "all" || business.plan === planFilter;
       const matchesQuery = !normalizedQuery ||
         business.businessName.toLowerCase().includes(normalizedQuery) ||
@@ -50,7 +53,9 @@ export function ProfileSuperAdminPanel({
 
       return matchesPlan && matchesQuery;
     });
-  }, [businesses, planFilter, query]);
+
+    return sortSuperAdminBusinesses(matchingBusinesses, sortOrder);
+  }, [businesses, planFilter, query, sortOrder]);
 
   const proCount = businesses.filter((business) => business.plan === "pro").length;
   const freeCount = businesses.filter((business) => business.plan !== "pro").length;
@@ -116,7 +121,7 @@ export function ProfileSuperAdminPanel({
             <h2 className="text-lg font-bold text-primary">{messages.profile.superAdminBusinesses}</h2>
             <p className="mt-1 text-sm leading-6 text-muted">{messages.profile.superAdminDescription}</p>
           </div>
-          <div className="grid gap-3 lg:grid-cols-[minmax(18rem,28rem)_12rem_auto] lg:items-end">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(16rem,1fr)_12rem_12rem_auto] xl:items-end">
             <TextField
               label={messages.profile.superAdminSearch}
               value={query}
@@ -131,6 +136,16 @@ export function ProfileSuperAdminPanel({
                 { value: "all", label: messages.profile.superAdminAllPlans },
                 { value: "pro", label: messages.profile.proPlan },
                 { value: "free", label: messages.profile.freePlan }
+              ]}
+            />
+            <SelectField
+              label={messages.profile.superAdminSort}
+              value={sortOrder}
+              onChange={(event) => setSortOrder(event.target.value as SuperAdminBusinessSort)}
+              options={[
+                { value: "name", label: messages.profile.superAdminSortName },
+                { value: "newest", label: messages.profile.superAdminSortNewest },
+                { value: "oldest", label: messages.profile.superAdminSortOldest }
               ]}
             />
             <Button

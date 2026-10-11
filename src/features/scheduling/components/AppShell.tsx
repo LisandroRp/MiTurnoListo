@@ -114,10 +114,6 @@ export function AppShell({ children }: AppShellProps) {
     });
   }, [appointments, isLoading, messages, profile.subscriptionTier, showToast]);
 
-  if (isLoading && !businessId) {
-    return <WorkspaceLoadingState theme={theme} />;
-  }
-
   if (loadError) {
     return (
       <main className={`theme-${theme} grid min-h-screen place-items-center bg-shell p-6 text-primary`}>
@@ -147,6 +143,10 @@ export function AppShell({ children }: AppShellProps) {
         </Card>
       </main>
     );
+  }
+
+  if (isLoading && !businessId) {
+    return <WorkspaceLoadingState theme={theme} />;
   }
 
   return (

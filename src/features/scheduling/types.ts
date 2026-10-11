@@ -26,6 +26,8 @@ export type ReferralSummary = {
   isProgramActive: boolean;
   registeredCount: number;
   premiumReferralCount: number;
+  availableDays: number;
+  availableRewardCount: number;
   availableMonths: number;
   usedMonths: number;
   activeDaysRemaining: number;

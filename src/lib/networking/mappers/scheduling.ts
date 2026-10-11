@@ -392,6 +392,8 @@ export function mapProfile(
 export function createEmptyReferralSummary(): ReferralSummary {
   return {
     activeDaysRemaining: 0,
+    availableDays: 0,
+    availableRewardCount: 0,
     availableMonths: 0,
     isProgramActive: false,
     premiumReferralCount: 0,

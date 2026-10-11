@@ -5,6 +5,7 @@ import { BusinessPaymentSettings } from "@/features/scheduling/types";
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 import { mapPaymentSettings } from "@/lib/networking/mappers/scheduling";
+import { reconcileExpiredReferralTierForBusiness } from "@/lib/referrals";
 
 export async function GET(request: NextRequest) {
   const businessId = request.nextUrl.searchParams.get("businessId");
@@ -235,7 +236,21 @@ async function getSubscriptionTier(
     };
   }
 
+  let subscriptionTier: string;
+
+  try {
+    subscriptionTier = await reconcileExpiredReferralTierForBusiness({
+      businessId,
+      subscriptionTier: data.subscription_tier,
+      supabase
+    });
+  } catch {
+    return {
+      response: NextResponse.json({ error: "Unable to validate referral access." }, { status: 500 })
+    };
+  }
+
   return {
-    subscriptionTier: data.subscription_tier as string
+    subscriptionTier
   };
 }

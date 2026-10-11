@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { getWorkspaceLoadMode } from "./scheduling-workspace-cache.ts";
+import { getWorkspaceLoadMode, shouldShowWorkspaceLoading, withWorkspaceLoadTimeout } from "./scheduling-workspace-cache.ts";
 
 test("getWorkspaceLoadMode blocks loading for guests", () => {
   assert.equal(
@@ -40,4 +40,17 @@ test("getWorkspaceLoadMode refreshes cached scopes without initial loading", () 
     }),
     "refresh"
   );
+});
+
+test("a workspace load error replaces the initial loading state", () => {
+  assert.equal(shouldShowWorkspaceLoading({ hasLoadError: true, isLoading: false, isSnapshotScopePending: true }), false);
+  assert.equal(shouldShowWorkspaceLoading({ hasLoadError: false, isLoading: false, isSnapshotScopePending: true }), true);
+});
+
+test("a stalled workspace request stops loading with a retryable error", async () => {
+  await assert.rejects(
+    withWorkspaceLoadTimeout(new Promise(() => {}), 1),
+    /Refrescá la página/
+  );
+  assert.equal(await withWorkspaceLoadTimeout(Promise.resolve("loaded"), 100), "loaded");
 });

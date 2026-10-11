@@ -7,6 +7,7 @@ import { attributeReferralForNewProfile } from "@/lib/referrals";
 import { getSafePublicSlug, normalizeSlug } from "@/lib/slugs";
 
 type BootstrapPayload = {
+  businessName?: unknown;
   referralCode?: string;
   timeZone?: string;
 };
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid session." }, { status: 401 });
   }
 
-  const seed = buildDefaultSeed(user.email);
+  const seed = buildDefaultSeed(user.email, getRequestedBusinessName(payload.businessName, user.user_metadata));
   const referralCode = normalizeReferralCode(payload.referralCode);
   let { data: membership, error: membershipError } = await loadBusinessMembership(supabase, user.id);
   let businessCreated = false;
@@ -209,7 +210,14 @@ export async function POST(request: NextRequest) {
   });
 }
 
-function buildDefaultSeed(email: string) {
+function buildDefaultSeed(email: string, requestedBusinessName: string) {
+  if (requestedBusinessName) {
+    return {
+      businessName: requestedBusinessName,
+      profileName: requestedBusinessName
+    };
+  }
+
   const localPart = email.split("@")[0]?.trim() || "nuevo-negocio";
   const normalizedLabel = localPart
     .replace(/[._-]+/g, " ")
@@ -221,6 +229,14 @@ function buildDefaultSeed(email: string) {
     businessName: profileName,
     profileName
   };
+}
+
+function getRequestedBusinessName(payloadBusinessName: unknown, userMetadata: Record<string, unknown> | undefined) {
+  const requestBusinessName = typeof payloadBusinessName === "string" ? payloadBusinessName : "";
+  const metadataBusinessName = typeof userMetadata?.business_name === "string" ? userMetadata.business_name : "";
+  const businessName = (requestBusinessName || metadataBusinessName).trim().replace(/\s+/g, " ");
+
+  return businessName.slice(0, 80);
 }
 
 function toTitleCase(value: string) {

@@ -11,6 +11,8 @@ export type ReferralSummary = {
   isProgramActive: boolean;
   registeredCount: number;
   premiumReferralCount: number;
+  availableDays: number;
+  availableRewardCount: number;
   availableMonths: number;
   usedMonths: number;
   activeDaysRemaining: number;
@@ -33,6 +35,8 @@ const referralRewardDays = 30;
 const maxAvailableReferralMonths = 3;
 const maxAvailableReferralDays = referralRewardDays * maxAvailableReferralMonths;
 const referralCodePattern = /^[A-Z0-9]{4,24}$/;
+
+export class ReferralRewardNotAvailableError extends Error {}
 
 export function isValidReferralCode(value: string | null | undefined) {
   return referralCodePattern.test(normalizeReferralCode(value));
@@ -207,31 +211,16 @@ export async function rewardReferralForBusinessPayment({
     return !error;
   }
 
-  const shouldActivateNow = await shouldActivateReferralRewardNow({
-    supabase,
-    userId: referral.referrer_user_id
-  });
-  const rewardPayload: Record<string, number | string | null> = shouldActivateNow
-    ? {
-        activated_at: now,
-        days_granted: referralRewardDays,
-        days_remaining: referralRewardDays,
-        expires_at: addDaysIso(now, referralRewardDays),
-        referral_id: referral.id,
-        status: "active",
-        updated_at: now,
-        user_id: referral.referrer_user_id
-      }
-    : {
-        activated_at: null,
-        days_granted: referralRewardDays,
-        days_remaining: referralRewardDays,
-        expires_at: null,
-        referral_id: referral.id,
-        status: "available",
-        updated_at: now,
-        user_id: referral.referrer_user_id
-      };
+  const rewardPayload = {
+    activated_at: null,
+    days_granted: referralRewardDays,
+    days_remaining: referralRewardDays,
+    expires_at: null,
+    referral_id: referral.id,
+    status: "available",
+    updated_at: now,
+    user_id: referral.referrer_user_id
+  };
   const [{ error: rewardError }, { error: referralUpdateError }] = await Promise.all([
     supabase
       .from("referral_rewards")
@@ -252,15 +241,86 @@ export async function rewardReferralForBusinessPayment({
     return false;
   }
 
-  if (shouldActivateNow) {
-    await setUserBusinessTier({
-      supabase,
-      subscriptionTier: "pro",
-      userId: referral.referrer_user_id
-    });
+  return true;
+}
+
+export async function activateReferralRewardForUser({
+  origin,
+  supabase,
+  userId
+}: {
+  origin: string;
+  supabase: SupabaseClient;
+  userId: string;
+}): Promise<ReferralSummary> {
+  await reconcileReferralAccessForUser({ supabase, userId });
+
+  const [hasPaidSubscription, activeReward, businessTier] = await Promise.all([
+    hasActivePaidSubscription(supabase, userId),
+    findActiveReferralReward(supabase, userId),
+    getUserBusinessSubscriptionTier(supabase, userId)
+  ]);
+
+  if (hasPaidSubscription || activeReward?.id || businessTier !== "free") {
+    throw new ReferralRewardNotAvailableError("Solo podés activar Pro con referidos cuando tu plan es Free.");
   }
 
-  return true;
+  const { data: reward, error: lookupError } = await supabase
+    .from("referral_rewards")
+    .select("id, days_remaining")
+    .eq("user_id", userId)
+    .eq("status", "available")
+    .gt("days_remaining", 0)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle<{ id: string; days_remaining: number }>();
+
+  if (lookupError) {
+    throw new Error("No pudimos consultar tus beneficios de referidos.");
+  }
+
+  if (!reward?.id) {
+    throw new ReferralRewardNotAvailableError("No tenés beneficios de referidos disponibles.");
+  }
+
+  const claimedBusinessId = await claimFreeBusinessTierForUser(supabase, userId);
+
+  if (!claimedBusinessId) {
+    throw new ReferralRewardNotAvailableError("Solo podés activar Pro con referidos cuando tu plan es Free.");
+  }
+
+  const now = new Date().toISOString();
+  try {
+    const { data: activatedReward, error: activationError } = await supabase
+      .from("referral_rewards")
+      .update({
+        activated_at: now,
+        expires_at: addDaysIso(now, reward.days_remaining),
+        status: "active",
+        updated_at: now
+      })
+      .eq("id", reward.id)
+      .eq("user_id", userId)
+      .eq("status", "available")
+      .gt("days_remaining", 0)
+      .select("id")
+      .maybeSingle<{ id: string }>();
+
+    if (activationError || !activatedReward?.id) {
+      throw new Error("Reward claim failed.");
+    }
+  } catch {
+    await restoreFreeBusinessTierIfEligible(supabase, userId, claimedBusinessId);
+    throw new Error("No pudimos activar el beneficio. Actualizá la página e intentá nuevamente.");
+  }
+
+  const summary = await getReferralSummary({ origin, supabase, userId });
+
+  if (summary.subscriptionAccessSource !== "referral") {
+    throw new ReferralRewardNotAvailableError("Tu plan cambió mientras activábamos el beneficio. Actualizá la página.");
+  }
+
+  return summary;
 }
 
 export async function getReferralSummary({
@@ -302,11 +362,16 @@ export async function getReferralSummary({
       .in("status", ["available", "active", "used"])
   ]);
 
+  if (profileResult.error || registeredResult.error || premiumResult.error || rewardResult.error) {
+    throw new Error("No pudimos cargar tus beneficios de referidos.");
+  }
+
   const referralCode = normalizeReferralCode(profileResult.data?.referral_code);
   const rewardRows = (rewardResult.data ?? []) as ReferralRewardRow[];
   const availableDays = rewardRows
     .filter((reward) => reward.status === "available")
     .reduce((total, reward) => total + reward.days_remaining, 0);
+  const availableRewardCount = rewardRows.filter((reward) => reward.status === "available" && reward.days_remaining > 0).length;
   const usedDays = rewardRows
     .filter((reward) => reward.status === "used")
     .reduce((total, reward) => total + Number(reward.days_granted ?? referralRewardDays), 0);
@@ -325,6 +390,8 @@ export async function getReferralSummary({
 
   return {
     activeDaysRemaining,
+    availableDays,
+    availableRewardCount,
     availableMonths: Math.floor(availableDays / referralRewardDays),
     isProgramActive: Boolean(profileResult.data?.referral_program_activated_at && referralCode),
     premiumReferralCount: premiumResult.count ?? 0,
@@ -348,7 +415,11 @@ export async function reconcileReferralAccessForUser({
 
   if (hasPaidSubscription) {
     if (activeReward?.id) {
-      await pauseActiveReferralReward({ reward: activeReward, supabase });
+      if (activeReward.expires_at && Date.parse(activeReward.expires_at) <= Date.now()) {
+        await finishExpiredReferralReward({ rewardId: activeReward.id, supabase, userId, keepPaidTier: true });
+      } else {
+        await pauseActiveReferralReward({ reward: activeReward, supabase });
+      }
     }
 
     return;
@@ -357,20 +428,22 @@ export async function reconcileReferralAccessForUser({
   if (activeReward?.id) {
     if (activeReward.expires_at && Date.parse(activeReward.expires_at) <= Date.now()) {
       await finishExpiredReferralReward({ rewardId: activeReward.id, supabase, userId });
-      await activateNextAvailableReferralReward({ supabase, userId });
       return;
     }
 
-    await setUserBusinessTier({
+    const didUpgrade = await setUserBusinessTier({
       supabase,
       subscriptionTier: "pro",
       userId
     });
 
+    if (!didUpgrade) {
+      throw new Error("No pudimos sincronizar tu plan de referidos.");
+    }
+
     return;
   }
 
-  await activateNextAvailableReferralReward({ supabase, userId });
 }
 
 export async function reconcileReferralAccessForBusiness({
@@ -392,57 +465,48 @@ export async function reconcileReferralAccessForBusiness({
   });
 }
 
-async function activateNextAvailableReferralReward({
-  supabase,
-  userId
+export async function reconcileExpiredReferralTierForBusiness({
+  businessId,
+  subscriptionTier,
+  supabase
 }: {
+  businessId: string;
+  subscriptionTier: string;
   supabase: SupabaseClient;
-  userId: string;
 }) {
-  const { data: reward, error } = await supabase
-    .from("referral_rewards")
-    .select("id, days_remaining")
-    .eq("user_id", userId)
-    .eq("status", "available")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle<{ id: string; days_remaining: number }>();
-
-  if (error || !reward?.id || reward.days_remaining <= 0) {
-    return;
+  if (subscriptionTier !== "pro") {
+    return subscriptionTier;
   }
 
-  const now = new Date().toISOString();
-  const { error: rewardError } = await supabase
-    .from("referral_rewards")
-    .update({
-      activated_at: now,
-      expires_at: addDaysIso(now, reward.days_remaining),
-      status: "active",
-      updated_at: now
-    })
-    .eq("id", reward.id);
+  const ownerUserId = await findBusinessOwnerUserId(supabase, businessId);
 
-  if (!rewardError) {
-    await setUserBusinessTier({
-      supabase,
-      subscriptionTier: "pro",
-      userId
-    });
+  if (!ownerUserId) {
+    return subscriptionTier;
   }
+
+  const activeReward = await findActiveReferralReward(supabase, ownerUserId);
+
+  if (!activeReward?.expires_at || Date.parse(activeReward.expires_at) > Date.now()) {
+    return subscriptionTier;
+  }
+
+  await reconcileReferralAccessForUser({ supabase, userId: ownerUserId });
+  return getUserBusinessSubscriptionTier(supabase, ownerUserId);
 }
 
 async function finishExpiredReferralReward({
   rewardId,
   supabase,
-  userId
+  userId,
+  keepPaidTier = false
 }: {
   rewardId: string;
   supabase: SupabaseClient;
   userId: string;
+  keepPaidTier?: boolean;
 }) {
   const now = new Date().toISOString();
-  await supabase
+  const { data: finishedReward, error } = await supabase
     .from("referral_rewards")
     .update({
       days_remaining: 0,
@@ -450,12 +514,32 @@ async function finishExpiredReferralReward({
       used_at: now,
       updated_at: now
     })
-    .eq("id", rewardId);
-  await setUserBusinessTier({
+    .eq("id", rewardId)
+    .eq("status", "active")
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (error) {
+    throw new Error("No pudimos finalizar el beneficio de referidos.");
+  }
+
+  if (!finishedReward?.id) {
+    return;
+  }
+
+  if (keepPaidTier || await hasActivePaidSubscription(supabase, userId)) {
+    return;
+  }
+
+  const didDowngrade = await setUserBusinessTier({
     supabase,
     subscriptionTier: "free",
     userId
   });
+
+  if (!didDowngrade) {
+    throw new Error("No pudimos sincronizar el plan al terminar el beneficio.");
+  }
 }
 
 async function pauseActiveReferralReward({
@@ -469,7 +553,7 @@ async function pauseActiveReferralReward({
     ? Math.max(1, Math.ceil((Date.parse(reward.expires_at) - Date.now()) / 86400000))
     : referralRewardDays;
 
-  await supabase
+  const { error } = await supabase
     .from("referral_rewards")
     .update({
       days_remaining: daysRemaining,
@@ -477,7 +561,12 @@ async function pauseActiveReferralReward({
       status: "available",
       updated_at: new Date().toISOString()
     })
-    .eq("id", reward.id);
+    .eq("id", reward.id)
+    .eq("status", "active");
+
+  if (error) {
+    throw new Error("No pudimos pausar el beneficio de referidos.");
+  }
 }
 
 async function findActiveReferralReward(supabase: SupabaseClient, userId: string) {
@@ -491,25 +580,10 @@ async function findActiveReferralReward(supabase: SupabaseClient, userId: string
     .maybeSingle<{ expires_at: string | null; id: string }>();
 
   if (error) {
-    return null;
+    throw new Error("No pudimos verificar tus beneficios de referidos.");
   }
 
   return data;
-}
-
-async function shouldActivateReferralRewardNow({
-  supabase,
-  userId
-}: {
-  supabase: SupabaseClient;
-  userId: string;
-}) {
-  const [paidResult, activeRewardResult] = await Promise.all([
-    hasActivePaidSubscription(supabase, userId),
-    findActiveReferralReward(supabase, userId)
-  ]);
-
-  return !paidResult && !activeRewardResult?.id;
 }
 
 async function hasActivePaidSubscription(supabase: SupabaseClient, userId: string) {
@@ -517,10 +591,15 @@ async function hasActivePaidSubscription(supabase: SupabaseClient, userId: strin
     .from("business_memberships")
     .select("business_id")
     .eq("user_id", userId)
+    .eq("role", "owner")
     .limit(1)
     .maybeSingle<{ business_id: string }>();
 
-  if (membershipError || !membership?.business_id) {
+  if (membershipError) {
+    throw new Error("No pudimos verificar tu suscripción.");
+  }
+
+  if (!membership?.business_id) {
     return false;
   }
 
@@ -534,7 +613,11 @@ async function hasActivePaidSubscription(supabase: SupabaseClient, userId: strin
     .limit(1)
     .maybeSingle();
 
-  return !error && Boolean(data?.id);
+  if (error) {
+    throw new Error("No pudimos verificar tu suscripción.");
+  }
+
+  return Boolean(data?.id);
 }
 
 async function getUserBusinessSubscriptionTier(supabase: SupabaseClient, userId: string) {
@@ -542,11 +625,16 @@ async function getUserBusinessSubscriptionTier(supabase: SupabaseClient, userId:
     .from("business_memberships")
     .select("business_id")
     .eq("user_id", userId)
+    .eq("role", "owner")
     .limit(1)
     .maybeSingle<{ business_id: string }>();
 
-  if (membershipError || !membership?.business_id) {
-    return "free";
+  if (membershipError) {
+    throw new Error("No pudimos verificar el plan de tu negocio.");
+  }
+
+  if (!membership?.business_id) {
+    throw new ReferralRewardNotAvailableError("Solo la cuenta propietaria puede activar Pro con referidos.");
   }
 
   const { data, error } = await supabase
@@ -556,11 +644,11 @@ async function getUserBusinessSubscriptionTier(supabase: SupabaseClient, userId:
     .limit(1)
     .maybeSingle<{ subscription_tier: "free" | "pro" }>();
 
-  if (error) {
-    return "free";
+  if (error || !data) {
+    throw new Error("No pudimos verificar el plan de tu negocio.");
   }
 
-  return data?.subscription_tier ?? "free";
+  return data.subscription_tier;
 }
 
 async function getAvailableReferralRewardDays(supabase: SupabaseClient, userId: string) {
@@ -571,7 +659,7 @@ async function getAvailableReferralRewardDays(supabase: SupabaseClient, userId: 
     .eq("status", "available");
 
   if (error) {
-    return 0;
+    throw new Error("No pudimos consultar tus beneficios de referidos.");
   }
 
   return (data ?? []).reduce((total, reward) => total + Number(reward.days_remaining ?? 0), 0);
@@ -607,7 +695,7 @@ async function findBusinessOwnerUserId(supabase: SupabaseClient, businessId: str
     .maybeSingle<{ user_id: string }>();
 
   if (error) {
-    return null;
+    throw new Error("No pudimos verificar el propietario del negocio.");
   }
 
   return data?.user_id ?? null;
@@ -626,17 +714,69 @@ async function setUserBusinessTier({
     .from("business_memberships")
     .select("business_id")
     .eq("user_id", userId)
+    .eq("role", "owner")
     .limit(1)
     .maybeSingle<{ business_id: string }>();
 
   if (!membership?.business_id) {
+    return false;
+  }
+
+  const { error } = await supabase
+    .from("businesses")
+    .update({ subscription_tier: subscriptionTier })
+    .eq("id", membership.business_id);
+
+  return !error;
+}
+
+async function claimFreeBusinessTierForUser(supabase: SupabaseClient, userId: string) {
+  const { data: membership, error: membershipError } = await supabase
+    .from("business_memberships")
+    .select("business_id")
+    .eq("user_id", userId)
+    .eq("role", "owner")
+    .limit(1)
+    .maybeSingle<{ business_id: string }>();
+
+  if (membershipError) {
+    throw new Error("No pudimos verificar el negocio de tu cuenta.");
+  }
+
+  if (!membership?.business_id) {
+    throw new ReferralRewardNotAvailableError("Solo la cuenta propietaria puede activar Pro con referidos.");
+  }
+
+  const { data: business, error } = await supabase
+    .from("businesses")
+    .update({ subscription_tier: "pro" })
+    .eq("id", membership.business_id)
+    .eq("subscription_tier", "free")
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (error) {
+    throw new Error("No pudimos activar Pro con referidos. Intentá nuevamente.");
+  }
+
+  return business?.id ?? null;
+}
+
+async function restoreFreeBusinessTierIfEligible(supabase: SupabaseClient, userId: string, businessId: string) {
+  const [hasPaidSubscription, activeReward] = await Promise.all([
+    hasActivePaidSubscription(supabase, userId),
+    findActiveReferralReward(supabase, userId)
+  ]);
+
+  if (hasPaidSubscription || activeReward?.id) {
     return;
   }
 
   await supabase
     .from("businesses")
-    .update({ subscription_tier: subscriptionTier })
-    .eq("id", membership.business_id);
+    .update({ subscription_tier: "free" })
+    .eq("id", businessId)
+    .eq("subscription_tier", "pro");
 }
 
 async function getUserReferralProfile(supabase: SupabaseClient, userId: string) {

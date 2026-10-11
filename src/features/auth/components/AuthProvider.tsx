@@ -44,7 +44,7 @@ type AuthContextValue = {
   userId: string | null;
   userEmail: string | null;
   login: (email: string, password: string, rememberSession: boolean) => Promise<LoginResult>;
-  signUp: (email: string, password: string, rememberSession: boolean) => Promise<SignUpResult>;
+  signUp: (email: string, password: string, rememberSession: boolean, businessName: string) => Promise<SignUpResult>;
   resendEmailConfirmation: (email: string) => Promise<PasswordResetRequestResult>;
   requestPasswordReset: (email: string) => Promise<PasswordResetRequestResult>;
   updatePassword: (password: string) => Promise<PasswordUpdateResult>;
@@ -213,7 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password
     });
 
-    if (error || !data.user) {
+    if (error || !data.user || !data.session) {
       isAuthActionInProgress.current = false;
       setAuthState({ status: "guest", userEmail: null, userId: null });
       clearLocalAuthStorage();
@@ -232,18 +232,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     isAuthActionInProgress.current = false;
-    setAuthState((current) => ({ ...current, status: "bootstrapping" }));
-
-    try {
-      trackBusinessCreated(await bootstrapWorkspace(data.session?.access_token));
-    } catch (bootstrapError) {
-      await signOutLocally();
-      return {
-        status: "error",
-        message: getAuthBootstrapErrorMessage(bootstrapError)
-      };
-    }
-
     clearRecoverySession();
     setAuthState({
       status: "authenticated",
@@ -254,15 +242,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { status: "authenticated" };
   }
 
-  async function signUp(email: string, password: string, rememberSession: boolean): Promise<SignUpResult> {
+  async function signUp(email: string, password: string, rememberSession: boolean, businessName: string): Promise<SignUpResult> {
     setSupabaseSessionPersistence(rememberSession);
     isAuthActionInProgress.current = true;
     const supabase = getSupabaseBrowserClient();
     const normalizedEmail = email.trim().toLowerCase();
+    const normalizedBusinessName = businessName.trim().replace(/\s+/g, " ").slice(0, 80);
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
       options: {
+        data: {
+          business_name: normalizedBusinessName
+        },
         emailRedirectTo: getEmailConfirmationRedirectUrl()
       }
     });
@@ -299,7 +291,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         trackMetaEvent("CompleteRegistration", {
           method: "email"
         });
-        trackBusinessCreated(await bootstrapWorkspace(data.session.access_token));
+        trackBusinessCreated(await bootstrapWorkspace(data.session.access_token, {
+          businessName: normalizedBusinessName
+        }));
       } catch (bootstrapError) {
         await signOutLocally();
         return {

@@ -7,7 +7,7 @@ import { ToastMessage } from "@/components/ui/Toast";
 import { shouldRepairWorkspaceAfterSnapshotError } from "@/features/auth/auth-bootstrap";
 import { useAuth } from "@/features/auth/components/AuthProvider";
 import { messages, Messages } from "@/features/scheduling/i18n/messages";
-import { getWorkspaceLoadMode } from "@/features/scheduling/scheduling-workspace-cache";
+import { getWorkspaceLoadMode, shouldShowWorkspaceLoading, withWorkspaceLoadTimeout } from "@/features/scheduling/scheduling-workspace-cache";
 import { bootstrapWorkspace } from "@/lib/networking/endpoints/auth";
 import {
   Appointment,
@@ -52,7 +52,8 @@ import {
   updateSchedulingPreferences,
 } from "@/lib/networking/endpoints/scheduling";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
-import { activateReferralProgram as activateReferralProgramRequest } from "@/lib/networking/endpoints/referrals";
+import { activateReferralProgram as activateReferralProgramRequest, activateReferralReward as activateReferralRewardRequest } from "@/lib/networking/endpoints/referrals";
+import type { ReferralSummary } from "@/features/scheduling/types";
 import { SubscriptionPurchase } from "@/lib/networking/endpoints/subscription";
 import { trackGoogleEvent } from "@/lib/analytics/ga";
 import { trackMetaEvent, trackMetaEventOnce } from "@/lib/analytics/meta";
@@ -99,6 +100,7 @@ type SchedulingContextValue = {
   cancelProSubscription: () => Promise<boolean>;
   refreshWorkspaceSubscription: (preapprovalId?: string) => Promise<{ purchase: SubscriptionPurchase | null; status: string; subscriptionTier: SubscriptionTier } | null>;
   activateReferralProgram: () => Promise<boolean>;
+  activateReferralReward: () => Promise<ReferralSummary | null>;
   setTheme: (theme: ThemeId) => Promise<boolean>;
   showToast: (toast: Omit<ToastMessage, "id">) => void;
   theme: ThemeId;
@@ -129,6 +131,8 @@ const emptyProfile: Profile = {
   subscriptionAccessSource: "free",
   referralSummary: {
     activeDaysRemaining: 0,
+    availableDays: 0,
+    availableRewardCount: 0,
     availableMonths: 0,
     isProgramActive: false,
     premiumReferralCount: 0,
@@ -207,7 +211,11 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     requestedScope: snapshotScope
   });
   const isSnapshotScopePending = workspaceLoadMode === "initial";
-  const isWorkspaceLoading = isLoading || isSnapshotScopePending;
+  const isWorkspaceLoading = shouldShowWorkspaceLoading({
+    hasLoadError: Boolean(loadError),
+    isLoading,
+    isSnapshotScopePending
+  });
 
   function clearWorkspace() {
     didAttemptWorkspaceRepair.current = false;
@@ -283,7 +291,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     latestHydrateRequestId.current = requestId;
 
     try {
-      const snapshot = await loadSchedulingSnapshotWithRepair();
+      const snapshot = await withWorkspaceLoadTimeout(loadSchedulingSnapshotWithRepair());
 
       if (requestId !== latestHydrateRequestId.current || loadedSnapshotUserIdRef.current !== authUserId) {
         return false;
@@ -756,6 +764,30 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function activateReferralReward() {
+    try {
+      const summary = await activateReferralRewardRequest();
+      setProfileState((current) => ({
+        ...current,
+        referralSummary: summary,
+        subscriptionAccessSource: summary.subscriptionAccessSource,
+        subscriptionTier: summary.subscriptionAccessSource === "free" ? "free" : "pro"
+      }));
+      showToast({
+        tone: "success",
+        title: copy.profile.referralRewardActivatedToast
+      });
+      return summary;
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: copy.toast.error,
+        description: getErrorMessage(error, "No pudimos activar Pro con referidos.")
+      });
+      return null;
+    }
+  }
+
   async function createAppointment(appointment: Appointment, addonIds: string[] = []) {
     if (!businessId) {
       return false;
@@ -975,6 +1007,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         createAppointment,
         archiveEmployee,
         activateReferralProgram,
+        activateReferralReward,
         archiveService,
         deleteAppointment,
         deleteBusinessDayBlock,

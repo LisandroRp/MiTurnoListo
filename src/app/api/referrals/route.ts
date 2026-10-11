@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { activateReferralProgramForUser, getReferralSummary } from "@/lib/referrals";
+import { activateReferralProgramForUser, activateReferralRewardForUser, getReferralSummary, ReferralRewardNotAvailableError } from "@/lib/referrals";
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 
@@ -48,6 +48,30 @@ export async function POST(request: NextRequest) {
       code: "REFERRAL_ACTIVATION_FAILED",
       fallbackMessage: "No pudimos activar tu código de referidos.",
       status: 500
+    });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  const authResult = await authenticateRequest(request);
+
+  if ("response" in authResult) {
+    return authResult.response;
+  }
+
+  try {
+    const summary = await activateReferralRewardForUser({
+      origin: request.nextUrl.origin,
+      supabase: authResult.supabase,
+      userId: authResult.user.id
+    });
+
+    return NextResponse.json({ summary });
+  } catch (error) {
+    return createApiErrorResponse(error, {
+      code: "REFERRAL_REWARD_ACTIVATION_FAILED",
+      fallbackMessage: "No pudimos activar Pro con referidos.",
+      status: error instanceof ReferralRewardNotAvailableError ? 409 : 500
     });
   }
 }

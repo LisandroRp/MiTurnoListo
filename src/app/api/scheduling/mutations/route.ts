@@ -25,6 +25,7 @@ import { sendBookingCancelledEmails } from "@/lib/email/booking-emails";
 import { refundMercadoPagoPayment } from "@/lib/mercadopago/checkout";
 import { notifyPlanLimitReached } from "@/lib/notifications/plan-limits";
 import { isUuid, normalizeSlug } from "@/lib/slugs";
+import { reconcileExpiredReferralTierForBusiness } from "@/lib/referrals";
 
 type SchedulingMutationPayload =
   | {
@@ -283,9 +284,23 @@ async function getBusinessContext(supabase: SupabaseClient, businessId: string) 
     };
   }
 
+  let subscriptionTier: string;
+
+  try {
+    subscriptionTier = await reconcileExpiredReferralTierForBusiness({
+      businessId,
+      subscriptionTier: data.subscription_tier,
+      supabase
+    });
+  } catch {
+    return {
+      response: NextResponse.json({ error: "Unable to validate referral access." }, { status: 500 })
+    };
+  }
+
   return {
     context: {
-      subscriptionTier: data.subscription_tier,
+      subscriptionTier,
       timeZone: data.timezone
     } satisfies BusinessContext
   };

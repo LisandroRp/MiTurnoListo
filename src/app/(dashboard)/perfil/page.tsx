@@ -15,11 +15,13 @@ export default function ProfileSectionPage() {
   const hasSyncedSubscription = useRef(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [referralSummary, setReferralSummary] = useState<ReferralSummary | null>(null);
+  const [hasReferralSummaryError, setHasReferralSummaryError] = useState(false);
   const [isReferralSummaryLoading, setIsReferralSummaryLoading] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const {
+    activateReferralReward,
     businessId,
     cancelProSubscription,
     messages,
@@ -75,11 +77,13 @@ export default function ProfileSectionPage() {
       .then((summary) => {
         if (isActive) {
           setReferralSummary(summary);
+          setHasReferralSummaryError(false);
         }
       })
       .catch(() => {
         if (isActive) {
           setReferralSummary(null);
+          setHasReferralSummaryError(true);
         }
       })
       .finally(() => {
@@ -155,12 +159,25 @@ export default function ProfileSectionPage() {
     window.location.assign(result.checkoutUrl);
   }
 
+  async function handleActivateReferralReward() {
+    const summary = await activateReferralReward();
+
+    if (!summary) {
+      return false;
+    }
+
+    setReferralSummary(summary);
+    setHasReferralSummaryError(false);
+    return true;
+  }
+
   return (
     <ProfileView
       messages={messages}
       profile={profileWithReferralSummary}
       businessId={businessId}
       isSuperAdmin={isSuperAdmin}
+      hasReferralSummaryError={hasReferralSummaryError}
       isReferralSummaryLoading={Boolean(businessId) && isReferralSummaryLoading}
       locale={locale}
       theme={theme}
@@ -173,6 +190,7 @@ export default function ProfileSectionPage() {
       onBusinessImageUploadError={(message) => showToast({ tone: "error", title: messages.toast.error, description: message })}
       onSubscribeToPro={handleSubscribeToPro}
       onUnsubscribeFromPro={cancelProSubscription}
+      onActivateReferralReward={handleActivateReferralReward}
     />
   );
 }

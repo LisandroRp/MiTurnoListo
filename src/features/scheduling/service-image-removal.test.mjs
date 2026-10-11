@@ -244,6 +244,26 @@ test("assisted booking success keeps submitted date time and employee", () => {
   assert.equal(bookingFlow.includes("employeeName={confirmedBookingSummary?.employeeName ?? selectedEmployee?.name ?? \"\"}"), true);
 });
 
+test("signup captures the business name before workspace bootstrap", () => {
+  const signUpForm = readProjectFile("src/features/auth/components/SignUpForm.tsx");
+  const authProvider = readProjectFile("src/features/auth/components/AuthProvider.tsx");
+  const authEndpoint = readProjectFile("src/lib/networking/endpoints/auth.ts");
+  const bootstrapRoute = readProjectFile("src/app/api/auth/bootstrap/route.ts");
+
+  assert.equal(signUpForm.includes('label="Nombre del negocio"'), true);
+  assert.equal(signUpForm.includes('name="signup-business-name"'), true);
+  assert.equal(signUpForm.includes("maxLength={80}"), true);
+  assert.equal(signUpForm.includes("setErrorMessage(\"Ingresá el nombre de tu negocio.\")"), true);
+  assert.equal(signUpForm.includes("signUp(email, password, rememberSession, businessName)"), true);
+  assert.equal(authProvider.includes('businessName.trim().replace(/\\s+/g, " ").slice(0, 80)'), true);
+  assert.equal(authProvider.includes("business_name: normalizedBusinessName"), true);
+  assert.equal(authProvider.includes("businessName: normalizedBusinessName"), true);
+  assert.equal(authEndpoint.includes("businessName: options.businessName"), true);
+  assert.equal(bootstrapRoute.includes("getRequestedBusinessName(payload.businessName, user.user_metadata)"), true);
+  assert.equal(bootstrapRoute.includes('typeof payloadBusinessName === "string"'), true);
+  assert.equal(bootstrapRoute.includes("userMetadata?.business_name"), true);
+});
+
 test("payments dashboard shows useful payment summary metrics", () => {
   const paymentsView = readProjectFile("src/features/scheduling/components/PaymentsView.tsx");
   const paymentsEndpoint = readProjectFile("src/lib/networking/endpoints/payments.ts");

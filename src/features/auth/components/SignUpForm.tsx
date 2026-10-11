@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FiCheckCircle, FiEye, FiEyeOff, FiLock, FiMail } from "react-icons/fi";
+import { FiBriefcase, FiCheckCircle, FiEye, FiEyeOff, FiLock, FiMail } from "react-icons/fi";
 
 import { Button } from "@/components/ui/Button";
 import { CheckboxField } from "@/components/ui/CheckboxField";
@@ -18,6 +18,7 @@ type SignUpFormProps = {
 export function SignUpForm({ nextPath }: SignUpFormProps) {
   const { signUp } = useAuth();
   const router = useRouter();
+  const [businessName, setBusinessName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -35,6 +36,11 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
     setSuccessMessage("");
     setConfirmationEmail("");
 
+    if (!businessName.trim()) {
+      setErrorMessage("Ingresá el nombre de tu negocio.");
+      return;
+    }
+
     if (password.length < 6) {
       setErrorMessage("La password tiene que tener al menos 6 caracteres.");
       return;
@@ -46,7 +52,7 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
     }
 
     setIsSubmitting(true);
-    const result = await signUp(email, password, rememberSession);
+    const result = await signUp(email, password, rememberSession, businessName);
     setIsSubmitting(false);
 
     if (result.status === "error") {
@@ -65,6 +71,17 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
 
   return (
     <form className="grid gap-4" onSubmit={handleSubmit}>
+      <TextField
+        label="Nombre del negocio"
+        name="signup-business-name"
+        type="text"
+        value={businessName}
+        autoComplete="organization"
+        maxLength={80}
+        prefix={<FiBriefcase />}
+        required
+        onChange={(event) => setBusinessName(event.target.value)}
+      />
       <TextField
         label="Email"
         name="signup-email"
@@ -141,7 +158,7 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
         </div>
       ) : null}
 
-      <Button type="submit" size="lg" isLoading={isSubmitting} disabled={!email || !password || !confirmPassword}>
+      <Button type="submit" size="lg" isLoading={isSubmitting} disabled={!businessName.trim() || !email || !password || !confirmPassword}>
         Crear cuenta
       </Button>
 

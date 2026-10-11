@@ -11,6 +11,7 @@ import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { ProfileSuperAdminPanel } from "@/features/scheduling/components/ProfileSuperAdminPanel";
+import { ProfileReferralRewardCallout } from "@/features/scheduling/components/ProfileReferralRewardCallout";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { BusinessProfile, Locale, Profile, SubscriptionTier, ThemeId } from "@/features/scheduling/types";
 import {
@@ -30,6 +31,7 @@ type ProfileViewProps = {
   profile: Profile;
   businessId: string | null;
   isSuperAdmin: boolean;
+  hasReferralSummaryError: boolean;
   isReferralSummaryLoading: boolean;
   locale: Locale;
   theme: ThemeId;
@@ -42,6 +44,7 @@ type ProfileViewProps = {
   onBusinessImageUploadError: (message: string) => void;
   onSubscribeToPro: () => Promise<void>;
   onUnsubscribeFromPro: () => Promise<boolean>;
+  onActivateReferralReward: () => Promise<boolean>;
 };
 
 export function ProfileView({
@@ -49,6 +52,7 @@ export function ProfileView({
   profile,
   businessId,
   isSuperAdmin,
+  hasReferralSummaryError,
   isReferralSummaryLoading,
   locale,
   theme,
@@ -60,7 +64,8 @@ export function ProfileView({
   onThemeChange,
   onBusinessImageUploadError,
   onSubscribeToPro,
-  onUnsubscribeFromPro
+  onUnsubscribeFromPro,
+  onActivateReferralReward
 }: ProfileViewProps) {
   const plansRef = useRef<HTMLDivElement>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
@@ -326,30 +331,19 @@ export function ProfileView({
               className="mt-6 w-full cursor-pointer rounded-lg bg-brand-soft p-4 text-center transition-all hover:-translate-y-0.5 hover:shadow-sm"
             >
               <p className="text-xs font-semibold text-brand-strong">{messages.profile.plan}</p>
-              {isReferralSummaryLoading ? (
-                <span className="mx-auto mt-2 block h-5 w-28 animate-pulse rounded-full bg-surface-strong" aria-hidden="true" />
-              ) : (
-                <p className="mt-1 text-lg font-bold text-primary">{getPlanDisplayName(messages, profile)}</p>
-              )}
+              <p className="mt-1 text-lg font-bold text-primary">
+                {isReferralSummaryLoading
+                  ? (isProPlan ? messages.profile.proPlan : messages.profile.freePlan)
+                  : getPlanDisplayName(messages, profile)}
+              </p>
             </button>
-            {isReferralSummaryLoading ? (
-              <div className="mt-3 rounded-lg border border-subtle bg-input p-4" aria-hidden="true">
-                <span className="block h-4 w-32 animate-pulse rounded-full bg-surface-strong" />
-                <span className="mt-3 block h-4 w-full animate-pulse rounded-full bg-surface-strong" />
-                <span className="mt-2 block h-4 w-3/4 animate-pulse rounded-full bg-surface-strong" />
-              </div>
-            ) : isReferralPlan ? (
-              <div className="mt-3 rounded-lg border border-brand bg-brand-soft p-4">
-                <p className="text-sm font-bold text-brand-strong">{messages.profile.referralProActiveTitle}</p>
-                <p className="mt-1 text-sm leading-6 text-muted">
-                  {messages.profile.referralProActivePrefix}{" "}
-                  <span className="font-bold text-primary">
-                    {profile.referralSummary.activeDaysRemaining} {messages.profile.superAdminReferralDays}
-                  </span>{" "}
-                  {messages.profile.referralProActiveSuffix}
-                </p>
-              </div>
-            ) : null}
+            <ProfileReferralRewardCallout
+              hasError={hasReferralSummaryError}
+              isLoading={isReferralSummaryLoading}
+              messages={messages}
+              onActivate={onActivateReferralReward}
+              profile={profile}
+            />
           </Card>
         ) : null}
 

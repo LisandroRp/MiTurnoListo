@@ -30,12 +30,12 @@ export function ResetPasswordForm({ forgotPasswordHref, loginHref }: ResetPasswo
     setSuccessMessage("");
 
     if (password.length < 6) {
-      setErrorMessage("La password tiene que tener al menos 6 caracteres.");
+      setErrorMessage("La contraseña tiene que tener al menos 6 caracteres.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setErrorMessage("Las passwords no coinciden.");
+      setErrorMessage("Las contraseñas no coinciden.");
       return;
     }
 
@@ -48,7 +48,7 @@ export function ResetPasswordForm({ forgotPasswordHref, loginHref }: ResetPasswo
       return;
     }
 
-    setSuccessMessage("Actualizamos tu password. Ya puedes iniciar sesion con la nueva clave.");
+    setSuccessMessage("Actualizamos tu contraseña. Ya podés iniciar sesión con la nueva clave.");
     setPassword("");
     setConfirmPassword("");
   }
@@ -57,10 +57,10 @@ export function ResetPasswordForm({ forgotPasswordHref, loginHref }: ResetPasswo
     return (
       <div className="grid gap-4">
         <div className="rounded-lg border border-warning bg-warning-soft p-3 text-sm font-semibold text-warning">
-          Este enlace de recuperacion ya vencio o no es valido. Pide uno nuevo para continuar.
+          Este enlace de recuperación venció o no es válido. Pedí uno nuevo para continuar.
         </div>
         <Link href={forgotPasswordHref} className="text-sm font-semibold text-brand-strong hover:text-brand">
-          Pedir otro reset
+          Pedir otro enlace
         </Link>
       </div>
     );
@@ -70,17 +70,17 @@ export function ResetPasswordForm({ forgotPasswordHref, loginHref }: ResetPasswo
     <form className="grid gap-4" onSubmit={handleSubmit}>
       {userEmail ? (
         <div className="rounded-lg border border-subtle bg-input p-3 text-sm text-muted">
-          Vas a actualizar la password de <span className="font-semibold text-primary">{userEmail}</span>.
+          Vas a actualizar la contraseña de <span className="font-semibold text-primary">{userEmail}</span>.
         </div>
       ) : null}
 
       <TextField
-        label="Nueva password"
+        label="Nueva contraseña"
         name="recovery-password"
         type={showPassword ? "text" : "password"}
         value={password}
         autoComplete="new-password"
-        helperText="Usa al menos 6 caracteres."
+        helperText="Usá al menos 6 caracteres."
         prefix={<FiLock />}
         required
         onChange={(event) => setPassword(event.target.value)}
@@ -88,7 +88,7 @@ export function ResetPasswordForm({ forgotPasswordHref, loginHref }: ResetPasswo
           <button
             type="button"
             className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-muted transition-colors hover:bg-surface-strong hover:text-primary"
-            aria-label={showPassword ? "Ocultar password" : "Mostrar password"}
+            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
             onClick={() => setShowPassword((current) => !current)}
           >
             {showPassword ? <FiEyeOff /> : <FiEye />}
@@ -96,7 +96,7 @@ export function ResetPasswordForm({ forgotPasswordHref, loginHref }: ResetPasswo
         }
       />
       <TextField
-        label="Confirm password"
+        label="Confirmar contraseña"
         name="recovery-confirm-password"
         type={showConfirmPassword ? "text" : "password"}
         value={confirmPassword}
@@ -108,7 +108,7 @@ export function ResetPasswordForm({ forgotPasswordHref, loginHref }: ResetPasswo
           <button
             type="button"
             className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-muted transition-colors hover:bg-surface-strong hover:text-primary"
-            aria-label={showConfirmPassword ? "Ocultar password" : "Mostrar password"}
+            aria-label={showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
             onClick={() => setShowConfirmPassword((current) => !current)}
           >
             {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
@@ -137,11 +137,11 @@ export function ResetPasswordForm({ forgotPasswordHref, loginHref }: ResetPasswo
         isLoading={isSubmitting}
         disabled={!password || !confirmPassword || !isRecoveryReady}
       >
-        Guardar nueva password
+        Guardar nueva contraseña
       </Button>
 
       <Link href={loginHref} className="text-sm font-semibold text-brand-strong hover:text-brand">
-        Volver al login
+        Volver a iniciar sesión
       </Link>
     </form>
   );

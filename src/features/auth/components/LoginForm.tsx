@@ -64,7 +64,7 @@ export function LoginForm({ nextPath, defaultEmail = "", forgotPasswordHref }: L
         onChange={(event) => setEmail(event.target.value)}
       />
       <TextField
-        label="Password"
+        label="Contraseña"
         name="password"
         type={showPassword ? "text" : "password"}
         value={password}
@@ -76,7 +76,7 @@ export function LoginForm({ nextPath, defaultEmail = "", forgotPasswordHref }: L
           <button
             type="button"
             className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-muted transition-colors hover:bg-surface-strong hover:text-primary"
-            aria-label={showPassword ? "Ocultar password" : "Mostrar password"}
+            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
             onClick={() => setShowPassword((current) => !current)}
           >
             {showPassword ? <FiEyeOff /> : <FiEye />}
@@ -84,8 +84,8 @@ export function LoginForm({ nextPath, defaultEmail = "", forgotPasswordHref }: L
         }
       />
       <CheckboxField
-        label="Mantener sesion"
-        helperText="Si lo desactivas, la sesion se mantiene solo en esta pestaña."
+        label="Mantener sesión"
+        helperText="Si lo desactivás, la sesión se mantiene solo en esta pestaña."
         checked={rememberSession}
         onChange={(event) => setRememberSession(event.target.checked)}
       />
@@ -94,7 +94,7 @@ export function LoginForm({ nextPath, defaultEmail = "", forgotPasswordHref }: L
           href={forgotPasswordHref}
           className="text-sm font-semibold text-brand-strong hover:text-brand"
         >
-          Olvide mi password
+          Olvidé mi contraseña
         </Link>
       </div>
 

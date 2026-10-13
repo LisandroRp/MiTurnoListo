@@ -23,58 +23,58 @@ type AuthMode = "login" | "signup" | "forgot" | "recovery";
 const authCopy = {
   login: {
     sideBadge: "Acceso seguro",
-    sideTitle: "Entra y deja que la agenda trabaje por vos.",
-    sideDescription: "Gestiona turnos, servicios, equipo y cobros desde un panel simple pensado para tu negocio.",
+    sideTitle: "Entrá y dejá que la agenda trabaje por vos.",
+    sideDescription: "Gestioná turnos, servicios, equipo y cobros desde un panel simple pensado para tu negocio.",
     cardBadge: "Acceso al dashboard",
-    cardTitle: "Iniciar sesion",
-    cardDescription: "Ingresa con tu mail y password para entrar al panel.",
-    switchPrompt: "No tenes cuenta?",
+    cardTitle: "Iniciar sesión",
+    cardDescription: "Ingresá con tu mail y contraseña para entrar al panel.",
+    switchPrompt: "¿No tenés cuenta?",
     switchLabel: "Crear cuenta"
   },
   signup: {
     sideBadge: "Nuevo acceso",
-    sideTitle: "Crea tu cuenta y empeza a ordenar tus turnos desde hoy.",
-    sideDescription: "Configura tu espacio en minutos y deja lista una agenda online para que tus clientes puedan reservar.",
+    sideTitle: "Creá tu cuenta y empezá a ordenar tus turnos desde hoy.",
+    sideDescription: "Configurá tu espacio en minutos y dejá lista una agenda online para que tus clientes puedan reservar.",
     sideFooterTitle: "Antes de arrancar",
     sideFooterLines: [
-      "Usa un mail al que tengas acceso real.",
-      "Si pedimos confirmacion, revisa tu casilla para activar la cuenta."
+      "Usá un mail al que tengas acceso.",
+      "Si te pedimos confirmación, revisá tu casilla para activar la cuenta."
     ],
     cardBadge: "Alta de cuenta",
     cardTitle: "Crear cuenta",
-    cardDescription: "Crea un usuario nuevo para entrar al panel con tus propias credenciales.",
-    switchPrompt: "Ya tenes cuenta?",
-    switchLabel: "Iniciar sesion"
+    cardDescription: "Creá un usuario nuevo para entrar al panel con tus propias credenciales.",
+    switchPrompt: "¿Ya tenés cuenta?",
+    switchLabel: "Iniciar sesión"
   },
   forgot: {
     sideBadge: "Recuperar acceso",
-    sideTitle: "Recupera el acceso sin salir de tu agenda.",
-    sideDescription: "Te mandamos un mail seguro con el link para volver a definir tu password.",
+    sideTitle: "Recuperá el acceso a tu agenda.",
+    sideDescription: "Te mandamos un mail con un enlace para restablecer tu contraseña.",
     sideFooterTitle: "Antes de enviarlo",
     sideFooterLines: [
-      "Usa el mismo mail con el que entras al panel.",
-      "Abre el link desde el dispositivo donde estas trabajando."
+      "Usá el mismo mail con el que entrás al panel.",
+      "Abrí el enlace desde el dispositivo donde estás trabajando."
     ],
-    cardBadge: "Recuperacion por mail",
-    cardTitle: "Olvide mi password",
-    cardDescription: "Ingresa tu mail y te enviamos un enlace para crear una nueva password.",
-    switchPrompt: "Recordaste tu password?",
-    switchLabel: "Volver al login"
+    cardBadge: "Recuperación por mail",
+    cardTitle: "Olvidé mi contraseña",
+    cardDescription: "Ingresá tu mail y te enviamos un enlace para crear una nueva contraseña.",
+    switchPrompt: "¿Recordaste tu contraseña?",
+    switchLabel: "Volver a iniciar sesión"
   },
   recovery: {
-    sideBadge: "Recuperacion activa",
-    sideTitle: "Define tu nueva password y vuelve a entrar.",
-    sideDescription: "Cuando abras el link del mail, volves a esta pantalla para cerrar el cambio.",
+    sideBadge: "Recuperación activa",
+    sideTitle: "Definí tu nueva contraseña y volvé a entrar.",
+    sideDescription: "Cuando abras el enlace del mail, volvés a esta pantalla para completar el cambio.",
     sideFooterTitle: "Importante",
     sideFooterLines: [
-      "El link de recuperacion es temporal.",
-      "Si vence, puedes pedir otro reset desde el login."
+      "El enlace de recuperación es temporal.",
+      "Si vence, podés pedir otro desde el inicio de sesión."
     ],
-    cardBadge: "Nueva password",
-    cardTitle: "Actualizar password",
-    cardDescription: "Elige una nueva clave para tu cuenta y luego vuelve a iniciar sesion.",
-    switchPrompt: "Necesitas otro link?",
-    switchLabel: "Pedir nuevo reset"
+    cardBadge: "Nueva contraseña",
+    cardTitle: "Actualizar contraseña",
+    cardDescription: "Elegí una nueva contraseña para tu cuenta y luego volvé a iniciar sesión.",
+    switchPrompt: "¿Necesitás otro enlace?",
+    switchLabel: "Pedir otro enlace"
   }
 } as const;
 
@@ -134,7 +134,7 @@ export function AuthPanel() {
   }, [mode, nextPath, router, status]);
 
   if (status === "loading" || status === "bootstrapping" || (status === "authenticated" && mode !== "recovery")) {
-    return <WorkspaceLoadingState title={status === "bootstrapping" ? "Cargando tu espacio..." : "Verificando tu sesion..."} />;
+    return <WorkspaceLoadingState title={status === "bootstrapping" ? "Cargando tu espacio..." : "Verificando tu sesión..."} />;
   }
 
   return (

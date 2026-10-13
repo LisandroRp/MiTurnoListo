@@ -132,7 +132,7 @@ test("shows each business lifetime payments beside the monthly summary", () => {
 
   assert.ok(table);
   assert.ok(table.indexOf("Example business") < table.indexOf("Manual business"));
-  assert.match(html, /Sort by<select[^>]*><option value="name" selected="">Name \(A–Z\)<\/option><option value="newest">Newest first<\/option><option value="oldest">Oldest first<\/option><\/select>/);
+  assert.match(html, /Sort by<select[^>]*><option value="name">Name \(A–Z\)<\/option><option value="newest" selected="">Newest first<\/option><option value="oldest">Oldest first<\/option><\/select>/);
   assert.match(table, /<th[^>]*>Total paid<\/th>/);
   assert.match(table, /<td[^>]*>ARS 1000<\/td>/);
   assert.match(html, /Total paid: <span[^>]*>ARS 1000<\/span>/);

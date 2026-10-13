@@ -33,7 +33,7 @@ export function ForgotPasswordForm({ defaultEmail = "" }: ForgotPasswordFormProp
       return;
     }
 
-    setSuccessMessage(`Te enviamos un link de recuperacion a ${result.email}. Revisa tu casilla y abre el mail desde ese dispositivo.`);
+    setSuccessMessage(`Te enviamos un enlace de recuperación a ${result.email}. Revisá tu casilla y abrí el enlace.`);
   }
 
   return (
@@ -65,7 +65,7 @@ export function ForgotPasswordForm({ defaultEmail = "" }: ForgotPasswordFormProp
       ) : null}
 
       <Button type="submit" size="lg" isLoading={isSubmitting} disabled={!email}>
-        Enviar reset password
+        Enviar enlace de recuperación
       </Button>
     </form>
   );

@@ -42,12 +42,12 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
     }
 
     if (password.length < 6) {
-      setErrorMessage("La password tiene que tener al menos 6 caracteres.");
+      setErrorMessage("La contraseña tiene que tener al menos 6 caracteres.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setErrorMessage("Las passwords no coinciden.");
+      setErrorMessage("Las contraseñas no coinciden.");
       return;
     }
 
@@ -66,7 +66,7 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
     }
 
     setConfirmationEmail(result.email);
-    setSuccessMessage(`Tu cuenta se creo correctamente. Te enviamos un mail a ${result.email} para confirmar tu cuenta antes de iniciar sesion.`);
+    setSuccessMessage(`Tu cuenta se creó correctamente. Te enviamos un mail a ${result.email} para confirmarla antes de iniciar sesión.`);
   }
 
   return (
@@ -93,12 +93,12 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
         onChange={(event) => setEmail(event.target.value)}
       />
       <TextField
-        label="Password"
+        label="Contraseña"
         name="signup-password"
         type={showPassword ? "text" : "password"}
         value={password}
         autoComplete="new-password"
-        helperText="Usa al menos 6 caracteres."
+        helperText="Usá al menos 6 caracteres."
         prefix={<FiLock />}
         required
         onChange={(event) => setPassword(event.target.value)}
@@ -106,7 +106,7 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
           <button
             type="button"
             className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-muted transition-colors hover:bg-surface-strong hover:text-primary"
-            aria-label={showPassword ? "Ocultar password" : "Mostrar password"}
+            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
             onClick={() => setShowPassword((current) => !current)}
           >
             {showPassword ? <FiEyeOff /> : <FiEye />}
@@ -114,7 +114,7 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
         }
       />
       <TextField
-        label="Confirm password"
+        label="Confirmar contraseña"
         name="signup-confirm-password"
         type={showConfirmPassword ? "text" : "password"}
         value={confirmPassword}
@@ -126,7 +126,7 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
           <button
             type="button"
             className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-muted transition-colors hover:bg-surface-strong hover:text-primary"
-            aria-label={showConfirmPassword ? "Ocultar password" : "Mostrar password"}
+            aria-label={showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
             onClick={() => setShowConfirmPassword((current) => !current)}
           >
             {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
@@ -134,8 +134,8 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
         }
       />
       <CheckboxField
-        label="Mantener sesion"
-        helperText="Si el alta entra directo con sesion, recordamos este dispositivo."
+        label="Mantener sesión"
+        helperText="Si entrás directamente después de registrarte, recordamos este dispositivo."
         checked={rememberSession}
         onChange={(event) => setRememberSession(event.target.checked)}
       />
@@ -164,7 +164,7 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
 
       {successMessage ? (
         <Link href={`/login?mode=login${nextPath !== "/inicio" ? `&next=${encodeURIComponent(nextPath)}` : ""}`} className="text-sm font-semibold text-brand-strong hover:text-brand">
-          Ir al login
+          Ir a iniciar sesión
         </Link>
       ) : null}
     </form>

@@ -221,13 +221,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return {
           status: "email_not_confirmed",
           email: normalizedEmail,
-          message: "Tu email todavia no esta confirmado. Revisa tu casilla y confirma la cuenta antes de iniciar sesion."
+          message: "Tu email todavía no está confirmado. Revisá tu casilla y confirmá la cuenta antes de iniciar sesión."
         };
       }
 
       return {
         status: "error",
-        message: "Credenciales incorrectas. Revisa tu mail y password e intenta otra vez."
+        message: "Credenciales incorrectas. Revisá tu mail y contraseña e intentá otra vez."
       };
     }
 
@@ -265,7 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearLocalAuthStorage();
       return {
         status: "error",
-        message: error.message || "No pudimos crear la cuenta. Intenta otra vez."
+        message: error.message || "No pudimos crear la cuenta. Intentá otra vez."
       };
     }
 
@@ -276,7 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return {
         status: "error",
-        message: "Ya existe una cuenta con ese email. Inicia sesion o usa otro correo."
+        message: "Ya existe una cuenta con ese email. Iniciá sesión o usá otro correo."
       };
     }
 
@@ -334,7 +334,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return {
       status: "error",
-      message: "No pudimos crear la cuenta. Intenta otra vez."
+      message: "No pudimos crear la cuenta. Intentá otra vez."
     };
   }
 
@@ -352,7 +352,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) {
       return {
         status: "error",
-        message: error.message || "No pudimos reenviar el mail de confirmacion. Intenta otra vez."
+        message: error.message || "No pudimos reenviar el mail de confirmación. Intentá otra vez."
       };
     }
 
@@ -372,7 +372,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) {
       return {
         status: "error",
-        message: error.message || "No pudimos enviar el mail de recuperacion. Intenta otra vez."
+        message: error.message || "No pudimos enviar el mail de recuperación. Intentá otra vez."
       };
     }
 
@@ -386,7 +386,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (authState.status !== "recovery") {
       return {
         status: "error",
-        message: "El enlace de recuperacion ya no es valido. Solicita uno nuevo."
+        message: "El enlace de recuperación ya no es válido. Solicitá uno nuevo."
       };
     }
 
@@ -396,7 +396,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) {
       return {
         status: "error",
-        message: error.message || "No pudimos actualizar la password. Intenta otra vez."
+        message: error.message || "No pudimos actualizar la contraseña. Intentá otra vez."
       };
     }
 
@@ -455,10 +455,10 @@ function getErrorMessage(error: unknown, fallbackMessage: string) {
 }
 
 function getAuthBootstrapErrorMessage(error: unknown) {
-  const message = getErrorMessage(error, "No pudimos cargar tu espacio. Intenta otra vez.");
+  const message = getErrorMessage(error, "No pudimos cargar tu espacio. Intentá otra vez.");
 
   if (/prepare|prepar/i.test(message)) {
-    return "No pudimos cargar tu espacio. Intenta otra vez.";
+    return "No pudimos cargar tu espacio. Intentá otra vez.";
   }
 
   return message;

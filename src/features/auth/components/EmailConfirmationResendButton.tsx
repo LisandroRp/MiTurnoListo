@@ -44,7 +44,7 @@ export function EmailConfirmationResendButton({ email, initialCooldown = 0 }: Em
       return;
     }
 
-    setResendMessage(`Reenviamos el mail de confirmacion a ${result.email}.`);
+    setResendMessage(`Reenviamos el mail de confirmación a ${result.email}.`);
     setResendCooldown(30);
   }
 
@@ -63,8 +63,8 @@ export function EmailConfirmationResendButton({ email, initialCooldown = 0 }: Em
         {isResendingConfirmation
           ? "Reenviando..."
           : resendCooldown > 0
-            ? `Reenviar mail de confirmacion en ${resendCooldown}s`
-            : "Reenviar mail de confirmacion"}
+            ? `Reenviar mail de confirmación en ${resendCooldown}s`
+            : "Reenviar mail de confirmación"}
       </button>
       {resendMessage ? (
         <p className="text-sm font-semibold text-muted-strong">{resendMessage}</p>

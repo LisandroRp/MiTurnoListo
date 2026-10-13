@@ -329,7 +329,7 @@ function DayAgenda({
   return (
     <div ref={scrollContainerRef} className="overflow-auto [overflow-anchor:none]">
       <div className="min-w-[760px]">
-        <div className="sticky top-0 z-10 grid grid-cols-[4.5rem_1.2fr_1fr_1fr_0.9fr_0.8fr] border-b border-subtle bg-surface-strong px-4 py-3 text-xs font-bold uppercase tracking-[0.04em] text-muted">
+        <div className="sticky top-0 z-40 grid grid-cols-[4.5rem_1.2fr_1fr_1fr_0.9fr_0.8fr] border-b border-subtle bg-surface-strong px-4 py-3 text-xs font-bold uppercase tracking-[0.04em] text-muted">
           <span>{messages.home.time}</span>
           <span>{messages.home.customer}</span>
           <span>{messages.home.service}</span>
@@ -349,11 +349,55 @@ function DayAgenda({
               <div
                 key={hour}
                 ref={isCurrentHour ? currentHourRowRef : null}
-                className={cx(
-                  "relative grid min-h-24 grid-cols-[4.5rem_1fr] overflow-hidden border-b border-subtle transition-[max-height] duration-500 ease-in-out last:border-b-0"
-                )}
-                style={{ maxHeight: `${rowMaxHeight}px` }}
+                className="relative"
               >
+                <div
+                  className={cx(
+                    "grid min-h-24 grid-cols-[4.5rem_1fr] overflow-hidden border-subtle transition-[max-height] duration-500 ease-in-out",
+                    hour === 23 ? "border-b-0" : "border-b"
+                  )}
+                  style={{ maxHeight: `${rowMaxHeight}px` }}
+                >
+                  <div className="bg-input px-4 py-3 text-sm font-semibold text-muted">
+                    <span>{String(hour).padStart(2, "0")}:00</span>
+                    {canExpand ? (
+                      <button
+                        type="button"
+                        className="mt-2 grid h-7 w-7 cursor-pointer place-items-center rounded-full border border-subtle bg-surface text-muted shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand hover:bg-brand-soft hover:text-brand-strong hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                        aria-label={isExpanded ? "Ocultar turnos de esta hora" : "Mostrar turnos de esta hora"}
+                        title={isExpanded ? "Ocultar turnos" : "Mostrar turnos"}
+                        onClick={() => toggleExpandedHour(hour)}
+                      >
+                        <FiChevronDown className={cx("transition-transform", isExpanded ? "rotate-180" : "")} aria-hidden="true" />
+                      </button>
+                    ) : null}
+                  </div>
+                  <div ref={(node) => setHourContentRef(hour, node)} className="grid content-start gap-1.5 px-4 py-2">
+                    {hourAppointments.map((appointment) => {
+                      const service = services.find((item) => item.id === appointment.serviceId);
+                      const employee = employees.find((item) => item.id === appointment.employeeId);
+
+                      return (
+                        <AppointmentCard
+                          key={appointment.id}
+                          appointment={appointment}
+                          appointments={appointments}
+                          employee={employee}
+                          employeeName={employee?.name ?? "-"}
+                          employees={employees}
+                          messages={messages}
+                          service={service}
+                          serviceName={service?.name ?? "-"}
+                          variant="dashboardRow"
+                          onDeleteAppointment={onDeleteAppointment}
+                          onMarkAppointmentNoShow={onMarkAppointmentNoShow}
+                          onMarkAppointmentPaid={onMarkAppointmentPaid}
+                          onRescheduleAppointment={onRescheduleAppointment}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
                 {isCurrentHour && currentTimeDetails ? (
                   <div
                     className="pointer-events-none absolute left-0 right-0 z-30 flex w-full items-center"
@@ -361,50 +405,11 @@ function DayAgenda({
                   >
                     <span className="h-2 w-2 rounded-full bg-danger" />
                     <span className="h-px flex-1 bg-danger" />
-                    <span className="absolute left-4 bottom-full rounded-full bg-surface px-1 text-xs font-bold leading-5 text-danger">
+                    <span className="absolute left-4 bottom-full rounded-full bg-surface px-1 text-xs font-bold leading-5 text-danger bg-transparent">
                       {currentTimeDetails.label}
                     </span>
                   </div>
                 ) : null}
-                <div className="bg-input px-4 py-3 text-sm font-semibold text-muted">
-                  <span>{String(hour).padStart(2, "0")}:00</span>
-                  {canExpand ? (
-                    <button
-                      type="button"
-                      className="mt-2 grid h-7 w-7 cursor-pointer place-items-center rounded-full border border-subtle bg-surface text-muted shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand hover:bg-brand-soft hover:text-brand-strong hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-                      aria-label={isExpanded ? "Ocultar turnos de esta hora" : "Mostrar turnos de esta hora"}
-                      title={isExpanded ? "Ocultar turnos" : "Mostrar turnos"}
-                      onClick={() => toggleExpandedHour(hour)}
-                    >
-                      <FiChevronDown className={cx("transition-transform", isExpanded ? "rotate-180" : "")} aria-hidden="true" />
-                    </button>
-                  ) : null}
-                </div>
-                <div ref={(node) => setHourContentRef(hour, node)} className="grid content-start gap-1.5 px-4 py-2">
-                  {hourAppointments.map((appointment) => {
-                    const service = services.find((item) => item.id === appointment.serviceId);
-                    const employee = employees.find((item) => item.id === appointment.employeeId);
-
-                    return (
-                      <AppointmentCard
-                        key={appointment.id}
-                        appointment={appointment}
-                        appointments={appointments}
-                        employee={employee}
-                        employeeName={employee?.name ?? "-"}
-                        employees={employees}
-                        messages={messages}
-                        service={service}
-                        serviceName={service?.name ?? "-"}
-                        variant="dashboardRow"
-                        onDeleteAppointment={onDeleteAppointment}
-                        onMarkAppointmentNoShow={onMarkAppointmentNoShow}
-                        onMarkAppointmentPaid={onMarkAppointmentPaid}
-                        onRescheduleAppointment={onRescheduleAppointment}
-                      />
-                    );
-                  })}
-                </div>
               </div>
             );
           })}

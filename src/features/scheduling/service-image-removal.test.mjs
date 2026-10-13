@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
+import ts from "typescript";
 
 const projectRoot = resolve(import.meta.dirname, "../../..");
 
@@ -154,6 +155,40 @@ test("today agenda expands overflowing hour rows without an inner scroll", () =>
   assert.equal(dashboardView.includes("compactHourRowHeightPx"), true);
   assert.equal(dashboardView.includes("absolute left-0 right-0 z-30 flex w-full items-center"), true);
   assert.equal(dashboardView.includes("absolute left-4 bottom-full rounded-full bg-surface"), true);
+});
+
+test("today agenda time indicator stays outside clipped hour content", () => {
+  const source = readProjectFile("src/features/scheduling/components/DashboardView.tsx");
+  const sourceFile = ts.createSourceFile("DashboardView.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let indicator = null;
+
+  function visit(node) {
+    if (ts.isJsxElement(node) && node.openingElement.getText(sourceFile).includes("pointer-events-none absolute left-0 right-0")) {
+      indicator = node;
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  assert.ok(indicator);
+
+  let hasHourWrapper = false;
+  for (let ancestor = indicator.parent; ancestor; ancestor = ancestor.parent) {
+    if (!ts.isJsxElement(ancestor)) {
+      continue;
+    }
+
+    const openingElement = ancestor.openingElement.getText(sourceFile);
+    assert.doesNotMatch(openingElement, /overflow-hidden/);
+
+    if (openingElement.includes("ref={isCurrentHour ? currentHourRowRef : null}")) {
+      assert.match(openingElement, /className="relative"/);
+      hasHourWrapper = true;
+    }
+  }
+
+  assert.equal(hasHourWrapper, true);
 });
 
 test("calendar employee filter uses varied colors and compact truncated rows", () => {

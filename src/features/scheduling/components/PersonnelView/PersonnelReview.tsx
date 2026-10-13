@@ -11,18 +11,12 @@ export function PersonnelReview({ messages, employee }: { messages: Messages; em
 
   return (
     <FormSection title={messages.personnel.reviewSection} description={messages.personnel.reviewSectionHint}>
-      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-        <div
-          className="min-h-56 rounded-lg bg-surface-strong bg-contain bg-center bg-no-repeat"
-          style={{ backgroundImage: employee.imageUrl ? `url(${employee.imageUrl})` : undefined }}
-        />
-        <div className="grid content-start gap-4">
-          <div className="flex items-start gap-3">
-            <EmployeeAvatar employee={employee} />
-            <div className="min-w-0">
-              <h2 className="truncate text-2xl font-bold text-primary">{employee.name || messages.personnel.untitledEmployee}</h2>
-              <p className="mt-1 text-sm font-semibold text-muted">{employee.role || messages.personnel.emptyRole}</p>
-            </div>
+      <div className="flex items-start gap-5">
+        <EmployeeAvatar employee={employee} size="review" />
+        <div className="grid min-w-0 flex-1 content-start gap-4">
+          <div className="min-w-0">
+            <h2 className="truncate text-2xl font-bold text-primary">{employee.name || messages.personnel.untitledEmployee}</h2>
+            <p className="mt-1 text-sm font-semibold text-muted">{employee.role || messages.personnel.emptyRole}</p>
           </div>
           <p className="text-sm leading-6 text-muted">{employee.description || messages.personnel.emptyDescription}</p>
           <ServiceFact label={messages.personnel.schedule} value={`${scheduleRangeCount} ${messages.personnel.ranges}`} />

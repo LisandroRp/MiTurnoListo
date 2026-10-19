@@ -18,13 +18,13 @@ export function TextField({ label, helperText, prefix, suffix, className, id, ..
         {label ? label : null}
         {props.required ? <span className="ml-1 text-danger">*</span> : null}
       </span>
-      <span className="relative">
+      <span className="relative block">
         {prefix ? <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted">{prefix}</span> : null}
         <input
           {...props}
           id={fieldId}
           className={cx(
-            "h-11 w-full rounded-lg border border-subtle bg-input px-3 text-sm text-primary outline-none transition-colors",
+            "block h-11 w-full rounded-lg border border-subtle bg-input px-3 text-sm text-primary outline-none transition-colors",
             "placeholder:text-placeholder focus:border-brand focus:ring-2 focus:ring-focus",
             prefix ? "pl-9" : "",
             suffix ? "pr-11" : "",

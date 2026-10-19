@@ -9,7 +9,7 @@ import {
   mapCustomFieldResponsesById,
   normalizeServiceCustomFields
 } from "@/features/scheduling/service-custom-fields";
-import { hasValidCancellationLeadMinutes } from "@/features/scheduling/service-cancellation-policy";
+import { getCancellationDeadline, hasValidCancellationLeadMinutes } from "@/features/scheduling/service-cancellation-policy";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 import { createApiErrorResponse, getSafeErrorMessage } from "@/lib/networking/api-errors";
 import {
@@ -449,7 +449,7 @@ function enforceServiceBookingConfiguration(service: Service) {
     service.durationMinutes <= 0 ||
     service.capacity < 1
   ) {
-    throw new Error("SERVICE_CONFIG:Precio, duración y capacidad son obligatorios. La capacidad debe ser al menos 1 y la anticipación para cancelar al menos 1 día.");
+    throw new Error("SERVICE_CONFIG:Precio, duración y capacidad son obligatorios. La capacidad debe ser al menos 1 y la anticipación para cancelar un número entero de horas o días, desde 0.");
   }
 
   if (!hasValidServiceCustomFields(service.customFields)) {
@@ -999,7 +999,7 @@ async function cancelAppointment(
     }
 
     const cancellationLeadMinutes = service.cancellation_lead_minutes ?? 1440;
-    const cancelUntil = new Date(new Date(appointment.starts_at).getTime() - cancellationLeadMinutes * 60 * 1000);
+    const cancelUntil = getCancellationDeadline(new Date(appointment.starts_at), cancellationLeadMinutes);
 
     if (Date.now() > cancelUntil.getTime()) {
       throw new Error("Ya no se puede cancelar este turno.");

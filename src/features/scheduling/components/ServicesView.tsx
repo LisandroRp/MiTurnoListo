@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/Card";
 import { CheckboxField } from "@/components/ui/CheckboxField";
 import { FloatingInfoPopover } from "@/components/ui/FloatingInfoPopover";
 import { SelectField } from "@/components/ui/SelectField";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
@@ -23,10 +24,13 @@ import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, isFreePlan } from "@/features/scheduling/plan-limits";
 import { hasValidServiceCustomFields, maxServiceCustomFields, normalizeServiceCustomFields } from "@/features/scheduling/service-custom-fields";
 import {
-  cancellationLeadDaysToMinutes,
-  cancellationLeadMinutesToDays,
+  cancellationLeadMinutesToValue,
+  cancellationLeadValueToMinutes,
+  formatCancellationLeadTime,
+  getCancellationLeadUnit,
   hasValidCancellationLeadMinutes,
-  normalizeCancellationLeadMinutes
+  normalizeCancellationLeadMinutes,
+  type CancellationLeadUnit
 } from "@/features/scheduling/service-cancellation-policy";
 import { Appointment, Employee, PaymentMethod, Service, ServiceAddon, ServiceCustomField, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
@@ -81,6 +85,7 @@ export function ServicesView({
   const rangeIdCounter = useRef(1);
   const [mode, setMode] = useState<ServicesMode>("grid");
   const [draft, setDraft] = useState<Service>(() => createNewServiceDraft());
+  const [cancellationLeadUnit, setCancellationLeadUnit] = useState<CancellationLeadUnit>("days");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
@@ -125,6 +130,7 @@ export function ServicesView({
 
   function startCreate() {
     setDraft(createNewServiceDraft());
+    setCancellationLeadUnit("days");
     setEditingId(null);
     setCurrentStepIndex(0);
     setValidationMessage(null);
@@ -136,6 +142,7 @@ export function ServicesView({
       ...service,
       employeeIds: service.employeeIds.filter((employeeId) => assignableEmployeeIds.has(employeeId))
     }));
+    setCancellationLeadUnit(getCancellationLeadUnit(service.cancellationLeadMinutes));
     setEditingId(service.id);
     setCurrentStepIndex(0);
     setValidationMessage(null);
@@ -161,6 +168,7 @@ export function ServicesView({
       employeeIds: [...service.employeeIds]
         .filter((employeeId) => assignableEmployeeIds.has(employeeId))
     }));
+    setCancellationLeadUnit(getCancellationLeadUnit(service.cancellationLeadMinutes));
     setEditingId(null);
     setCurrentStepIndex(0);
     setValidationMessage(null);
@@ -197,11 +205,26 @@ export function ServicesView({
     }));
   }
 
-  function handleCancellationLeadDaysChange(event: ChangeEvent<HTMLInputElement>) {
+  function handleCancellationLeadChange(event: ChangeEvent<HTMLInputElement>) {
+    if (event.target.value && !/^\d+$/.test(event.target.value)) {
+      return;
+    }
+
     setDraft((current) => ({
       ...current,
-      cancellationLeadMinutes: cancellationLeadDaysToMinutes(parseNumericInput(event.target.value))
+      cancellationLeadMinutes: cancellationLeadValueToMinutes(Number(event.target.value || 0), cancellationLeadUnit)
     }));
+  }
+
+  function handleCancellationLeadUnitChange(nextUnit: CancellationLeadUnit) {
+    setDraft((current) => ({
+      ...current,
+      cancellationLeadMinutes: cancellationLeadValueToMinutes(
+        cancellationLeadMinutesToValue(current.cancellationLeadMinutes, nextUnit),
+        nextUnit
+      )
+    }));
+    setCancellationLeadUnit(nextUnit);
   }
 
   function handleVisibilityChange(event: ChangeEvent<HTMLInputElement>) {
@@ -515,72 +538,107 @@ export function ServicesView({
           {currentStep === "booking" ? (
             <FormSection title={messages.services.bookingSection} description={messages.services.bookingSectionHint}>
             <div className="grid gap-4 lg:grid-cols-3">
-              <TextField
-                label={messages.services.price}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                prefix="$"
-                value={formatNumericInputValue(draft.price, true)}
-                required
-                onChange={handleNumericTextChange("price")}
-              />
-              <TextField
-                label={messages.services.durationMinutesLabel}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                suffix={<span className="text-xs font-bold text-muted">{messages.services.minutesShort}</span>}
-                value={formatNumericInputValue(draft.durationMinutes)}
-                required
-                onChange={handleNumericTextChange("durationMinutes")}
-              />
-              <TextField
-                label={messages.services.capacity}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                suffix={<span className="text-xs font-bold text-muted">{messages.services.peopleShort}</span>}
-                value={formatNumericInputValue(draft.capacity)}
-                required
-                onChange={handleNumericTextChange("capacity")}
-                onBlur={handleCapacityBlur}
-              />
-              <TextField
-                label={messages.services.deposit}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                prefix="$"
-                value={formatNumericInputValue(draft.deposit, true)}
-                onChange={handleNumericTextChange("deposit")}
-              />
-              <TextField
-                label={messages.services.leadTime}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                suffix={<span className="text-xs font-bold text-muted">{messages.services.minutesShort}</span>}
-                value={formatNumericInputValue(draft.reservationLeadMinutes)}
-                onChange={handleNumericTextChange("reservationLeadMinutes")}
-              />
-              <TextField
-                label={messages.services.cancellationLeadTimeDays}
-                inputMode="numeric"
-                min={1}
-                pattern="[0-9]*"
-                suffix={<span className="text-xs font-bold text-muted">{messages.services.daysShort}</span>}
-                value={formatNumericInputValue(cancellationLeadMinutesToDays(draft.cancellationLeadMinutes))}
-                onChange={handleCancellationLeadDaysChange}
-              />
-              <SelectField
-                label={messages.services.paymentMethod}
-                value={draft.paymentMethod}
-                required
-                onChange={handleTextChange("paymentMethod")}
-                options={paymentMethods.map((method) => ({
-                  value: method,
-                  label: messages.paymentMethods[method],
-                  disabled: isPaymentMethodDisabled(method, isMercadoPagoConfigured, isTransferConfigured)
-                }))}
-              />
+              <div className="contents lg:grid lg:content-start lg:gap-4">
+                <div className="order-1 lg:order-none">
+                  <TextField
+                    label={messages.services.price}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    prefix="$"
+                    value={formatNumericInputValue(draft.price, true)}
+                    required
+                    onChange={handleNumericTextChange("price")}
+                  />
+                </div>
+                <div className="order-4 lg:order-none">
+                  <TextField
+                    label={messages.services.deposit}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    prefix="$"
+                    value={formatNumericInputValue(draft.deposit, true)}
+                    onChange={handleNumericTextChange("deposit")}
+                  />
+                </div>
+                <div className="order-7 lg:order-none">
+                  <SelectField
+                    label={messages.services.paymentMethod}
+                    value={draft.paymentMethod}
+                    required
+                    onChange={handleTextChange("paymentMethod")}
+                    options={paymentMethods.map((method) => ({
+                      value: method,
+                      label: messages.paymentMethods[method],
+                      disabled: isPaymentMethodDisabled(method, isMercadoPagoConfigured, isTransferConfigured)
+                    }))}
+                  />
+                </div>
+              </div>
+              <div className="contents lg:grid lg:content-start lg:gap-4">
+                <div className="order-2 lg:order-none">
+                  <TextField
+                    label={messages.services.durationMinutesLabel}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    suffix={<span className="text-xs font-bold text-muted">{messages.services.minutesShort}</span>}
+                    value={formatNumericInputValue(draft.durationMinutes)}
+                    required
+                    onChange={handleNumericTextChange("durationMinutes")}
+                  />
+                </div>
+                <div className="order-5 lg:order-none">
+                  <TextField
+                    label={messages.services.leadTime}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    suffix={<span className="text-xs font-bold text-muted">{messages.services.minutesShort}</span>}
+                    value={formatNumericInputValue(draft.reservationLeadMinutes)}
+                    onChange={handleNumericTextChange("reservationLeadMinutes")}
+                  />
+                </div>
+              </div>
+              <div className="contents lg:grid lg:content-start lg:gap-4">
+                <div className="order-3 lg:order-none">
+                  <TextField
+                    label={messages.services.capacity}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    suffix={<span className="text-xs font-bold text-muted">{messages.services.peopleShort}</span>}
+                    value={formatNumericInputValue(draft.capacity)}
+                    required
+                    onChange={handleNumericTextChange("capacity")}
+                    onBlur={handleCapacityBlur}
+                  />
+                </div>
+                <div className="order-6 grid gap-2 lg:order-none">
+                  <div className="relative min-w-0">
+                    <TextField
+                      id="service-cancellation-lead"
+                      label={messages.services.cancellationLeadTime}
+                      inputMode="numeric"
+                      min={0}
+                      pattern="[0-9]*"
+                      className="pr-32"
+                      value={formatNumericInputValue(cancellationLeadMinutesToValue(draft.cancellationLeadMinutes, cancellationLeadUnit))}
+                      onChange={handleCancellationLeadChange}
+                    />
+                    <div className="absolute bottom-1.5 right-1.5">
+                      <SegmentedControl
+                        label={messages.services.cancellationLeadTime}
+                        value={cancellationLeadUnit}
+                        options={[
+                          { value: "days", label: messages.services.cancellationLeadUnitDays },
+                          { value: "hours", label: messages.services.cancellationLeadUnitHours }
+                        ]}
+                        onChange={handleCancellationLeadUnitChange}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted">{messages.services.cancellationLeadZeroHint}</p>
+                </div>
+              </div>
               {!isMercadoPagoConfigured || !isTransferConfigured ? (
-                <p className="rounded-lg border border-warning bg-warning-soft p-3 text-sm leading-6 text-warning lg:col-span-3">
+                <p className="order-8 rounded-lg border border-warning bg-warning-soft p-3 text-sm leading-6 text-warning lg:order-none lg:col-span-3">
                   {messages.services.paymentMethodDisabledHint}
                 </p>
               ) : null}
@@ -1287,7 +1345,7 @@ function ServiceReview({ messages, service, employees }: { messages: Messages; s
             <ServiceFact label={messages.services.capacity} value={`${service.capacity} ${messages.services.people}`} />
             <ServiceFact label={messages.services.deposit} value={formatCurrency(service.deposit)} />
             <ServiceFact label={messages.services.paymentMethod} value={messages.paymentMethods[service.paymentMethod]} />
-            <ServiceFact label={messages.services.cancellationLeadTime} value={formatLeadTime(service.cancellationLeadMinutes)} />
+            <ServiceFact label={messages.services.cancellationLeadTime} value={formatCancellationLeadTime(service.cancellationLeadMinutes, messages)} />
             <ServiceFact label={messages.services.schedule} value={`${scheduleRangeCount} ${messages.services.ranges}`} />
           </dl>
         </div>
@@ -1647,22 +1705,6 @@ function formatDateKey(date: Date) {
   const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
-}
-
-function formatLeadTime(minutes: number) {
-  if (minutes % 1440 === 0) {
-    const days = minutes / 1440;
-
-    return `${days} ${days === 1 ? "día" : "días"}`;
-  }
-
-  if (minutes % 60 === 0) {
-    const hours = minutes / 60;
-
-    return `${hours} ${hours === 1 ? "hora" : "horas"}`;
-  }
-
-  return `${minutes} minutos`;
 }
 
 function formatNumericInputValue(value: number, hideZero = false) {

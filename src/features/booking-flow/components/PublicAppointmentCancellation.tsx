@@ -145,7 +145,9 @@ export function PublicAppointmentCancellation({ token }: { token: string }) {
               <div className="rounded-2xl border border-subtle bg-surface p-4 text-sm leading-6 text-muted">
                 {details.canCancel ? (
                   <p>
-                    Este turno se puede cancelar hasta {formatDateTime(details.cancelUntil, details.timeZone)}.
+                    {details.cancellationLeadMinutes === 0
+                      ? `Podés cancelar hasta que comience el turno, el ${formatDateTime(details.startsAt, details.timeZone)}.`
+                      : `Podés cancelar hasta el ${formatDateTime(details.cancelUntil, details.timeZone)}.`}
                     {details.wasPaidWithMercadoPago ? " Si fue pagado por Mercado Pago, vamos a solicitar el reembolso automáticamente." : ""}
                   </p>
                 ) : (
@@ -163,7 +165,7 @@ export function PublicAppointmentCancellation({ token }: { token: string }) {
                 <TextAreaField
                   label="Motivo de cancelación"
                   name="cancellation-reason"
-                  placeholder="Conta brevemente por que se cancela el turno."
+                  placeholder="Contá brevemente por qué se cancela el turno."
                   value={cancellationReason}
                   required
                   onChange={(event) => {
@@ -209,6 +211,7 @@ function formatDateTime(dateTime: string, timeZone: string) {
   return new Intl.DateTimeFormat("es-AR", {
     dateStyle: "full",
     timeStyle: "short",
+    hourCycle: "h23",
     timeZone
   }).format(new Date(dateTime));
 }

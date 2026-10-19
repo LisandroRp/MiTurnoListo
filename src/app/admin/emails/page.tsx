@@ -35,6 +35,7 @@ const sampleAppointment = {
   appointmentDateTime: "jueves, 20 de agosto de 2026, 17:30",
   appointmentTime: "17:30",
   businessName: "Turnos Studio",
+  cancellationPolicyText: "Podés cancelar hasta 1 día antes del turno.",
   cancellationReason: "El profesional tuvo un imprevisto y no va a poder atender en ese horario.",
   customerEmail: "cliente@email.com",
   customerName: "Mateo Ruiz",

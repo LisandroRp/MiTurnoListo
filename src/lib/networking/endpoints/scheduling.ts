@@ -1,7 +1,7 @@
 "use client";
 
 import { BusinessDayBlock, BusinessPaymentSettings, BusinessProfile, Locale, ThemeId } from "@/features/scheduling/types";
-import { minimumCancellationLeadMinutes } from "@/features/scheduling/service-cancellation-policy";
+import { defaultCancellationLeadMinutes } from "@/features/scheduling/service-cancellation-policy";
 import { getSupabaseBrowserClient } from "@/lib/networking/clients/supabase-browser";
 import {
   buildDashboardMetrics,
@@ -593,7 +593,7 @@ export function createNewServiceDraft() {
     isVisible: true,
     isArchived: false,
     reservationLeadMinutes: 0,
-    cancellationLeadMinutes: minimumCancellationLeadMinutes,
+    cancellationLeadMinutes: defaultCancellationLeadMinutes,
     schedule: createEmptySchedule(),
     employeeIds: [],
     addons: [],

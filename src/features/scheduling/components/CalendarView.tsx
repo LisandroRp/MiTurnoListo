@@ -28,6 +28,7 @@ import { BusinessDayBlocksModal } from "@/features/scheduling/components/Calenda
 import { getDayKeyForDate } from "@/features/scheduling/components/dashboardTeamUtils";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, getMonthlyAppointmentUsage, isFreePlan } from "@/features/scheduling/plan-limits";
+import { getCancellationDeadline } from "@/features/scheduling/service-cancellation-policy";
 import { Appointment, BusinessDayBlock, CalendarMode, Employee, Service } from "@/features/scheduling/types";
 import { getDateLabel } from "@/features/scheduling/utils/format";
 
@@ -1347,7 +1348,7 @@ function canCancelAppointmentFromModal(appointment: Appointment, service?: Servi
   }
 
   const startsAt = new Date(`${appointment.date}T${appointment.startTime}:00`);
-  const cancelUntil = new Date(startsAt.getTime() - service.cancellationLeadMinutes * 60 * 1000);
+  const cancelUntil = getCancellationDeadline(startsAt, service.cancellationLeadMinutes);
 
   return Date.now() <= startsAt.getTime() && Date.now() <= cancelUntil.getTime();
 }

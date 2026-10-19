@@ -5,6 +5,7 @@ type BookingConfirmationEmailProps = {
   appointmentDate: string;
   appointmentTime: string;
   businessName: string;
+  cancellationPolicyText: string;
   customerName: string;
   employeeName?: string | null;
   manageBookingUrl: string;
@@ -15,6 +16,7 @@ export function bookingConfirmationEmail({
   appointmentDate,
   appointmentTime,
   businessName,
+  cancellationPolicyText,
   customerName,
   employeeName,
   manageBookingUrl,
@@ -35,10 +37,10 @@ export function bookingConfirmationEmail({
           ])}
         </td>
       </tr>
-      ${primaryButton({ href: manageBookingUrl, label: "Ver mi reserva" })}
+      ${primaryButton({ href: manageBookingUrl, label: "Ver o cancelar turno" })}
       <tr>
         <td style="padding:0 32px 24px 32px;">
-          <p style="margin:0; font-size:15px; line-height:24px; color:#545f6c;">Si necesitás cancelar o reprogramar el turno, podés hacerlo desde el enlace anterior.</p>
+          <p style="margin:0; font-size:15px; line-height:24px; color:#545f6c;">${escapeHtml(cancellationPolicyText)} Para cancelar, usá el enlace anterior.</p>
         </td>
       </tr>
     `,

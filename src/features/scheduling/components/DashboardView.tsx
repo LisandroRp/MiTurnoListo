@@ -405,7 +405,7 @@ function DayAgenda({
                   >
                     <span className="h-2 w-2 rounded-full bg-danger" />
                     <span className="h-px flex-1 bg-danger" />
-                    <span className="absolute left-4 bottom-full rounded-full bg-surface px-1 text-xs font-bold leading-5 text-danger bg-transparent">
+                    <span className="absolute bottom-full left-4 inline-flex w-fit rounded-md danger bg-white px-2 py-0.5 text-xs font-bold leading-5 text-danger shadow-sm">
                       {currentTimeDetails.label}
                     </span>
                   </div>

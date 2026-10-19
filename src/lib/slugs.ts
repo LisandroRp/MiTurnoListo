@@ -38,6 +38,7 @@ const reservedPublicSlugs = new Set([
   "referidos",
   "robots-txt",
   "servicios",
+  "sugerencias",
   "sitemap-xml"
 ]);
 

@@ -3,6 +3,7 @@ import { SummaryRow } from "@/features/booking-flow/components/BookingFlow/share
 import { BookingDraft } from "@/features/booking-flow/types";
 import { formatLongDate } from "@/features/booking-flow/utils/booking";
 import { Messages } from "@/features/scheduling/i18n/messages";
+import { formatCancellationPolicy } from "@/features/scheduling/service-cancellation-policy";
 import { Service, ServiceAddon } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 
@@ -70,25 +71,9 @@ export function SummaryStep({
       </Card>
       <Card className="border-brand bg-brand-soft">
         <p className="text-sm font-semibold text-primary">
-          {messages.bookingFlow.cancellationPolicy.replace("{time}", formatLeadTime(service.cancellationLeadMinutes))}
+          {formatCancellationPolicy(service.cancellationLeadMinutes, messages)}
         </p>
       </Card>
     </div>
   );
-}
-
-function formatLeadTime(minutes: number) {
-  if (minutes % 1440 === 0) {
-    const days = minutes / 1440;
-
-    return `${days} ${days === 1 ? "día" : "días"}`;
-  }
-
-  if (minutes % 60 === 0) {
-    const hours = minutes / 60;
-
-    return `${hours} ${hours === 1 ? "hora" : "horas"}`;
-  }
-
-  return `${minutes} minutos`;
 }

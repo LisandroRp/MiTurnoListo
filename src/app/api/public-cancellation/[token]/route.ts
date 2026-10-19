@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { getCancellationDeadline } from "@/features/scheduling/service-cancellation-policy";
 import { sendBookingCancelledEmails } from "@/lib/email/booking-emails";
 import { refundMercadoPagoPayment } from "@/lib/mercadopago/checkout";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
@@ -155,7 +156,7 @@ async function getCancellationDetails(token: string) {
   }
 
   const cancellationLeadMinutes = serviceResult.data.cancellation_lead_minutes ?? 1440;
-  const cancelUntil = new Date(new Date(appointment.starts_at).getTime() - cancellationLeadMinutes * 60 * 1000);
+  const cancelUntil = getCancellationDeadline(new Date(appointment.starts_at), cancellationLeadMinutes);
   const canCancelByTime = Date.now() <= cancelUntil.getTime();
   const isCancelled = appointment.appointment_status === "cancelled" || appointment.status === "cancelled";
   const isRescheduled = appointment.appointment_status === "rescheduled";
@@ -164,7 +165,9 @@ async function getCancellationDetails(token: string) {
     ? "Este turno ya fue cancelado."
     : isRescheduled
       ? "Este turno ya fue reprogramado."
-    : `Este turno solo se podía cancelar hasta ${formatDateTime(cancelUntil.toISOString(), businessResult.data?.timezone ?? "America/Argentina/Buenos_Aires")}.`;
+    : cancellationLeadMinutes === 0
+      ? `Este turno solo se podía cancelar hasta su inicio, el ${formatDateTime(appointment.starts_at, businessResult.data?.timezone ?? "America/Argentina/Buenos_Aires")}.`
+      : `Este turno solo se podía cancelar hasta el ${formatDateTime(cancelUntil.toISOString(), businessResult.data?.timezone ?? "America/Argentina/Buenos_Aires")}.`;
 
   return {
     appointment,
@@ -194,6 +197,7 @@ function formatDateTime(dateTime: string, timeZone: string) {
   return new Intl.DateTimeFormat("es-AR", {
     dateStyle: "full",
     timeStyle: "short",
+    hourCycle: "h23",
     timeZone
   }).format(new Date(dateTime));
 }

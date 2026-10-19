@@ -2,7 +2,7 @@ import { ButtonHTMLAttributes, ReactNode } from "react";
 
 import { cx } from "@/components/ui/utils";
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "success";
 type ButtonSize = "sm" | "md" | "lg" | "icon";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -16,7 +16,8 @@ const variantClasses: Record<ButtonVariant, string> = {
   primary: "bg-brand text-on-brand shadow-sm hover:bg-brand-hover",
   secondary: "border border-subtle bg-surface text-primary hover:bg-surface-strong",
   ghost: "text-muted hover:bg-brand-soft hover:text-primary",
-  danger: "bg-danger text-on-danger hover:bg-danger-hover"
+  danger: "bg-danger text-on-danger hover:bg-danger-hover",
+  success: "bg-success text-white hover:bg-success-soft hover:text-success border border-success"
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

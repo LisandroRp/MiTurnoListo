@@ -9,6 +9,8 @@ import { businessBookingNotificationEmail } from "@/emails/templates/business-bo
 import { businessPaymentConfirmedEmail } from "@/emails/templates/business-payment-confirmed";
 import { planLimitReachedEmail } from "@/emails/templates/plan-limit-reached";
 import { formatCurrency } from "@/features/scheduling/utils/format";
+import { messages } from "@/features/scheduling/i18n/messages";
+import { formatCancellationPolicy } from "@/features/scheduling/service-cancellation-policy";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 import { sendEmail } from "@/lib/email/resend";
 
@@ -55,6 +57,7 @@ export async function sendBookingCreatedEmails(input: BookingEmailInput) {
         customerName: context.customerName,
         employeeName: context.employeeName,
         manageBookingUrl: buildCancellationUrl(context.publicCancelToken),
+        cancellationPolicyText: formatCancellationPolicy(context.cancellationLeadMinutes, messages.es),
         serviceName: context.serviceName
       }),
       subject: `Tu reserva en ${context.businessName} fue recibida`,
@@ -81,6 +84,7 @@ export async function sendBookingConfirmedEmails(input: BookingEmailInput) {
         customerName: context.customerName,
         employeeName: context.employeeName,
         manageBookingUrl: buildCancellationUrl(context.publicCancelToken),
+        cancellationPolicyText: formatCancellationPolicy(context.cancellationLeadMinutes, messages.es),
         serviceName: context.serviceName
       }),
       subject: `Turno confirmado en ${context.businessName}`,
@@ -388,7 +392,7 @@ function buildTransferReceiptText(context: AppointmentEmailContext) {
 }
 
 function buildCancellationText(context: AppointmentEmailContext) {
-  return `Si necesitas cancelar, podés hacerlo hasta ${formatLeadTime(context.cancellationLeadMinutes)} antes desde ${buildCancellationUrl(context.publicCancelToken)}.`;
+  return `${formatCancellationPolicy(context.cancellationLeadMinutes, messages.es)} Enlace para cancelar: ${buildCancellationUrl(context.publicCancelToken)}`;
 }
 
 function buildCancellationUrl(token: string) {
@@ -409,20 +413,4 @@ function getPublicSiteUrl() {
   }
 
   return "http://localhost:3000";
-}
-
-function formatLeadTime(minutes: number) {
-  if (minutes % 1440 === 0) {
-    const days = minutes / 1440;
-
-    return `${days} ${days === 1 ? "día" : "días"}`;
-  }
-
-  if (minutes % 60 === 0) {
-    const hours = minutes / 60;
-
-    return `${hours} ${hours === 1 ? "hora" : "horas"}`;
-  }
-
-  return `${minutes} minutos`;
 }

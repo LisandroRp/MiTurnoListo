@@ -154,7 +154,8 @@ test("today agenda expands overflowing hour rows without an inner scroll", () =>
   assert.equal(dashboardView.includes("}, [currentTimeDetails]);"), true);
   assert.equal(dashboardView.includes("compactHourRowHeightPx"), true);
   assert.equal(dashboardView.includes("absolute left-0 right-0 z-30 flex w-full items-center"), true);
-  assert.equal(dashboardView.includes("absolute left-4 bottom-full rounded-full bg-surface"), true);
+  assert.equal(dashboardView.includes("rounded-md danger bg-surface-strong"), true);
+  assert.equal(dashboardView.includes("text-danger shadow-sm"), true);
 });
 
 test("today agenda time indicator stays outside clipped hour content", () => {

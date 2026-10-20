@@ -173,6 +173,12 @@ export default function ProfileSectionPage() {
 
   return (
     <ProfileView
+      openProPlan={searchParams.get("plan") === "pro"}
+      onProPlanOpened={() => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete("plan");
+        router.replace(params.size ? `${pathname}?${params}` : pathname, { scroll: false });
+      }}
       messages={messages}
       profile={profileWithReferralSummary}
       businessId={businessId}

@@ -4,6 +4,14 @@ export const messages = {
   es: {
     appName: "MiTurnoListo",
     businessType: "Gestor de turnos",
+    upgrade: {
+      action: "Pasate a Pro",
+      usageTitle: "Tu agenda está creciendo",
+      usageDescription: "Usaste {usage} de tus {limit} turnos este mes.",
+      usageBenefits: "Con Pro tenés turnos, personal y servicios ilimitados para seguir creciendo.",
+      viewPlan: "Ver plan Pro",
+      later: "Ahora no"
+    },
     nav: {
       home: "Inicio",
       calendar: "Calendario",
@@ -168,11 +176,15 @@ export const messages = {
     planLimits: {
       lockedBadge: "Plan Premium",
       lockedServiceTitle: "Servicio bloqueado por el plan Free",
-      lockedServiceDescription: "Este servicio supera el límite de servicios visibles del plan Free. Activá Premium para volver a editarlo, compartirlo o dejarlo disponible.",
+      lockedServiceDescription: "Este servicio quedó fuera de los 2 visibles de Free y no aparece en el catálogo. Ocultá otro servicio visible o activá Premium para volver a usarlo.",
+      newServiceHiddenHint: "Ya hay 2 servicios visibles. Este servicio se guardará oculto hasta que liberes un lugar o actives Premium.",
       lockedEmployeeTitle: "Empleado bloqueado por el plan Free",
-      lockedEmployeeDescription: "Este empleado supera el límite de integrantes del plan Free. Activá Premium para volver a editarlo o usarlo normalmente.",
+      lockedEmployeeDescription: "Este profesional quedó fuera del cupo de 1 integrante activo de Free y no se ofrece para nuevas reservas. Archivá otro integrante activo o activá Premium para volver a usarlo.",
+      employeeCreateTitle: "Llegaste al límite de personal Free",
+      employeeCreateDescription: "Free permite 1 integrante activo. Archivá el actual para agregar otro, o activá Premium para ampliar tu equipo.",
       lockedAction: "Ver plan Premium",
-      lockedCardHint: "Disponible al activar Premium"
+      lockedCardHint: "Fuera del cupo Free",
+      lockedStatus: "Fuera del cupo"
     },
     calendar: {
       eyebrow: "Agenda",
@@ -577,8 +589,8 @@ export const messages = {
       proPlanPrice: "$25.000 / mes",
       proPlanDescription: "Pensado para negocios que viven del calendario y necesitan automatizar más.",
       freePlanFeatures: [
-        "Hasta 2 integrantes del personal",
-        "Hasta 5 servicios visibles",
+        "Hasta 1 integrante del personal",
+        "Hasta 2 servicios visibles",
         "Hasta 15 turnos por mes",
         "Calendario y reservas manuales",
         "Estadísticas y pagos avanzados bloqueados"
@@ -936,6 +948,14 @@ export const messages = {
   en: {
     appName: "MiTurnoListo",
     businessType: "Appointment manager",
+    upgrade: {
+      action: "Upgrade to Pro",
+      usageTitle: "Your schedule is growing",
+      usageDescription: "You used {usage} of your {limit} appointments this month.",
+      usageBenefits: "Pro gives you unlimited appointments, team members and services to keep growing.",
+      viewPlan: "View Pro plan",
+      later: "Not now"
+    },
     nav: {
       home: "Home",
       calendar: "Calendar",
@@ -1100,11 +1120,15 @@ export const messages = {
     planLimits: {
       lockedBadge: "Premium plan",
       lockedServiceTitle: "Service locked by the Free plan",
-      lockedServiceDescription: "This service is over the Free plan visible-services limit. Activate Premium to edit, share or make it available again.",
+      lockedServiceDescription: "This service is outside the two visible Free slots and does not appear in the catalog. Hide another visible service or activate Premium to use it again.",
+      newServiceHiddenHint: "Two services are already visible. This service will stay hidden until you free a slot or activate Premium.",
       lockedEmployeeTitle: "Employee locked by the Free plan",
-      lockedEmployeeDescription: "This employee is over the Free plan team limit. Activate Premium to edit it or use it normally again.",
+      lockedEmployeeDescription: "This professional is outside the one active Free slot and cannot receive new bookings. Archive another active employee or activate Premium to use this profile again.",
+      employeeCreateTitle: "Free staff limit reached",
+      employeeCreateDescription: "Free allows one active employee. Archive the current employee to add another, or activate Premium to grow your team.",
       lockedAction: "View Premium plan",
-      lockedCardHint: "Available after activating Premium"
+      lockedCardHint: "Outside Free plan limit",
+      lockedStatus: "Outside plan limit"
     },
     calendar: {
       eyebrow: "Schedule",
@@ -1509,8 +1533,8 @@ export const messages = {
       proPlanPrice: "$25,000 / month",
       proPlanDescription: "Built for businesses that rely on their calendar and need stronger automation.",
       freePlanFeatures: [
-        "Up to 2 employees",
-        "Up to 5 visible services",
+        "Up to 1 employee",
+        "Up to 2 visible services",
         "Up to 15 bookings per month",
         "Calendar and manual bookings",
         "Advanced statistics and payments locked"

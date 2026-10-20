@@ -1,5 +1,5 @@
 import { IconType } from "react-icons";
-import { FiChevronLeft, FiChevronRight, FiLogOut, FiX } from "react-icons/fi";
+import { FiChevronLeft, FiChevronRight, FiLogOut, FiX, FiZap } from "react-icons/fi";
 import Link from "next/link";
 
 import { BrandMark } from "@/components/composed/BrandMark";
@@ -24,6 +24,7 @@ type NavigationSidebarProps = {
   onNavigate?: () => void;
   onLogout: () => void;
   onToggle: () => void;
+  showProUpgrade?: boolean;
 };
 
 export function NavigationSidebar({
@@ -34,7 +35,8 @@ export function NavigationSidebar({
   mode = "desktop",
   onNavigate,
   onLogout,
-  onToggle
+  onToggle,
+  showProUpgrade = false
 }: NavigationSidebarProps) {
   const isMobile = mode === "mobile";
   const shouldCollapse = !isMobile && isCollapsed;
@@ -119,6 +121,20 @@ export function NavigationSidebar({
       </nav>
 
       <div className={cx("shrink-0 border-t border-subtle p-3", isMobile ? "pb-safe-6" : "")}>
+        {showProUpgrade ? (
+          <Link
+            href="/perfil?plan=pro"
+            onClick={onNavigate}
+            title={messages.upgrade.action}
+            className={cx(
+              "mb-2 flex h-10 items-center gap-2 rounded-lg border border-brand bg-brand-soft px-4 text-sm font-semibold !text-brand-strong shadow-sm transition-colors hover:bg-brand hover:!text-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus button-bounce",
+              shouldCollapse ? "justify-center px-0" : "justify-start"
+            )}
+          >
+            <FiZap aria-hidden="true" className="shrink-0 text-lg" />
+            <span className={shouldCollapse ? "sr-only" : undefined}>{messages.upgrade.action}</span>
+          </Link>
+        ) : null}
         <Button
           size={shouldCollapse ? "icon" : "md"}
           variant="ghost"

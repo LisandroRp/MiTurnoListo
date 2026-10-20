@@ -133,6 +133,22 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
   }
 
   const businessId = membership.business_id;
+  const employeesRequest = Promise.resolve(scopeConfig.includeEmployees
+    ? supabase
+      .from("employees")
+      .select("id, name, role, description, image_url, color_token, is_public, is_active")
+      .eq("business_id", businessId)
+      .order("is_active", { ascending: false })
+      .order("name", { ascending: true })
+    : createSkippedQueryResult([]));
+  const servicesRequest = Promise.resolve(scopeConfig.includeServices
+    ? supabase
+      .from("services")
+      .select("id, public_slug, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active, custom_fields")
+      .eq("business_id", businessId)
+      .order("is_active", { ascending: false })
+      .order("name", { ascending: true })
+    : createSkippedQueryResult([]));
 
   const [
     userProfileResult,
@@ -160,41 +176,55 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
       .eq("id", businessId)
       .limit(1)
       .single(),
-    scopeConfig.includeEmployees
-      ? supabase
-        .from("employees")
-        .select("id, name, role, description, image_url, color_token, is_public, is_active")
-        .eq("business_id", businessId)
-        .order("is_active", { ascending: false })
-        .order("name", { ascending: true })
-      : createSkippedQueryResult([]),
+    employeesRequest,
     scopeConfig.includeEmployeeAvailability
-      ? supabase
-        .from("employee_weekly_availability")
-        .select("id, employee_id, weekday, start_time, end_time")
+      ? employeesRequest.then(async ({ data, error }) => {
+        if (error || !data?.length) {
+          return createSkippedQueryResult([]);
+        }
+
+        return await supabase
+          .from("employee_weekly_availability")
+          .select("id, employee_id, weekday, start_time, end_time")
+          .in("employee_id", data.map((employee) => employee.id));
+      })
       : createSkippedQueryResult([]),
-    scopeConfig.includeServices
-      ? supabase
-        .from("services")
-        .select("id, public_slug, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active, custom_fields")
-        .eq("business_id", businessId)
-        .order("is_active", { ascending: false })
-        .order("name", { ascending: true })
-      : createSkippedQueryResult([]),
+    servicesRequest,
     scopeConfig.includeServiceEmployees
-      ? supabase
-        .from("service_employees")
-        .select("service_id, employee_id")
+      ? servicesRequest.then(async ({ data, error }) => {
+        if (error || !data?.length) {
+          return createSkippedQueryResult([]);
+        }
+
+        return await supabase
+          .from("service_employees")
+          .select("service_id, employee_id")
+          .in("service_id", data.map((service) => service.id));
+      })
       : createSkippedQueryResult([]),
     scopeConfig.includeServiceAvailability
-      ? supabase
-        .from("service_weekly_availability")
-        .select("id, service_id, weekday, start_time, end_time")
+      ? servicesRequest.then(async ({ data, error }) => {
+        if (error || !data?.length) {
+          return createSkippedQueryResult([]);
+        }
+
+        return await supabase
+          .from("service_weekly_availability")
+          .select("id, service_id, weekday, start_time, end_time")
+          .in("service_id", data.map((service) => service.id));
+      })
       : createSkippedQueryResult([]),
     scopeConfig.includeServiceAddons
-      ? supabase
-        .from("service_addons")
-        .select("id, service_id, name, price_amount, is_active, sort_order")
+      ? servicesRequest.then(async ({ data, error }) => {
+        if (error || !data?.length) {
+          return createSkippedQueryResult([]);
+        }
+
+        return await supabase
+          .from("service_addons")
+          .select("id, service_id, name, price_amount, is_active, sort_order")
+          .in("service_id", data.map((service) => service.id));
+      })
       : createSkippedQueryResult([]),
     scopeConfig.includeAppointments
       ? supabase

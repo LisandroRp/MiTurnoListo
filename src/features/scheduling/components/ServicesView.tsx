@@ -21,7 +21,7 @@ import { AvailabilityEditor, dayKeys, getScheduleValidationMessage, maxRangesPer
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { ShareCatalogModal, ShareServiceModal } from "@/features/scheduling/components/ServicesView/ShareResourceModal";
 import { Messages } from "@/features/scheduling/i18n/messages";
-import { freePlanLimits, isFreePlan } from "@/features/scheduling/plan-limits";
+import { freePlanLimits, getFreePlanIncludedIds, isFreePlan } from "@/features/scheduling/plan-limits";
 import { hasValidServiceCustomFields, maxServiceCustomFields, normalizeServiceCustomFields } from "@/features/scheduling/service-custom-fields";
 import {
   cancellationLeadMinutesToValue,
@@ -98,14 +98,18 @@ export function ServicesView({
   const [serviceSearchTerm, setServiceSearchTerm] = useState("");
   const [serviceStatusFilter, setServiceStatusFilter] = useState<ServiceStatusFilter>("all");
   const [serviceEmployeeFilter, setServiceEmployeeFilter] = useState("all");
-  const unlockedVisibleServiceIds = new Set(
-    isFreePlan(subscriptionTier)
-      ? services.filter((service) => !service.isArchived && service.isVisible).slice(0, freePlanLimits.visibleServices).map((service) => service.id)
-      : services.filter((service) => !service.isArchived).map((service) => service.id)
+  const hasFreeVisibleSlot = !isFreePlan(subscriptionTier) ||
+    services.filter((service) => !service.isArchived && service.isVisible).length < freePlanLimits.visibleServices;
+  const unlockedVisibleServiceIds = isFreePlan(subscriptionTier)
+    ? getFreePlanIncludedIds(services.filter((service) => !service.isArchived && service.isVisible), freePlanLimits.visibleServices)
+    : new Set(services.filter((service) => !service.isArchived).map((service) => service.id));
+  const freeEmployeeIds = isFreePlan(subscriptionTier)
+    ? getFreePlanIncludedIds(employees.filter((employee) => !employee.isArchived), freePlanLimits.activeEmployees)
+    : null;
+  const assignableEmployees = employees.filter((employee) =>
+    !employee.isArchived && employee.isVisible && (!freeEmployeeIds || freeEmployeeIds.has(employee.id))
   );
-  const assignableEmployeeIds = new Set(
-    employees.filter((employee) => !employee.isArchived && employee.isVisible).map((employee) => employee.id)
-  );
+  const assignableEmployeeIds = new Set(assignableEmployees.map((employee) => employee.id));
 
   const currentStep = serviceWizardStepOrder[currentStepIndex] ?? "details";
   const stepItems = serviceWizardStepOrder.map((step) => ({
@@ -129,7 +133,7 @@ export function ServicesView({
   const wizardActionVisibility = useDualActionVisibility();
 
   function startCreate() {
-    setDraft(createNewServiceDraft());
+    setDraft({ ...createNewServiceDraft(), isVisible: hasFreeVisibleSlot });
     setCancellationLeadUnit("days");
     setEditingId(null);
     setCurrentStepIndex(0);
@@ -140,7 +144,7 @@ export function ServicesView({
   function startEdit(service: Service) {
     setDraft(normalizeServiceDraft({
       ...service,
-      employeeIds: service.employeeIds.filter((employeeId) => assignableEmployeeIds.has(employeeId))
+      employeeIds: [...service.employeeIds]
     }));
     setCancellationLeadUnit(getCancellationLeadUnit(service.cancellationLeadMinutes));
     setEditingId(service.id);
@@ -154,6 +158,7 @@ export function ServicesView({
       ...service,
       id: globalThis.crypto.randomUUID(),
       name: `${service.name} ${messages.services.copySuffix}`,
+      isVisible: hasFreeVisibleSlot && service.isVisible,
       addons: service.addons.map((addon, index) => ({
         ...addon,
         id: globalThis.crypto.randomUUID(),
@@ -466,9 +471,10 @@ export function ServicesView({
     setIsSavingService(true);
 
     try {
+      const existingEmployeeIds = new Set(services.find((service) => service.id === editingId)?.employeeIds ?? []);
       const didSave = await onSaveService(normalizeServiceDraft({
         ...draft,
-        employeeIds: draft.employeeIds.filter((employeeId) => assignableEmployeeIds.has(employeeId))
+        employeeIds: draft.employeeIds.filter((employeeId) => assignableEmployeeIds.has(employeeId) || existingEmployeeIds.has(employeeId))
       }));
 
       if (didSave) {
@@ -530,6 +536,9 @@ export function ServicesView({
             <CheckboxField
               label={messages.services.visible}
               checked={draft.isVisible}
+              disabled={!editingId && !hasFreeVisibleSlot}
+              helperText={!editingId && !hasFreeVisibleSlot ? messages.planLimits.newServiceHiddenHint : undefined}
+              className={!editingId && !hasFreeVisibleSlot ? "opacity-60" : undefined}
               onChange={handleVisibilityChange}
             />
             </FormSection>
@@ -662,9 +671,9 @@ export function ServicesView({
 
           {currentStep === "staff" ? (
             <FormSection title={messages.services.staffSection} description={messages.services.staffSectionHint}>
-            {employees.filter((employee) => !employee.isArchived && employee.isVisible).length > 0 ? (
+            {assignableEmployees.length > 0 ? (
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {employees.filter((employee) => !employee.isArchived && employee.isVisible).map((employee) => {
+                {assignableEmployees.map((employee) => {
                   const isSelected = draft.employeeIds.includes(employee.id);
 
                   return (
@@ -823,7 +832,9 @@ export function ServicesView({
                         {monthBookings}
                       </td>
                       <td className={cx("px-4 py-4", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
-                        {isArchived ? (
+                        {isLockedByPlan ? (
+                          <Badge tone="warning">{messages.planLimits.lockedStatus}</Badge>
+                        ) : isArchived ? (
                           <Badge tone="neutral">{messages.services.archived}</Badge>
                         ) : (
                           <VisibilitySwitch

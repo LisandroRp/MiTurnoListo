@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { Locale, PaymentMethod, ThemeId } from "@/features/scheduling/types";
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
+import { getFreePlanPublicAccess } from "@/lib/networking/free-plan-public-access";
 import { normalizeStoredImageUrl } from "@/lib/networking/utils/assets";
+import { reconcileExpiredReferralTierForBusiness } from "@/lib/referrals";
 import { isUuid } from "@/lib/slugs";
 
 type RouteContext = {
@@ -17,7 +19,7 @@ export async function GET(_: Request, context: RouteContext) {
   const supabase = getSupabaseAdminClient();
   const businessResult = await supabase
     .from("businesses")
-    .select("id, name, public_slug, address, public_description, public_logo_url, public_opening_hours")
+    .select("id, name, public_slug, address, public_description, public_logo_url, public_opening_hours, subscription_tier")
     .eq(isUuid(businessKey) ? "id" : "public_slug", businessKey)
     .limit(1)
     .maybeSingle();
@@ -52,7 +54,20 @@ export async function GET(_: Request, context: RouteContext) {
     });
   }
 
-  const publicServices = servicesResult.data ?? [];
+  let publicPlanAccess;
+
+  try {
+    const currentTier = await reconcileExpiredReferralTierForBusiness({
+      businessId,
+      subscriptionTier: businessResult.data.subscription_tier,
+      supabase
+    });
+    publicPlanAccess = await getFreePlanPublicAccess(supabase, businessId, currentTier);
+  } catch {
+    return NextResponse.json({ error: "Unable to validate plan access." }, { status: 500 });
+  }
+
+  const publicServices = (servicesResult.data ?? []).filter((service) => !publicPlanAccess || publicPlanAccess.serviceIds.has(service.id));
   const publicServiceIds = publicServices.map((service) => service.id);
   let reservableServiceIds = new Set<string>();
   const employeeNamesByServiceId = new Map<string, string[]>();
@@ -90,7 +105,7 @@ export async function GET(_: Request, context: RouteContext) {
       });
     }
 
-    const reservableEmployees = employeesResult?.data ?? [];
+    const reservableEmployees = (employeesResult?.data ?? []).filter((employee) => !publicPlanAccess || publicPlanAccess.employeeIds.has(employee.id));
     const reservableEmployeeIds = new Set(reservableEmployees.map((employee) => employee.id));
     const employeeNameById = new Map(reservableEmployees.map((employee) => [employee.id, employee.name]));
 

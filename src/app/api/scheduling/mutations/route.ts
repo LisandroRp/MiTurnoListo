@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { Appointment, BusinessDayBlock, Employee, Service } from "@/features/scheduling/types";
-import { freePlanLimits, getCurrentMonthRange, isFreePlan } from "@/features/scheduling/plan-limits";
+import { canUseFreePlanSlot, freePlanLimits, getCurrentMonthRange, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
 import {
   buildCustomFieldResponses,
   hasValidServiceCustomFields,
@@ -11,6 +11,7 @@ import {
 } from "@/features/scheduling/service-custom-fields";
 import { getCancellationDeadline, hasValidCancellationLeadMinutes } from "@/features/scheduling/service-cancellation-policy";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
+import { getFreePlanPublicAccess } from "@/lib/networking/free-plan-public-access";
 import { createApiErrorResponse, getSafeErrorMessage } from "@/lib/networking/api-errors";
 import {
   mapAppointments,
@@ -162,10 +163,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (payload.action === "updateEmployeeVisibility") {
+      if (payload.isVisible) {
+        await enforceEmployeeLimit(supabase, payload.businessId, payload.employeeId, contextResult.context);
+      }
       await updateEmployeeVisibility(supabase, payload.businessId, payload.employeeId, payload.isVisible);
     }
 
     if (payload.action === "unarchiveEmployee") {
+      await enforceEmployeeLimit(supabase, payload.businessId, payload.employeeId, contextResult.context);
       await setEmployeeArchived(supabase, payload.businessId, payload.employeeId, false);
     }
 
@@ -175,6 +180,15 @@ export async function POST(request: NextRequest) {
 
     if (payload.action === "createAppointment") {
       await enforceMonthlyAppointmentLimit(supabase, payload.businessId, contextResult.context);
+      const publicPlanAccess = await getFreePlanPublicAccess(supabase, payload.businessId, contextResult.context.subscriptionTier);
+
+      if (publicPlanAccess && (
+        !publicPlanAccess.serviceIds.has(payload.appointment.serviceId) ||
+        !publicPlanAccess.employeeIds.has(payload.appointment.employeeId)
+      )) {
+        throw new Error("PLAN_LIMIT:El plan Free permite reservar con 1 integrante activo y hasta 2 servicios visibles.");
+      }
+
       await createAppointment(supabase, payload.businessId, payload.appointment, payload.service, payload.timeZone, payload.addonIds ?? []);
     }
 
@@ -206,6 +220,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (payload.action === "createAppointment") {
+      const message = getSafeErrorMessage(error, "No se puede crear en este momento.");
+
+      if (message.startsWith("PLAN_LIMIT:")) {
+        return createApiErrorResponse(message.replace(/^PLAN_LIMIT:/, ""), {
+          code: "SCHEDULING_PLAN_LIMIT_REACHED",
+          fallbackMessage: "No se puede crear en este momento.",
+          status: 402
+        });
+      }
+
       const technicalDetails = error instanceof Error && error.cause ? error.cause : error;
 
       return createApiErrorResponse(new Error("No se puede crear en este momento.", { cause: technicalDetails }), {
@@ -316,19 +340,20 @@ async function enforceEmployeeLimit(
     return;
   }
 
-  const { count, error } = await supabase
+  const { data, error } = await supabase
     .from("employees")
-    .select("id", { count: "exact", head: true })
+    .select("id, name")
     .eq("business_id", businessId)
-    .eq("is_active", true)
-    .neq("id", employeeId);
+    .eq("is_active", true);
 
   if (error) {
     throw new Error("Unable to validate employee limit.");
   }
 
-  if ((count ?? 0) >= freePlanLimits.activeEmployees) {
-    throw new Error(`PLAN_LIMIT:El plan Free permite hasta ${freePlanLimits.activeEmployees} personal activo.`);
+  const activeEmployees = data ?? [];
+
+  if (!canUseFreePlanSlot(activeEmployees, employeeId, freePlanLimits.activeEmployees)) {
+    throw new Error(`PLAN_LIMIT:El plan Free permite hasta ${freePlanLimits.activeEmployees} integrante activo del personal.`);
   }
 }
 
@@ -342,19 +367,20 @@ async function enforceVisibleServiceLimit(
     return;
   }
 
-  const { count, error } = await supabase
+  const { data, error } = await supabase
     .from("services")
-    .select("id", { count: "exact", head: true })
+    .select("id, name")
     .eq("business_id", businessId)
     .eq("is_active", true)
-    .eq("is_public", true)
-    .neq("id", service.id);
+    .eq("is_public", true);
 
   if (error) {
     throw new Error("Unable to validate visible service limit.");
   }
 
-  if ((count ?? 0) >= freePlanLimits.visibleServices) {
+  const visibleServices = data ?? [];
+
+  if (!canUseFreePlanSlot(visibleServices, service.id, freePlanLimits.visibleServices)) {
     throw new Error(`PLAN_LIMIT:El plan Free permite hasta ${freePlanLimits.visibleServices} servicios visibles.`);
   }
 }
@@ -382,7 +408,7 @@ async function enforceMonthlyAppointmentLimit(
     throw new Error("Unable to validate monthly appointment limit.");
   }
 
-  if ((count ?? 0) >= freePlanLimits.monthlyAppointments) {
+  if (hasReachedFreeMonthlyAppointmentLimit(count ?? 0)) {
     await notifyPlanLimitReached({ businessId, limit: "monthlyAppointments" });
     throw new Error(`PLAN_LIMIT:El plan Free permite hasta ${freePlanLimits.monthlyAppointments} turnos por mes.`);
   }

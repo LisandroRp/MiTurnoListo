@@ -14,6 +14,7 @@ import { bootstrapWorkspace } from "@/lib/networking/endpoints/auth";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
 import { trackGoogleEvent } from "@/lib/analytics/ga";
 import { trackMetaEvent } from "@/lib/analytics/meta";
+import { resetProUpgradePrompt } from "@/lib/pro-upgrade-session";
 
 const passwordRecoverySessionKey = "miturnolisto_password_recovery";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -72,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function clearLocalAuthStorage() {
     clearSupabaseBrowserAuthStorage();
     clearRecoverySession();
+    resetProUpgradePrompt(window.sessionStorage);
   }
 
   function clearAllAuthState() {
@@ -186,15 +188,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    const syncTimer = window.setTimeout(() => {
-      void syncAuthState();
-    }, 0);
+    let syncTimer: number | undefined;
+    function scheduleAuthSync() {
+      window.clearTimeout(syncTimer);
+      syncTimer = window.setTimeout(() => {
+        void syncAuthState();
+      }, 0);
+    }
+
+    scheduleAuthSync();
 
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange((event) => {
       handleAuthEvent(event);
-      void syncAuthState();
+      scheduleAuthSync();
     });
 
     return () => {
@@ -233,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     isAuthActionInProgress.current = false;
     clearRecoverySession();
+    resetProUpgradePrompt(window.sessionStorage);
     setAuthState({
       status: "authenticated",
       userEmail: data.user.email ?? null,

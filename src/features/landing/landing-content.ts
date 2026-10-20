@@ -11,7 +11,7 @@ export const landingPlans: readonly LandingPlan[] = [
     name: "Gratis",
     price: "$0",
     description: "Para empezar a ordenar tus primeros turnos.",
-    perks: ["Hasta 2 integrantes del personal", "5 servicios visibles", "15 turnos por mes"]
+    perks: ["1 integrante del personal", "2 servicios visibles", "15 turnos por mes"]
   },
   {
     name: "Premium",

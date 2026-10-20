@@ -5,13 +5,14 @@ import {
   getAvailableSlotsForEmployee,
   sanitizePublicDayBlocks
 } from "@/features/booking-flow/utils/booking";
-import { freePlanLimits, getCurrentMonthRange, isFreePlan } from "@/features/scheduling/plan-limits";
+import { freePlanLimits, getCurrentMonthRange, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
 import { buildCustomFieldResponses } from "@/features/scheduling/service-custom-fields";
 import { AppointmentStatus, PaymentMethod, ServiceAddon } from "@/features/scheduling/types";
 import { sendBookingCreatedEmails } from "@/lib/email/booking-emails";
 import { createMercadoPagoPreference, getMercadoPagoPublicOrigin } from "@/lib/mercadopago/checkout";
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
+import { getFreePlanPublicAccess } from "@/lib/networking/free-plan-public-access";
 import {
   mapAppointments,
   mapBusinessDayBlocks,
@@ -143,10 +144,27 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return limitResult.response;
   }
 
+  let publicPlanAccess;
+
+  try {
+    publicPlanAccess = await getFreePlanPublicAccess(supabase, businessId, limitResult.currentTier);
+  } catch {
+    return NextResponse.json({ error: "Unable to validate plan access." }, { status: 500 });
+  }
+
+  if (publicPlanAccess && !publicPlanAccess.serviceIds.has(service.id)) {
+    return getUnavailableBookingResponse(supabase, businessId, "SERVICE_NOT_PUBLIC");
+  }
+
   const assignedEmployeeIds = (serviceEmployeesResult.data ?? []).map((row) => row.employee_id);
+  const availableEmployeeIds = new Set(
+    (employeesResult.data ?? [])
+      .filter((employee) => assignedEmployeeIds.includes(employee.id) && (!publicPlanAccess || publicPlanAccess.employeeIds.has(employee.id)))
+      .map((employee) => employee.id)
+  );
   const employees = mapEmployees(
-    (employeesResult.data ?? []).filter((employee) => assignedEmployeeIds.includes(employee.id)),
-    (employeeAvailabilityResult.data ?? []).filter((row) => assignedEmployeeIds.includes(row.employee_id))
+    (employeesResult.data ?? []).filter((employee) => availableEmployeeIds.has(employee.id)),
+    (employeeAvailabilityResult.data ?? []).filter((row) => availableEmployeeIds.has(row.employee_id))
   );
 
   if (employees.length === 0) {
@@ -155,12 +173,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const serviceModel = mapServices(
     [service],
-    serviceEmployeesResult.data ?? [],
+    (serviceEmployeesResult.data ?? []).filter((row) => availableEmployeeIds.has(row.employee_id)),
     serviceAvailabilityResult.data ?? [],
     serviceAddonsResult.data ?? []
   )[0];
   const appointments = mapAppointments(
-    (appointmentsResult.data ?? []).filter((appointment) => assignedEmployeeIds.includes(appointment.employee_id)),
+    (appointmentsResult.data ?? []).filter((appointment) => availableEmployeeIds.has(appointment.employee_id)),
     businessResult.data.timezone
   ).map((appointment) => ({
     ...appointment,
@@ -367,6 +385,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if ("response" in limitResult) {
       return limitResult.response;
+    }
+
+    let publicPlanAccess;
+
+    try {
+      publicPlanAccess = await getFreePlanPublicAccess(supabase, service.business_id, limitResult.currentTier);
+    } catch {
+      return NextResponse.json({ error: "Unable to validate plan access." }, { status: 500 });
+    }
+
+    if (publicPlanAccess && !publicPlanAccess.serviceIds.has(service.id)) {
+      return NextResponse.json({ error: "Service not found." }, { status: 404 });
+    }
+
+    if (publicPlanAccess && !publicPlanAccess.employeeIds.has(payload.employeeId)) {
+      return NextResponse.json({ error: "The selected professional is not available for this service." }, { status: 400 });
     }
 
     const assignedEmployeeIds = (serviceEmployeesResult.data ?? []).map((row) => row.employee_id);
@@ -730,7 +764,7 @@ async function getMonthlyAppointmentLimitStatus(
   }
 
   if (!isFreePlan(currentTier)) {
-    return { canBook: true };
+    return { canBook: true, currentTier };
   }
 
   const { start, end } = getCurrentMonthRange();
@@ -749,7 +783,7 @@ async function getMonthlyAppointmentLimitStatus(
     };
   }
 
-  if ((count ?? 0) >= freePlanLimits.monthlyAppointments) {
+  if (hasReachedFreeMonthlyAppointmentLimit(count ?? 0)) {
     await notifyPlanLimitReached({ businessId, limit: "monthlyAppointments" });
 
     return {
@@ -760,7 +794,7 @@ async function getMonthlyAppointmentLimitStatus(
     };
   }
 
-  return { canBook: true };
+  return { canBook: true, currentTier };
 }
 
 async function enforceOneCustomerBookingForSelectedDate(

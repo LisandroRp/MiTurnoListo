@@ -45,6 +45,8 @@ type ProfileViewProps = {
   onSubscribeToPro: () => Promise<void>;
   onUnsubscribeFromPro: () => Promise<boolean>;
   onActivateReferralReward: () => Promise<boolean>;
+  openProPlan?: boolean;
+  onProPlanOpened?: () => void;
 };
 
 export function ProfileView({
@@ -65,7 +67,9 @@ export function ProfileView({
   onBusinessImageUploadError,
   onSubscribeToPro,
   onUnsubscribeFromPro,
-  onActivateReferralReward
+  onActivateReferralReward,
+  openProPlan = false,
+  onProPlanOpened
 }: ProfileViewProps) {
   const plansRef = useRef<HTMLDivElement>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
@@ -86,6 +90,21 @@ export function ProfileView({
   const [isSubmittingPlanChange, setIsSubmittingPlanChange] = useState(false);
   const isProPlan = profile.subscriptionTier === "pro";
   const isReferralPlan = profile.subscriptionAccessSource === "referral";
+
+  useEffect(() => {
+    if (!openProPlan) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      if (!isProPlan) {
+        setActiveTab("account");
+        setPendingTier("pro");
+      }
+      onProPlanOpened?.();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [openProPlan, isProPlan, onProPlanOpened]);
 
   useEffect(() => {
     setBusinessDraft(createBusinessDraft(profile));

@@ -15,6 +15,7 @@ export default function HomeSectionPage() {
     markAppointmentNoShow,
     markAppointmentPaid,
     messages,
+    profile,
     rescheduleAppointment,
     services
   } = useScheduling();
@@ -25,6 +26,7 @@ export default function HomeSectionPage() {
       metrics={dashboardMetrics}
       employees={employees}
       services={services}
+      subscriptionTier={profile.subscriptionTier}
       appointments={appointments}
       businessId={businessId}
       referenceDate={focusedDate}

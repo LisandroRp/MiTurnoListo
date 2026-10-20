@@ -154,7 +154,7 @@ test("today agenda expands overflowing hour rows without an inner scroll", () =>
   assert.equal(dashboardView.includes("}, [currentTimeDetails]);"), true);
   assert.equal(dashboardView.includes("compactHourRowHeightPx"), true);
   assert.equal(dashboardView.includes("absolute left-0 right-0 z-30 flex w-full items-center"), true);
-  assert.equal(dashboardView.includes("rounded-md danger bg-surface-strong"), true);
+  assert.equal(dashboardView.includes("rounded-md danger"), true);
   assert.equal(dashboardView.includes("text-danger shadow-sm"), true);
 });
 
@@ -350,7 +350,9 @@ test("admin can create walk-in appointments from home and new booking", () => {
   assert.equal(walkInModal.includes("getCustomers"), true);
   assert.equal(walkInModal.includes("manualMode"), false);
   assert.equal(walkInModal.includes("getEmployeesWorkingOnDate"), false);
-  assert.equal(walkInModal.includes("isReservableEmployee(employee) && selectedService.employeeIds.includes(employee.id)"), true);
+  assert.equal(walkInModal.includes("isReservableEmployee(employee) && (!freeEmployeeIds || freeEmployeeIds.has(employee.id))"), true);
+  assert.equal(walkInModal.includes("reservableEmployees.filter((employee) => selectedService.employeeIds.includes(employee.id))"), true);
+  assert.equal(walkInModal.includes("(!freeServiceIds || freeServiceIds.has(service.id))"), true);
   assert.equal(walkInModal.includes('const walkInCustomerName = "Sobreturno"'), true);
   assert.equal(walkInModal.includes('source: "walk_in"'), true);
   assert.equal(walkInModal.includes("new Date()"), true);

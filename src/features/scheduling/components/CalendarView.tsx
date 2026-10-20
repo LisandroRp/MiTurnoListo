@@ -27,7 +27,7 @@ import { getAvailableSlotsForEmployees, isDateBlocked } from "@/features/booking
 import { BusinessDayBlocksModal } from "@/features/scheduling/components/CalendarView/BusinessDayBlocksModal";
 import { getDayKeyForDate } from "@/features/scheduling/components/dashboardTeamUtils";
 import { Messages } from "@/features/scheduling/i18n/messages";
-import { freePlanLimits, getMonthlyAppointmentUsage, isFreePlan } from "@/features/scheduling/plan-limits";
+import { freePlanLimits, getMonthlyAppointmentUsage, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
 import { getCancellationDeadline } from "@/features/scheduling/service-cancellation-policy";
 import { Appointment, BusinessDayBlock, CalendarMode, Employee, Service } from "@/features/scheduling/types";
 import { getDateLabel } from "@/features/scheduling/utils/format";
@@ -132,7 +132,7 @@ export function CalendarView({
   ));
   const monthlyAppointmentUsage = getMonthlyAppointmentUsage(appointments);
   const shouldShowFreeLimit = isFreePlan(subscriptionTier);
-  const hasReachedFreeLimit = monthlyAppointmentUsage >= freePlanLimits.monthlyAppointments;
+  const hasReachedFreeLimit = hasReachedFreeMonthlyAppointmentLimit(monthlyAppointmentUsage);
   const weekDates = getWeekDates(safeFocusedDate);
   const monthGridDates = getMonthGridDates(safeFocusedDate);
   const periodDates = mode === "day"

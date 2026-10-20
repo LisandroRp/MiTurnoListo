@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { FiClock, FiMail, FiPhone, FiPlusCircle, FiUser, FiX } from "react-icons/fi";
 
 import { Button } from "@/components/ui/Button";
@@ -11,6 +11,8 @@ import { TextField } from "@/components/ui/TextField";
 import { BookingCustomerSuggestion } from "@/features/booking-flow/types";
 import { Appointment, Employee, PaymentMethod, Service } from "@/features/scheduling/types";
 import { Messages } from "@/features/scheduling/i18n/messages";
+import { freePlanLimits, getFreePlanIncludedIds, isFreePlan } from "@/features/scheduling/plan-limits";
+import { SubscriptionTier } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 import { getCustomers } from "@/lib/networking/endpoints/customers";
 
@@ -20,6 +22,7 @@ type WalkInAppointmentModalProps = {
   isOpen: boolean;
   messages: Messages;
   services: Service[];
+  subscriptionTier: SubscriptionTier;
   onClose: () => void;
   onCreateAppointment: (appointment: Appointment) => Promise<boolean> | void;
 };
@@ -32,14 +35,23 @@ export function WalkInAppointmentModal({
   isOpen,
   messages,
   services,
+  subscriptionTier,
   onClose,
   onCreateAppointment
 }: WalkInAppointmentModalProps) {
-  const availableServices = useMemo(() => services.filter((service) => (
+  const freeEmployeeIds = isFreePlan(subscriptionTier)
+    ? getFreePlanIncludedIds(employees.filter((employee) => !employee.isArchived), freePlanLimits.activeEmployees)
+    : null;
+  const freeServiceIds = isFreePlan(subscriptionTier)
+    ? getFreePlanIncludedIds(services.filter((service) => !service.isArchived && service.isVisible), freePlanLimits.visibleServices)
+    : null;
+  const reservableEmployees = employees.filter((employee) => isReservableEmployee(employee) && (!freeEmployeeIds || freeEmployeeIds.has(employee.id)));
+  const availableServices = services.filter((service) => (
     !service.isArchived &&
     service.isVisible &&
-    service.employeeIds.some((employeeId) => employees.some((employee) => isReservableEmployee(employee) && employee.id === employeeId))
-  )), [employees, services]);
+    (!freeServiceIds || freeServiceIds.has(service.id)) &&
+    service.employeeIds.some((employeeId) => reservableEmployees.some((employee) => employee.id === employeeId))
+  ));
   const [serviceId, setServiceId] = useState("");
   const [employeeId, setEmployeeId] = useState("");
   const [shouldAddCustomerDetails, setShouldAddCustomerDetails] = useState(false);
@@ -51,7 +63,7 @@ export function WalkInAppointmentModal({
   const [isSaving, setIsSaving] = useState(false);
   const selectedService = availableServices.find((service) => service.id === serviceId) ?? null;
   const availableEmployees = selectedService
-    ? employees.filter((employee) => isReservableEmployee(employee) && selectedService.employeeIds.includes(employee.id))
+    ? reservableEmployees.filter((employee) => selectedService.employeeIds.includes(employee.id))
     : [];
   const selectedEmployee = availableEmployees.find((employee) => employee.id === employeeId) ?? null;
   const hasValidCustomerDetails = (

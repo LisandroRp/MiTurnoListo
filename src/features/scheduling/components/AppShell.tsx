@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ToastViewport } from "@/components/ui/Toast";
 import { useAuth } from "@/features/auth/components/AuthProvider";
+import { FreePlanUsagePrompt } from "@/features/scheduling/components/FreePlanUsagePrompt";
 import { NavigationItem, NavigationSidebar } from "@/features/scheduling/components/NavigationSidebar";
-import { freePlanLimits, getMonthlyAppointmentUsage, isFreePlan } from "@/features/scheduling/plan-limits";
+import { freePlanLimits, getMonthlyAppointmentUsage, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
 
 type AppShellProps = {
@@ -23,7 +24,7 @@ export function AppShell({ children }: AppShellProps) {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const didReconcileSubscription = useRef(false);
   const didShowFreeLimitToast = useRef(false);
-  const { logout } = useAuth();
+  const { logout, userId } = useAuth();
   const { appointments, businessId, dismissToast, isLoading, loadError, messages, profile, refreshWorkspaceSubscription, showToast, theme, toasts } = useScheduling();
   const pathname = usePathname();
   const activeView = pathname.startsWith("/calendario")
@@ -101,7 +102,7 @@ export function AppShell({ children }: AppShellProps) {
       didShowFreeLimitToast.current ||
       isLoading ||
       !isFreePlan(profile.subscriptionTier) ||
-      getMonthlyAppointmentUsage(appointments) < freePlanLimits.monthlyAppointments
+      !hasReachedFreeMonthlyAppointmentLimit(getMonthlyAppointmentUsage(appointments))
     ) {
       return;
     }
@@ -162,11 +163,12 @@ export function AppShell({ children }: AppShellProps) {
           messages={messages}
           onLogout={() => void logout()}
           onToggle={() => setIsSidebarCollapsed((current) => !current)}
+          showProUpgrade={Boolean(businessId) && !isLoading && isFreePlan(profile.subscriptionTier)}
         />
       </div>
 
       <div
-        className={`fixed inset-0 z-40 transition xl:hidden ${
+        className={`fixed inset-0 z-50 transition xl:hidden ${
           isMobileSidebarOpen ? "pointer-events-auto" : "pointer-events-none"
         }`}
         aria-hidden={!isMobileSidebarOpen}
@@ -193,6 +195,7 @@ export function AppShell({ children }: AppShellProps) {
             onNavigate={() => setIsMobileSidebarOpen(false)}
             onLogout={() => void logout()}
             onToggle={() => setIsMobileSidebarOpen(false)}
+            showProUpgrade={Boolean(businessId) && !isLoading && isFreePlan(profile.subscriptionTier)}
           />
         </div>
       </div>
@@ -220,6 +223,14 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       </main>
 
+      {pathname === "/inicio" && businessId && userId && !isLoading ? (
+        <FreePlanUsagePrompt
+          messages={messages}
+          userId={userId}
+          usage={getMonthlyAppointmentUsage(appointments)}
+          tier={profile.subscriptionTier}
+        />
+      ) : null}
       <ToastViewport toasts={toasts} onDismiss={dismissToast} />
     </div>
   );

@@ -24,7 +24,7 @@ import { formatTodayRanges, getDayKeyForDate, getInitials, getPersonnelStepValid
 import { EmployeeMenuAction, PersonnelFilter, PersonnelMode, PersonnelWizardStep } from "@/features/scheduling/components/PersonnelView/types";
 import { WizardActions } from "@/features/scheduling/components/PersonnelView/WizardActions";
 import { Messages } from "@/features/scheduling/i18n/messages";
-import { freePlanLimits, isFreePlan } from "@/features/scheduling/plan-limits";
+import { freePlanLimits, getFreePlanIncludedIds, isFreePlan } from "@/features/scheduling/plan-limits";
 import { Appointment, Employee, Service, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
 import { createNewEmployeeDraft } from "@/lib/networking/endpoints/scheduling";
 import { uploadBusinessImageAsset } from "@/lib/storage/business-assets";
@@ -78,6 +78,7 @@ export function PersonnelView({
   const [showArchivedPersonnel, setShowArchivedPersonnel] = useState(false);
   const [isSavingEmployee, setIsSavingEmployee] = useState(false);
   const [lockedEmployee, setLockedEmployee] = useState<Employee | null>(null);
+  const [isCreateLimitOpen, setIsCreateLimitOpen] = useState(false);
   const [pendingMenuAction, setPendingMenuAction] = useState<{ employeeId: string; action: EmployeeMenuAction } | null>(null);
 
   const currentStep = personnelWizardStepOrder[currentStepIndex] ?? "details";
@@ -85,11 +86,9 @@ export function PersonnelView({
     id: step,
     label: messages.personnel.steps[step]
   }));
-  const unlockedEmployeeIds = new Set(
-    isFreePlan(subscriptionTier)
-      ? employees.filter((employee) => !employee.isArchived).slice(0, freePlanLimits.activeEmployees).map((employee) => employee.id)
-      : employees.filter((employee) => !employee.isArchived).map((employee) => employee.id)
-  );
+  const unlockedEmployeeIds = isFreePlan(subscriptionTier)
+    ? getFreePlanIncludedIds(employees.filter((employee) => !employee.isArchived), freePlanLimits.activeEmployees)
+    : new Set(employees.filter((employee) => !employee.isArchived).map((employee) => employee.id));
   const todayKey = getDayKeyForDate(referenceDate);
   const wizardActionVisibility = useDualActionVisibility();
   useEffect(() => {
@@ -109,6 +108,11 @@ export function PersonnelView({
   }).sort((left, right) => Number(left.isArchived) - Number(right.isArchived) || left.name.localeCompare(right.name));
 
   function startCreate() {
+    if (isFreePlan(subscriptionTier) && employees.filter((employee) => !employee.isArchived).length >= freePlanLimits.activeEmployees) {
+      setIsCreateLimitOpen(true);
+      return;
+    }
+
     setDraft(createNewEmployeeDraft());
     setEditingId(null);
     setCurrentStepIndex(0);
@@ -523,6 +527,14 @@ export function PersonnelView({
         description={messages.planLimits.lockedEmployeeDescription}
         actionLabel={messages.planLimits.lockedAction}
         onClose={() => setLockedEmployee(null)}
+      />
+      <PlanLimitModal
+        isOpen={isCreateLimitOpen}
+        badge={messages.planLimits.lockedBadge}
+        title={messages.planLimits.employeeCreateTitle}
+        description={messages.planLimits.employeeCreateDescription}
+        actionLabel={messages.planLimits.lockedAction}
+        onClose={() => setIsCreateLimitOpen(false)}
       />
     </div>
   );

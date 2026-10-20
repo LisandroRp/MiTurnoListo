@@ -199,3 +199,22 @@ a {
     animation: brand-bounce 0.95s ease-in-out infinite;
   }
 }
+
+@keyframes button-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.button-bounce {
+  transform-origin: center bottom;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .button-bounce {
+    animation: button-bounce 0.95s ease-in-out infinite;
+  }
+}

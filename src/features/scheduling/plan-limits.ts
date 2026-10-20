@@ -1,11 +1,28 @@
 export const freePlanLimits = {
   monthlyAppointments: 15,
-  activeEmployees: 2,
-  visibleServices: 5
+  activeEmployees: 1,
+  visibleServices: 2
 } as const;
+
+export function getFreePlanIncludedIds<T extends { id: string; name: string }>(items: readonly T[], limit: number) {
+  return new Set(
+    [...items]
+      .sort((left, right) => left.name.localeCompare(right.name, "es") || left.id.localeCompare(right.id))
+      .slice(0, limit)
+      .map((item) => item.id)
+  );
+}
+
+export function canUseFreePlanSlot<T extends { id: string; name: string }>(items: readonly T[], candidateId: string, limit: number) {
+  return items.length < limit || getFreePlanIncludedIds(items, limit).has(candidateId);
+}
 
 export function isFreePlan(subscriptionTier: string) {
   return subscriptionTier === "free";
+}
+
+export function hasReachedFreeMonthlyAppointmentLimit(usage: number) {
+  return usage >= freePlanLimits.monthlyAppointments;
 }
 
 export function getCurrentMonthRange(referenceDate = new Date()) {

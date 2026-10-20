@@ -136,3 +136,50 @@ test("does not mark the paid Pro card as current for referral Pro", () => {
   assert.doesNotMatch(html, /Current plan/);
   assert.doesNotMatch(proCard[1], /border-brand bg-brand-soft/);
 });
+
+test("an upgrade link opens the purchase modal for Free accounts without starting checkout", () => {
+  for (const tier of ["free", "pro"]) {
+    const states = [];
+    const effects = [];
+    let cursor = 0;
+    let checkoutCalls = 0;
+    let consumed = 0;
+    const react = {
+      ...require("react"),
+      useState: (initial) => {
+        const index = cursor++;
+        if (!(index in states)) states[index] = typeof initial === "function" ? initial() : initial;
+        return [states[index], (value) => { states[index] = value; }];
+      },
+      useEffect: (callback) => effects.push(callback),
+      useRef: () => ({ current: null }),
+      useCallback: (callback) => callback
+    };
+    const loaded = new Module(fileUrl.pathname);
+    loaded.filename = fileUrl.pathname;
+    loaded.require = (specifier) => specifier === "react" ? react : components[specifier] ?? require(specifier);
+    loaded._compile(output, fileUrl.pathname);
+    const previousWindow = globalThis.window;
+    let timer;
+    globalThis.window = { setTimeout: (callback) => { timer = callback; return 1; }, clearTimeout: () => {} };
+    try {
+      const props = {
+        messages, profile: { ...profile, subscriptionTier: tier },
+        isSuperAdmin: false, themeOptions: [], openProPlan: true,
+        onProPlanOpened: () => { consumed += 1; },
+        onSubscribeToPro: () => { checkoutCalls += 1; }
+      };
+      loaded.exports.ProfileView(props);
+      effects[0]();
+      timer();
+      cursor = 0;
+      const view = loaded.exports.ProfileView({ ...props, openProPlan: false });
+      const modal = view.props.children.find((child) => child?.type === components["@/components/ui/Modal"].Modal);
+      assert.equal(modal.props.isOpen, tier === "free");
+      assert.equal(checkoutCalls, 0);
+      assert.equal(consumed, 1);
+    } finally {
+      globalThis.window = previousWindow;
+    }
+  }
+});

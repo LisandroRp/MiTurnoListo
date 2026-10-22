@@ -24,7 +24,11 @@ export const messages = {
       paymentMethods: "Métodos de pago",
       referrals: "Referidos",
       suggestions: "Sugerencias",
-      profile: "Perfil"
+      profile: "Perfil",
+      messages: "Mensajes",
+      operationsGroup: "Operación",
+      businessGroup: "Mi negocio",
+      communicationGroup: "Comunicación"
     },
     actions: {
       addService: "Agregar servicio",
@@ -968,7 +972,11 @@ export const messages = {
       paymentMethods: "Payment methods",
       referrals: "Referrals",
       suggestions: "Suggestions",
-      profile: "Profile"
+      profile: "Profile",
+      messages: "Messages",
+      operationsGroup: "Operations",
+      businessGroup: "My business",
+      communicationGroup: "Communication"
     },
     actions: {
       addService: "Add service",

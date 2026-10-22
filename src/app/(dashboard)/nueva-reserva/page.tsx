@@ -60,6 +60,7 @@ export default function NewBookingPreviewPage() {
     <div className="grid gap-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <SectionHeader
+          icon={<FiPlusCircle />}
           eyebrow={messages.bookingPreview.eyebrow}
           title={messages.bookingPreview.title}
           description={messages.bookingPreview.description}

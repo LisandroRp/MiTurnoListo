@@ -181,6 +181,7 @@ export function SuggestionsView({ businessId, locale, messages }: SuggestionsVie
   return (
     <div className="grid gap-6">
       <SectionHeader
+        icon={<FiMessageSquare />}
         eyebrow={copy.eyebrow}
         title={copy.title}
         description={copy.description}

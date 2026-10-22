@@ -24,3 +24,9 @@ test("mobile drawer stays above the dashboard agenda header", () => {
 
   assert.ok(getNumericZIndex(drawerLayer) > getNumericZIndex(agendaHeaderLayer));
 });
+
+test("Messages uses the WhatsApp icon and Profile uses a person icon", () => {
+  const appShell = readFileSync(new URL("./AppShell.tsx", import.meta.url), "utf8");
+  assert.match(appShell, /id: "messages"[^\n]*icon: FaWhatsapp/);
+  assert.match(appShell, /id: "profile"[^\n]*icon: FiUser,/);
+});

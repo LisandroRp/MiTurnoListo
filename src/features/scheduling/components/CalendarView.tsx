@@ -170,6 +170,7 @@ export function CalendarView({
   return (
     <div className="grid min-w-0 gap-6">
       <SectionHeader
+        icon={<FiCalendar />}
         eyebrow={messages.calendar.eyebrow}
         title={messages.calendar.title}
         description={messages.calendar.description}

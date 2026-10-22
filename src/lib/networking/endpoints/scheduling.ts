@@ -48,6 +48,7 @@ export type SchedulingSnapshotScope =
   | "booking"
   | "calendar"
   | "customers"
+  | "messages"
   | "dashboard"
   | "payments"
   | "paymentMethods"
@@ -684,6 +685,7 @@ export function getSchedulingSnapshotScopeConfig(scope: SchedulingSnapshotScope)
       includeServices: true
     },
     customers: {},
+    messages: { includeServices: true },
     dashboard: {
       includeAppointments: true,
       includeEmployeeAvailability: true,

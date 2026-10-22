@@ -1,5 +1,5 @@
 import { IconType } from "react-icons";
-import { FiChevronLeft, FiChevronRight, FiLogOut, FiX, FiZap } from "react-icons/fi";
+import { FiChevronDown, FiChevronLeft, FiChevronRight, FiLogOut, FiX, FiZap } from "react-icons/fi";
 import Link from "next/link";
 
 import { BrandMark } from "@/components/composed/BrandMark";
@@ -40,6 +40,33 @@ export function NavigationSidebar({
 }: NavigationSidebarProps) {
   const isMobile = mode === "mobile";
   const shouldCollapse = !isMobile && isCollapsed;
+  const groups = [
+    { label: messages.nav.operationsGroup, ids: ["home", "calendar", "newBooking", "customers"] },
+    { label: messages.nav.businessGroup, ids: ["personnel", "services", "payments", "statistics"] },
+    { label: messages.nav.communicationGroup, ids: ["messages", "referrals", "suggestions"] }
+  ];
+
+  function renderItem(item: NavigationItem) {
+    const Icon = item.icon;
+    const isActive = activeView === item.id || (item.id === "profile" && activeView === "paymentMethods");
+    return (
+      <Link
+        key={item.id}
+        href={item.href}
+        onClick={onNavigate}
+        aria-current={isActive ? "page" : undefined}
+        className={cx(
+          "flex h-10 cursor-pointer items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+          isActive ? "bg-brand-soft text-brand-strong" : "text-muted hover:bg-surface-strong hover:text-primary",
+          shouldCollapse ? "justify-center" : "justify-start"
+        )}
+        title={shouldCollapse ? item.label : undefined}
+      >
+        <Icon className="shrink-0 text-lg text-brand-strong" aria-hidden="true" />
+        <span className={shouldCollapse ? "sr-only" : undefined}>{item.label}</span>
+      </Link>
+    );
+  }
 
   return (
     <aside
@@ -91,33 +118,28 @@ export function NavigationSidebar({
           }
           onClick={onToggle}
         >
-          {isMobile ? <FiX /> : shouldCollapse ? <FiChevronRight /> : <FiChevronLeft />}
+          {isMobile ? <FiX className="text-brand-strong" /> : shouldCollapse ? <FiChevronRight className="text-brand-strong" /> : <FiChevronLeft className="text-brand-strong" />}
         </Button>
       </div>
 
       <nav className="grid min-h-0 flex-1 auto-rows-max gap-1 overflow-y-auto p-3">
-        {items.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeView === item.id;
-
-          return (
-            <Link
-              key={item.id}
-              href={item.href}
-              onClick={onNavigate}
+        {groups.map((group, index) => (
+          <details key={group.ids[0]} open={index === 0} className={cx("group", index > 0 && "mt-2 border-t border-subtle pt-2")}>
+            <summary
+              title={shouldCollapse ? group.label : undefined}
               className={cx(
-                "flex h-11 cursor-pointer items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-colors",
-                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
-                isActive ? "bg-brand-soft text-brand-strong" : "text-muted hover:bg-surface-strong hover:text-primary",
-                shouldCollapse ? "justify-center" : "justify-start"
+                "flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-lg px-3 text-xs font-bold text-muted transition-colors hover:bg-surface-strong hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus [&::-webkit-details-marker]:hidden",
+                shouldCollapse ? "justify-center" : "justify-between"
               )}
-              title={shouldCollapse ? item.label : undefined}
             >
-              <Icon className="text-lg" aria-hidden="true" />
-              <span className={cx(shouldCollapse ? "sr-only" : "")}>{item.label}</span>
-            </Link>
-          );
-        })}
+              <span className={shouldCollapse ? "sr-only" : undefined}>{group.label}</span>
+              <FiChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-brand-strong transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="mt-1 grid gap-1">
+              {group.ids.map((id) => items.find((item) => item.id === id)).filter((item): item is NavigationItem => Boolean(item)).map(renderItem)}
+            </div>
+          </details>
+        ))}
       </nav>
 
       <div className={cx("shrink-0 border-t border-subtle p-3", isMobile ? "pb-safe-6" : "")}>
@@ -131,10 +153,11 @@ export function NavigationSidebar({
               shouldCollapse ? "justify-center px-0" : "justify-start"
             )}
           >
-            <FiZap aria-hidden="true" className="shrink-0 text-lg" />
+            <FiZap aria-hidden="true" className="shrink-0 text-lg text-brand-strong" />
             <span className={shouldCollapse ? "sr-only" : undefined}>{messages.upgrade.action}</span>
           </Link>
         ) : null}
+        {items.filter((item) => item.id === "profile").map(renderItem)}
         <Button
           size={shouldCollapse ? "icon" : "md"}
           variant="ghost"

@@ -90,7 +90,7 @@ export function PaymentMethodsView({ messages, paymentSettings, onSave }: Paymen
 
   return (
     <div className="grid gap-6">
-      <SectionHeader eyebrow={copy.eyebrow} title={copy.title} description={copy.description} />
+      <SectionHeader icon={<FiCreditCard />} eyebrow={copy.eyebrow} title={copy.title} description={copy.description} />
 
       <div className="flex w-fit rounded-xl border border-subtle bg-sidebar p-1">
         <PaymentTabButton isActive={activeTab === "mercadoPago"} onClick={() => setActiveTab("mercadoPago")}>

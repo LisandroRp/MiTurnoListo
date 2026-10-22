@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
-import { FiChevronLeft, FiChevronRight, FiSearch } from "react-icons/fi";
+import { FiChevronLeft, FiChevronRight, FiSearch, FiUserCheck } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { SectionHeader } from "@/components/composed/SectionHeader";
@@ -115,6 +115,7 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
   return (
     <div className="grid gap-6">
       <SectionHeader
+        icon={<FiUserCheck />}
         eyebrow={messages.customers.eyebrow}
         title={messages.customers.title}
         description={messages.customers.description}

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiChevronDown, FiPlusCircle, FiUsers } from "react-icons/fi";
+import { FiChevronDown, FiHome, FiPlusCircle, FiUsers } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -90,6 +90,7 @@ export function DashboardView({
   return (
     <div className="flex min-h-[calc(100vh-2.5rem)] flex-col gap-6">
       <SectionHeader
+        icon={<FiHome />}
         eyebrow={messages.home.eyebrow}
         title={messages.home.title}
         description={messages.home.description}

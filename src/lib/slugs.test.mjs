@@ -20,6 +20,7 @@ test("reserved public slugs are guarded for business URLs", () => {
   assert.equal(isReservedPublicSlug("peluquerias"), true);
   assert.equal(isReservedPublicSlug("estetica"), true);
   assert.equal(isReservedPublicSlug("sugerencias"), true);
+  assert.equal(isReservedPublicSlug("mensajes"), true);
   assert.equal(isReservedPublicSlug("turnos-studio"), false);
   assert.equal(getSafePublicSlug("Login", "negocio"), "login-negocio");
 });

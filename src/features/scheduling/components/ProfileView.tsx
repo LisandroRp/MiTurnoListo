@@ -1,5 +1,6 @@
 import { ChangeEvent, RefObject, useCallback, useEffect, useRef, useState } from "react";
-import { FiArrowRight, FiCheckCircle, FiClock, FiLock, FiMapPin, FiUpload, FiX, FiZap } from "react-icons/fi";
+import Link from "next/link";
+import { FiArrowRight, FiCheckCircle, FiClock, FiLock, FiMapPin, FiUpload, FiUser, FiX, FiZap } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -301,6 +302,7 @@ export function ProfileView({
   return (
     <div className="grid gap-6">
       <SectionHeader
+        icon={<FiUser />}
         eyebrow={messages.profile.eyebrow}
         title={messages.profile.title}
         description={messages.profile.description}
@@ -445,15 +447,24 @@ export function ProfileView({
         ) : null}
 
         {activeTab === "business" ? (
-          <BusinessProfilePanel
-            draft={businessDraft}
-            isSaving={isSavingBusiness}
-            messages={messages}
-            onChange={setBusinessDraft}
-            onImageUploadError={onBusinessImageUploadError}
-            onSelectedLogoFileChange={setPendingBusinessLogoFile}
-            onSave={() => void handleBusinessSave()}
-          />
+          <div className="grid gap-6">
+            <BusinessProfilePanel
+              draft={businessDraft}
+              isSaving={isSavingBusiness}
+              messages={messages}
+              onChange={setBusinessDraft}
+              onImageUploadError={onBusinessImageUploadError}
+              onSelectedLogoFileChange={setPendingBusinessLogoFile}
+              onSave={() => void handleBusinessSave()}
+            />
+            <Card>
+              <h2 className="text-lg font-bold text-primary">{messages.nav.paymentMethods}</h2>
+              <p className="mt-2 text-sm text-muted">{messages.adminPaymentMethods.description}</p>
+              <Link href="/metodos-de-pago" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-brand-soft px-4 py-3 text-sm font-semibold text-brand-strong hover:bg-surface-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+                {messages.nav.paymentMethods} <FiArrowRight aria-hidden="true" />
+              </Link>
+            </Card>
+          </div>
         ) : null}
 
         {activeTab === "superAdmin" && isSuperAdmin ? (

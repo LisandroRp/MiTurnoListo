@@ -1053,6 +1053,9 @@ function getWorkspaceLoadErrorMessage(error: unknown) {
 }
 
 function getSchedulingSnapshotScope(pathname: string): SchedulingSnapshotScope {
+  if (pathname.startsWith("/mensajes")) {
+    return "messages";
+  }
   if (pathname.startsWith("/calendario")) {
     return "calendar";
   }

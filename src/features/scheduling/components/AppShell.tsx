@@ -2,7 +2,8 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { FiBarChart2, FiCalendar, FiCreditCard, FiDollarSign, FiGift, FiGrid, FiHome, FiMenu, FiMessageSquare, FiPlusCircle, FiRefreshCw, FiSettings, FiUserCheck, FiUsers } from "react-icons/fi";
+import { FiBarChart2, FiCalendar, FiCreditCard, FiDollarSign, FiGift, FiGrid, FiHome, FiMenu, FiMessageSquare, FiPlusCircle, FiRefreshCw, FiUser, FiUserCheck, FiUsers } from "react-icons/fi";
+import { FaWhatsapp } from "react-icons/fa";
 
 import { BrandMark } from "@/components/composed/BrandMark";
 import { WorkspaceLoadingState } from "@/components/composed/WorkspaceLoadingState";
@@ -47,9 +48,11 @@ export function AppShell({ children }: AppShellProps) {
                         ? "referrals"
                         : pathname.startsWith("/sugerencias")
                           ? "suggestions"
-                          : pathname.startsWith("/perfil")
-                            ? "profile"
-                            : "home";
+                          : pathname.startsWith("/mensajes")
+                            ? "messages"
+                            : pathname.startsWith("/perfil")
+                              ? "profile"
+                              : "home";
   const navigationItems: NavigationItem[] = [
     { id: "home", label: messages.nav.home, icon: FiHome, href: "/inicio" },
     { id: "calendar", label: messages.nav.calendar, icon: FiCalendar, href: "/calendario" },
@@ -62,7 +65,8 @@ export function AppShell({ children }: AppShellProps) {
     { id: "paymentMethods", label: messages.nav.paymentMethods, icon: FiCreditCard, href: "/metodos-de-pago" },
     { id: "referrals", label: messages.nav.referrals, icon: FiGift, href: "/referidos" },
     { id: "suggestions", label: messages.nav.suggestions, icon: FiMessageSquare, href: "/sugerencias" },
-    { id: "profile", label: messages.nav.profile, icon: FiSettings, href: "/perfil" }
+    { id: "messages", label: messages.nav.messages, icon: FaWhatsapp, href: "/mensajes" },
+    { id: "profile", label: messages.nav.profile, icon: FiUser, href: "/perfil" }
   ];
   const activeNavigationItem = navigationItems.find((item) => item.id === activeView) ?? navigationItems[0];
 

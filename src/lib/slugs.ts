@@ -30,6 +30,7 @@ const reservedPublicSlugs = new Set([
   "login",
   "manifest-webmanifest",
   "metodos-de-pago",
+  "mensajes",
   "nueva-reserva",
   "pagos",
   "perfil",

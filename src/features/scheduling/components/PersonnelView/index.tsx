@@ -1,6 +1,6 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { FiEdit2, FiPlus } from "react-icons/fi";
+import { FiEdit2, FiPlus, FiUsers } from "react-icons/fi";
 
 import { PlanLimitModal } from "@/components/composed/PlanLimitModal";
 import { SectionHeader } from "@/components/composed/SectionHeader";
@@ -304,6 +304,7 @@ export function PersonnelView({
     return (
       <div className="grid gap-6">
         <SectionHeader
+          icon={<FiUsers />}
           eyebrow={messages.personnel.eyebrow}
           title={editingId ? messages.personnel.formTitleEdit : messages.personnel.formTitleCreate}
           description={messages.personnel.requiredHint}
@@ -403,6 +404,7 @@ export function PersonnelView({
   return (
     <div className="grid gap-6">
       <SectionHeader
+        icon={<FiUsers />}
         eyebrow={messages.personnel.eyebrow}
         title={messages.personnel.title}
         description={messages.personnel.description}

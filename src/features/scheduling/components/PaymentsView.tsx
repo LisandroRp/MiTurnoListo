@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
-import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { FiChevronLeft, FiChevronRight, FiDollarSign } from "react-icons/fi";
 
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -114,6 +114,7 @@ export function PaymentsView({ businessId, messages, onMarkAppointmentPaid }: Pa
   return (
     <div className="grid gap-6">
       <SectionHeader
+        icon={<FiDollarSign />}
         eyebrow={messages.payments.eyebrow}
         title={messages.payments.title}
         description={messages.payments.description}

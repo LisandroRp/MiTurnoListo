@@ -190,6 +190,7 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
   return (
     <div className="grid gap-6">
       <SectionHeader
+        icon={<FiBarChart2 />}
         eyebrow={messages.statistics.eyebrow}
         title={messages.statistics.title}
         description={messages.statistics.description}

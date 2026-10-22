@@ -1,6 +1,6 @@
 import { ChangeEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { FiArrowLeft, FiArrowRight, FiCheck, FiCopy, FiEdit2, FiInfo, FiMoreHorizontal, FiPlus, FiSearch, FiShare2, FiTrash2 } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight, FiCheck, FiCopy, FiEdit2, FiGrid, FiInfo, FiMoreHorizontal, FiPlus, FiSearch, FiShare2, FiTrash2 } from "react-icons/fi";
 
 import { PlanLimitModal } from "@/components/composed/PlanLimitModal";
 import { SectionHeader } from "@/components/composed/SectionHeader";
@@ -492,6 +492,7 @@ export function ServicesView({
     return (
       <div className="grid gap-6">
         <SectionHeader
+          icon={<FiGrid />}
           eyebrow={messages.services.eyebrow}
           title={editingId ? messages.services.formTitleEdit : messages.services.formTitleCreate}
           description={messages.services.formDisclaimer}
@@ -745,6 +746,7 @@ export function ServicesView({
   return (
     <div className="grid gap-6">
       <SectionHeader
+        icon={<FiGrid />}
         eyebrow={messages.services.eyebrow}
         title={messages.services.title}
         description={messages.services.description}

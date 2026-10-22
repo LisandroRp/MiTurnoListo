@@ -1,9 +1,10 @@
-import { TextareaHTMLAttributes } from "react";
+import { Ref, TextareaHTMLAttributes } from "react";
 
 import { cx } from "@/components/ui/utils";
 
 type TextAreaFieldProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
   label: string;
+  ref?: Ref<HTMLTextAreaElement>;
 };
 
 export function TextAreaField({ label, className, id, ...props }: TextAreaFieldProps) {

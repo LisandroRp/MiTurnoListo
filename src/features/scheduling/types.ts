@@ -13,6 +13,7 @@ export type ViewId =
   | "paymentMethods"
   | "referrals"
   | "suggestions"
+  | "messages"
   | "profile";
 export type PaymentMethod = "cash" | "card" | "transfer" | "mixed";
 export type ToastTone = "success" | "warning" | "error";

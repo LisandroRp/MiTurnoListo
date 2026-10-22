@@ -6,23 +6,9 @@ export const employeeColorClasses: Record<string, string> = {
   "employee-green": "bg-employee-green",
   "employee-teal": "bg-employee-teal",
   "employee-violet": "bg-employee-violet",
-  "employee-rose": "bg-employee-rose"
+  "employee-rose": "bg-employee-rose",
+  "employee-cyan": "bg-employee-cyan",
+  "employee-olive": "bg-employee-olive",
+  "employee-magenta": "bg-employee-magenta",
+  "employee-slate": "bg-employee-slate"
 };
-
-export const employeeDisplayColorKeys = [
-  "employee-blue",
-  "employee-coral",
-  "employee-green",
-  "employee-violet",
-  "employee-amber",
-  "employee-teal",
-  "employee-indigo",
-  "employee-rose"
-] as const;
-
-export function assignEmployeeDisplayColors<T extends { color: string }>(employees: readonly T[]): T[] {
-  return employees.map((employee, index) => ({
-    ...employee,
-    color: employeeDisplayColorKeys[index % employeeDisplayColorKeys.length]
-  }));
-}

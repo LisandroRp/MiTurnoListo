@@ -2,6 +2,7 @@
 
 import { BusinessDayBlock, BusinessPaymentSettings, BusinessProfile, Locale, ThemeId } from "@/features/scheduling/types";
 import { defaultCancellationLeadMinutes } from "@/features/scheduling/service-cancellation-policy";
+import { getNextEmployeeColor } from "@/features/scheduling/employee-colors";
 import { getSupabaseBrowserClient } from "@/lib/networking/clients/supabase-browser";
 import {
   buildDashboardMetrics,
@@ -595,14 +596,14 @@ async function getMutationErrorMessage(response: Response) {
   return "Unable to save changes.";
 }
 
-export function createNewEmployeeDraft() {
+export function createNewEmployeeDraft(employees: readonly { color: string }[] = []) {
   return {
     id: globalThis.crypto.randomUUID(),
     name: "",
     role: "",
     description: "",
     imageUrl: "",
-    color: "employee-coral",
+    color: getNextEmployeeColor(employees),
     initials: "NA",
     isVisible: true,
     isArchived: false,

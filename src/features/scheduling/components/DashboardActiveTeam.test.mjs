@@ -4,6 +4,8 @@ import Module, { createRequire } from "node:module";
 import test from "node:test";
 import ts from "typescript";
 import { messages } from "../i18n/messages.ts";
+import { employeeDisplayColorKeys } from "../employee-colors.ts";
+import { employeeColorClasses } from "./employeeColors.ts";
 
 const require = createRequire(import.meta.url);
 
@@ -16,7 +18,7 @@ function setup(initialEmployees = []) {
     react: { useId: () => "active-team", useState: () => [expanded, (update) => { expanded = typeof update === "function" ? update(expanded) : update; }] },
     "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") },
     "@/features/scheduling/components/dashboardTeamUtils": { getDayKeyForDate: () => "thursday" },
-    "@/features/scheduling/components/employeeColors": { employeeColorClasses: { "employee-blue": "bg-employee-blue" } }
+    "@/features/scheduling/components/employeeColors": { employeeColorClasses }
   };
   for (const name of ["Badge", "Button", "Card"]) modules[`@/components/ui/${name}`] = { [name]: name };
   const url = new URL("./DashboardActiveTeam.tsx", import.meta.url);
@@ -41,7 +43,7 @@ function setup(initialEmployees = []) {
 }
 
 const employees = Array.from({ length: 5 }, (_, index) => ({
-  id: `employee-${index}`, name: `Professional ${index}`, initials: `P${index}`, role: "Role", color: "employee-blue",
+  id: `employee-${index}`, name: `Professional ${index}`, initials: `P${index}`, role: "Role", color: employeeDisplayColorKeys[index],
   schedule: { thursday: index === 0 ? [{ start: "09:00", end: "18:00" }] : [] }
 }));
 
@@ -54,6 +56,9 @@ test("active team starts compact, limits the desktop summary and makes hidden de
   assert.match(app.region().props.className, /grid-rows-\[0fr\]/);
   const summaryNames = app.nodes().filter((node) => node.props?.title?.startsWith("Professional"));
   assert.equal(summaryNames.length, 3);
+  for (const [index, name] of summaryNames.entries()) {
+    assert.ok(name.props.children[0].props.className.includes(employeeColorClasses[employees[index].color]));
+  }
   assert.ok(app.nodes().some((node) => Array.isArray(node.props?.children) && node.props.children.join("") === "+2"));
   assert.ok(app.nodes().some((node) => node.type === "Badge" && node.props.children === 5));
   assert.ok(app.nodes().some((node) => node.props?.className?.includes("hidden min-w-0 flex-1") && node.props.className.includes("sm:flex")));

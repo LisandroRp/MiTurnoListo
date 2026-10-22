@@ -68,7 +68,7 @@ export function PersonnelView({
   const employeeSearchParam = searchParams.get("search") ?? "";
   const rangeIdCounter = useRef(1);
   const [mode, setMode] = useState<PersonnelMode>("grid");
-  const [draft, setDraft] = useState<Employee>(() => createNewEmployeeDraft());
+  const [draft, setDraft] = useState<Employee>(() => createNewEmployeeDraft(employees));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
@@ -113,7 +113,7 @@ export function PersonnelView({
       return;
     }
 
-    setDraft(createNewEmployeeDraft());
+    setDraft(createNewEmployeeDraft(employees));
     setEditingId(null);
     setCurrentStepIndex(0);
     setPendingEmployeeImageFile(null);

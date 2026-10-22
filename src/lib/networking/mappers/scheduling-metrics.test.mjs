@@ -24,6 +24,20 @@ loaded.require = (name) => modules[name] ?? require(name);
 loaded._compile(ts.transpileModule(readFileSync(url, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, url.pathname);
 const { buildDashboardMetrics } = loaded.exports;
 
+test("employee mapping preserves persisted colors across reloads, subsets and different sort orders", () => {
+  const rows = [
+    { id: "one", name: "One", color_token: "employee-violet" },
+    { id: "two", name: "Two", color_token: "employee-green" },
+    { id: "three", name: "Three", color_token: "employee-blue" }
+  ];
+  const colors = (employees) => Object.fromEntries(employees.map((employee) => [employee.id, employee.color]));
+  const first = colors(loaded.exports.mapEmployees(rows, []));
+  assert.deepEqual(first, { one: "employee-violet", two: "employee-green", three: "employee-blue" });
+  assert.deepEqual(colors(loaded.exports.mapEmployees([...rows].reverse(), [])), first);
+  assert.deepEqual(colors(loaded.exports.mapEmployees(rows, [])), first);
+  assert.equal(loaded.exports.mapEmployees([rows[1]], [])[0].color, first.two);
+});
+
 function appointment(date, paymentStatus, amount, appointmentStatus = "scheduled") {
   return { date, paymentStatus, revenue: amount, appointmentStatus };
 }

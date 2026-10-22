@@ -26,7 +26,6 @@ import { SectionHeader } from "@/components/composed/SectionHeader";
 import { getAvailableSlotsForEmployees, isDateBlocked } from "@/features/booking-flow/utils/booking";
 import { BusinessDayBlocksModal } from "@/features/scheduling/components/CalendarView/BusinessDayBlocksModal";
 import { getDayKeyForDate } from "@/features/scheduling/components/dashboardTeamUtils";
-import { employeeDisplayColorKeys as calendarEmployeeColorKeys } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, getMonthlyAppointmentUsage, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
 import { getCancellationDeadline } from "@/features/scheduling/service-cancellation-policy";
@@ -41,7 +40,11 @@ const appointmentToneClasses: Record<string, string> = {
   "employee-green": "border-employee-green/35 bg-employee-green/12 hover:bg-employee-green/18",
   "employee-teal": "border-employee-teal/35 bg-employee-teal/12 hover:bg-employee-teal/18",
   "employee-violet": "border-employee-violet/35 bg-employee-violet/12 hover:bg-employee-violet/18",
-  "employee-rose": "border-employee-rose/35 bg-employee-rose/12 hover:bg-employee-rose/18"
+  "employee-rose": "border-employee-rose/35 bg-employee-rose/12 hover:bg-employee-rose/18",
+  "employee-cyan": "border-employee-cyan/35 bg-employee-cyan/12 hover:bg-employee-cyan/18",
+  "employee-olive": "border-employee-olive/35 bg-employee-olive/12 hover:bg-employee-olive/18",
+  "employee-magenta": "border-employee-magenta/35 bg-employee-magenta/12 hover:bg-employee-magenta/18",
+  "employee-slate": "border-employee-slate/35 bg-employee-slate/12 hover:bg-employee-slate/18"
 };
 
 const employeeDotClasses: Record<string, string> = {
@@ -52,7 +55,11 @@ const employeeDotClasses: Record<string, string> = {
   "employee-green": "bg-employee-green",
   "employee-teal": "bg-employee-teal",
   "employee-violet": "bg-employee-violet",
-  "employee-rose": "bg-employee-rose"
+  "employee-rose": "bg-employee-rose",
+  "employee-cyan": "bg-employee-cyan",
+  "employee-olive": "bg-employee-olive",
+  "employee-magenta": "bg-employee-magenta",
+  "employee-slate": "bg-employee-slate"
 };
 
 type CalendarViewProps = {
@@ -107,11 +114,7 @@ export function CalendarView({
 }: CalendarViewProps) {
   const [isDayBlocksModalOpen, setIsDayBlocksModalOpen] = useState(false);
   const [showOnlyWithAppointments, setShowOnlyWithAppointments] = useState(false);
-  const calendarEmployees = employees.map((employee, index) => ({
-    ...employee,
-    color: calendarEmployeeColorKeys[index % calendarEmployeeColorKeys.length]
-  }));
-  const selectableEmployees = calendarEmployees.filter((employee) => !employee.isArchived);
+  const selectableEmployees = employees.filter((employee) => !employee.isArchived);
   const selectableEmployeeIds = new Set(selectableEmployees.map((employee) => employee.id));
   const visibleEmployees = selectableEmployees.filter((employee) => selectedEmployeeIds.includes(employee.id));
   const safeFocusedDate = getSafeFocusedDate(focusedDate);
@@ -311,7 +314,7 @@ export function CalendarView({
               focusedDate={safeFocusedDate}
               businessDayBlocks={businessDayBlocks}
               employees={visibleEmployees}
-              allEmployees={calendarEmployees}
+              allEmployees={employees}
               services={services}
               allAppointments={activeAppointments}
               appointments={periodVisibleAppointments.filter((appointment) => appointment.date === safeFocusedDate)}
@@ -329,7 +332,7 @@ export function CalendarView({
               focusedDate={safeFocusedDate}
               businessDayBlocks={businessDayBlocks}
               services={services}
-              employees={calendarEmployees}
+              employees={employees}
               allAppointments={activeAppointments}
               appointments={periodVisibleAppointments}
               onDateClick={(date) => {
@@ -347,7 +350,7 @@ export function CalendarView({
             <MonthCalendar
               messages={messages}
               dates={monthGridDates}
-              employees={calendarEmployees}
+              employees={employees}
               appointments={periodVisibleAppointments}
               businessDayBlocks={businessDayBlocks}
               focusedDate={safeFocusedDate}

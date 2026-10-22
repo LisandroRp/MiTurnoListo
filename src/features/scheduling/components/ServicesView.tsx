@@ -18,7 +18,7 @@ import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
 import { AvailabilityEditor, dayKeys, getScheduleValidationMessage, maxRangesPerDay } from "@/features/scheduling/components/AvailabilityEditor";
-import { assignEmployeeDisplayColors, employeeColorClasses } from "@/features/scheduling/components/employeeColors";
+import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { ShareCatalogModal, ShareServiceModal } from "@/features/scheduling/components/ServicesView/ShareResourceModal";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, getFreePlanIncludedIds, isFreePlan } from "@/features/scheduling/plan-limits";
@@ -67,7 +67,7 @@ const visibleServiceEmployeeLimit = 1;
 export function ServicesView({
   messages,
   services,
-  employees: storedEmployees,
+  employees,
   appointments,
   businessId,
   businessSlug,
@@ -82,7 +82,6 @@ export function ServicesView({
   onShareSuccess,
   onShareError
 }: ServicesViewProps) {
-  const employees = assignEmployeeDisplayColors(storedEmployees);
   const rangeIdCounter = useRef(1);
   const [mode, setMode] = useState<ServicesMode>("grid");
   const [draft, setDraft] = useState<Service>(() => createNewServiceDraft());

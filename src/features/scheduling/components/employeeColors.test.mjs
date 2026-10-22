@@ -2,38 +2,39 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { assignEmployeeDisplayColors, employeeColorClasses, employeeDisplayColorKeys } from "./employeeColors.ts";
+import { employeeColorClasses } from "./employeeColors.ts";
+import { employeeDisplayColorKeys, getNextEmployeeColor } from "../employee-colors.ts";
 
-test("repeated stored colors receive the same varied display palette as the calendar", () => {
-  const employees = Array.from({ length: 9 }, (_, index) => ({
-    id: `employee-${index}`, name: `Employee ${index}`, color: "employee-coral", isArchived: false
-  }));
-  const colored = assignEmployeeDisplayColors(employees);
-  assert.equal(new Set(colored.slice(0, 8).map((employee) => employee.color)).size, 8);
-  assert.equal(colored[8].color, colored[0].color);
-  assert.deepEqual(colored.map((employee) => employee.id), employees.map((employee) => employee.id));
-  assert.ok(employees.every((employee) => employee.color === "employee-coral"));
-  for (const [index, employee] of colored.entries()) {
-    assert.equal(employee.color, employeeDisplayColorKeys[index % employeeDisplayColorKeys.length]);
-    assert.ok(employeeColorClasses[employee.color]);
+test("new employees receive unused persisted colors before the palette repeats", () => {
+  const employees = [];
+  for (const color of employeeDisplayColorKeys) {
+    const selected = getNextEmployeeColor(employees);
+    assert.equal(selected, color);
+    assert.ok(employeeColorClasses[selected]);
+    employees.push({ id: `employee-${employees.length}`, color: selected });
   }
+  assert.equal(employeeDisplayColorKeys.length, 12);
+  assert.equal(new Set(employees.map((employee) => employee.color)).size, 12);
+  assert.equal(getNextEmployeeColor(employees), employeeDisplayColorKeys[0]);
+  employees.push({ id: "thirteenth", color: employeeDisplayColorKeys[0] });
+  assert.equal(getNextEmployeeColor(employees), employeeDisplayColorKeys[1]);
 });
 
-test("hiding or selecting an employee does not change the remaining display colors", () => {
+test("choosing the next color does not recolor existing employees or depend on list order", () => {
   const employees = [
-    { id: "hidden", color: "employee-coral", isVisible: false },
-    { id: "selected", color: "employee-coral", isVisible: true },
-    { id: "visible", color: "employee-coral", isVisible: true }
+    { id: "one", color: "employee-blue", isVisible: false },
+    { id: "two", color: "employee-coral", isArchived: true },
+    { id: "three", color: "employee-violet" }
   ];
-  const colored = assignEmployeeDisplayColors(employees);
-  assert.deepEqual(colored.filter((employee) => employee.isVisible).map((employee) => employee.color), employeeDisplayColorKeys.slice(1, 3));
-  assert.equal(colored.find((employee) => employee.id === "selected").color, "employee-coral");
-  assert.deepEqual(assignEmployeeDisplayColors([]), []);
+  const original = structuredClone(employees);
+  assert.equal(getNextEmployeeColor(employees), "employee-green");
+  assert.equal(getNextEmployeeColor([...employees].reverse()), "employee-green");
+  assert.deepEqual(employees, original);
 });
 
-test("service staff selection and review keep fixed circular markers with truncatable names", () => {
+test("service and calendar screens use stored colors and preserve fixed circular markers", () => {
   const source = readFileSync(new URL("./ServicesView.tsx", import.meta.url), "utf8");
-  assert.match(source, /const employees = assignEmployeeDisplayColors\(storedEmployees\)/);
+  assert.doesNotMatch(source, /assignEmployeeDisplayColors/);
   const markers = [...source.matchAll(/<span className=\{cx\("([^"]+)", employeeColorClasses\[employee.color\]\)\}[^>]*\/>/g)];
   assert.equal(markers.length, 2);
   for (const marker of markers) {
@@ -41,5 +42,14 @@ test("service staff selection and review keep fixed circular markers with trunca
     assert.match(source.slice(marker.index + marker[0].length, marker.index + marker[0].length + 180), /min-w-0/);
   }
   const calendar = readFileSync(new URL("./CalendarView.tsx", import.meta.url), "utf8");
-  assert.match(calendar, /employeeDisplayColorKeys as calendarEmployeeColorKeys/);
+  assert.doesNotMatch(calendar, /calendarEmployeeColorKeys|color:.*index/);
+  const repair = readFileSync(new URL("../../../../docs/employee-colors.sql", import.meta.url), "utf8");
+  const globals = readFileSync(new URL("../../../app/globals.css", import.meta.url), "utf8");
+  for (const color of employeeDisplayColorKeys) {
+    assert.ok(repair.includes(`'${color}'`));
+    assert.ok(globals.includes(`--color-${color}: var(--${color});`));
+    assert.ok(globals.includes(`--${color}: oklch(`));
+    assert.ok(calendar.includes(`border-${color}/35 bg-${color}/12 hover:bg-${color}/18`));
+    assert.ok(calendar.includes(`"${color}": "bg-${color}"`));
+  }
 });

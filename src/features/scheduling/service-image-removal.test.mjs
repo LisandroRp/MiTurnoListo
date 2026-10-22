@@ -192,14 +192,14 @@ test("today agenda time indicator stays outside clipped hour content", () => {
   assert.equal(hasHourWrapper, true);
 });
 
-test("calendar employee filter uses varied colors and compact truncated rows", () => {
+test("calendar employee filter preserves stored colors and compact truncated rows", () => {
   const calendarView = readProjectFile("src/features/scheduling/components/CalendarView.tsx");
   const globals = readProjectFile("src/app/globals.css");
 
-  assert.equal(calendarView.includes("calendarEmployeeColorKeys"), true);
+  assert.equal(calendarView.includes("calendarEmployeeColorKeys"), false);
   assert.equal(calendarView.includes('"employee-amber"'), true);
   assert.equal(calendarView.includes('"employee-teal"'), true);
-  assert.equal(calendarView.includes("color: calendarEmployeeColorKeys[index % calendarEmployeeColorKeys.length]"), true);
+  assert.equal(calendarView.includes("const selectableEmployees = employees.filter((employee) => !employee.isArchived)"), true);
   assert.equal(calendarView.includes("max-w-[min(26rem,calc(100vw-2rem))]"), true);
   assert.equal(calendarView.includes("grid-cols-[minmax(0,1fr)_auto]"), true);
   assert.equal(calendarView.includes("block truncate text-sm font-semibold leading-5 text-primary"), true);

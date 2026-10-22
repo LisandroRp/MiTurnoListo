@@ -1,15 +1,20 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useRef, useState } from "react";
 import { FiActivity, FiBarChart2, FiClock, FiDollarSign, FiTrendingUp, FiUsers } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { SelectField } from "@/components/ui/SelectField";
+import { Pagination } from "@/components/ui/Pagination";
 import { PremiumFeatureCard } from "@/components/composed/PremiumFeatureCard";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { Appointment, AppointmentLifecycleStatus, Employee, Service } from "@/features/scheduling/types";
 import { cx } from "@/components/ui/utils";
+import { buildStatisticsPaymentBreakdown, buildStatisticsRevenue, filterStatisticsRevenue, type StatisticsRevenueFilter } from "@/features/scheduling/utils/statistics-revenue";
+import { AnalyticsPanel } from "@/features/scheduling/components/StatisticsView/AnalyticsPanel";
+import { StatusBreakdown, type StatisticsStatusRow } from "@/features/scheduling/components/StatisticsView/StatusBreakdown";
 
 type StatisticsViewProps = {
   appointments: Appointment[];
@@ -27,7 +32,7 @@ type StatCard = {
   label: string;
   value: string;
   helper: string;
-  tone: "brand" | "success" | "warning" | "danger" | "neutral";
+  filter?: StatisticsRevenueFilter;
   icon: ReactNode;
 };
 
@@ -44,6 +49,10 @@ const periodIds: PeriodId[] = ["today", "yesterday", "thisWeek", "lastWeek", "th
 export function StatisticsView({ appointments, employees, isLocked = false, services, messages, referenceDate }: StatisticsViewProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodId>("thisMonth");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("all");
+  const [revenueFilter, setRevenueFilter] = useState<StatisticsRevenueFilter>("all");
+  const [appointmentPage, setAppointmentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const appointmentsRef = useRef<HTMLDivElement>(null);
   const activeServices = services.filter((service) => !service.isArchived);
   const activeServiceIds = new Set(activeServices.map((service) => service.id));
   const selectableEmployees = employees.filter((employee) => !employee.isArchived);
@@ -56,21 +65,18 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
     activeServiceIds.has(appointment.serviceId) &&
     appointment.appointmentStatus !== "rescheduled"
   ));
-  const latestAppointments = filteredAppointments
-    .filter((appointment) => activeServiceIds.has(appointment.serviceId))
+  const latestAppointments = filterStatisticsRevenue(filteredAppointments, revenueFilter)
     .slice()
     .sort((left, right) => `${right.date}${right.startTime}`.localeCompare(`${left.date}${left.startTime}`));
-  const confirmedAppointments = filteredAppointments.filter((appointment) => appointment.paymentStatus === "paid");
-  const pendingAppointments = filteredAppointments.filter((appointment) => appointment.paymentStatus === "pending");
+  const revenueSummary = buildStatisticsRevenue(filteredAppointments);
+  const currentPage = Math.min(appointmentPage, Math.max(1, Math.ceil(latestAppointments.length / pageSize)));
+  const pagedAppointments = latestAppointments.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paidAppointments = revenueSummary.paid;
+  const pendingAppointments = revenueSummary.pending;
   const cancelledAppointments = filteredAppointments.filter((appointment) => appointment.appointmentStatus === "cancelled");
-  const estimatedRevenue = filteredAppointments
-    .filter((appointment) => appointment.appointmentStatus !== "cancelled" && appointment.appointmentStatus !== "rescheduled")
-    .reduce((total, appointment) => total + appointment.revenue, 0);
-  const capturedRevenue = confirmedAppointments.reduce((total, appointment) => total + appointment.revenue, 0);
-  const pendingRevenue = pendingAppointments.reduce((total, appointment) => total + appointment.revenue, 0);
-  const averageTicket = filteredAppointments.length > 0 ? estimatedRevenue / filteredAppointments.length : 0;
+  const { estimatedRevenue, capturedRevenue, pendingRevenue, averageTicket } = revenueSummary;
   const totalPeople = filteredAppointments.reduce((total, appointment) => total + appointment.partySize, 0);
-  const confirmedShare = filteredAppointments.length > 0 ? (confirmedAppointments.length / filteredAppointments.length) * 100 : 0;
+  const paidShare = filteredAppointments.length > 0 ? (paidAppointments.length / filteredAppointments.length) * 100 : 0;
 
   const cards: StatCard[] = [
     {
@@ -78,7 +84,6 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
       label: messages.statistics.cards.totalAppointments,
       value: String(filteredAppointments.length),
       helper: `${totalPeople} ${messages.statistics.people}`,
-      tone: "brand",
       icon: <FiActivity />
     },
     {
@@ -86,7 +91,7 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
       label: messages.statistics.cards.estimatedRevenue,
       value: formatCurrency(estimatedRevenue),
       helper: `${formatCurrency(capturedRevenue)} ${messages.statistics.capturedRevenue.toLowerCase()}`,
-      tone: "success",
+      filter: "estimated",
       icon: <FiDollarSign />
     },
     {
@@ -94,7 +99,7 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
       label: messages.statistics.cards.pendingRevenue,
       value: formatCurrency(pendingRevenue),
       helper: `${pendingAppointments.length} ${messages.statistics.pendingAppointments.toLowerCase()}`,
-      tone: "warning",
+      filter: "pending",
       icon: <FiClock />
     },
     {
@@ -102,15 +107,14 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
       label: messages.statistics.cards.averageTicket,
       value: formatCurrency(averageTicket),
       helper: messages.statistics.revenuePerBooking,
-      tone: "neutral",
       icon: <FiTrendingUp />
     },
     {
       id: "confirmed",
-      label: messages.statistics.cards.confirmedAppointments,
-      value: String(confirmedAppointments.length),
-      helper: `${Math.round(confirmedShare)}% ${messages.statistics.confirmedShare.toLowerCase()}`,
-      tone: "success",
+      label: messages.statistics.paidAppointments,
+      value: String(paidAppointments.length),
+      helper: `${Math.round(paidShare)}% ${messages.statistics.paidShare}`,
+      filter: "paid",
       icon: <FiBarChart2 />
     },
     {
@@ -118,7 +122,6 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
       label: messages.statistics.cards.cancellations,
       value: String(cancelledAppointments.length),
       helper: filteredAppointments.length > 0 ? `${Math.round((cancelledAppointments.length / filteredAppointments.length) * 100)}%` : "0%",
-      tone: "danger",
       icon: <FiUsers />
     }
   ];
@@ -127,9 +130,7 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
     .map((service) => {
       const serviceAppointments = activeServiceAppointments.filter((appointment) => appointment.serviceId === service.id);
       const bookings = serviceAppointments.length;
-      const revenue = serviceAppointments
-        .filter((appointment) => appointment.appointmentStatus !== "cancelled" && appointment.appointmentStatus !== "rescheduled")
-        .reduce((total, appointment) => total + appointment.revenue, 0);
+      const revenue = buildStatisticsRevenue(serviceAppointments).estimatedRevenue;
 
       return {
         id: service.id,
@@ -142,13 +143,12 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
     .sort((left, right) => right.bookings - left.bookings || right.revenue - left.revenue);
 
   const hourlyDistribution = buildHourlyDistribution(filteredAppointments);
+  const weekdayDistribution = buildWeekdayDistribution(filteredAppointments);
   const employeePerformance = employees
     .map((employee) => {
       const employeeAppointments = filteredAppointments.filter((appointment) => appointment.employeeId === employee.id);
       const bookings = employeeAppointments.length;
-      const revenue = employeeAppointments
-        .filter((appointment) => appointment.appointmentStatus !== "cancelled" && appointment.appointmentStatus !== "rescheduled")
-        .reduce((total, appointment) => total + appointment.revenue, 0);
+      const revenue = buildStatisticsRevenue(employeeAppointments);
 
       return {
         id: employee.id,
@@ -157,38 +157,41 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
         color: employee.color,
         initials: employee.initials,
         bookings,
-        revenue
+        revenue: revenue.estimatedRevenue,
+        averageTicket: revenue.averageTicket
       };
     })
     .filter((employee) => employee.bookings > 0)
     .sort((left, right) => right.bookings - left.bookings || right.revenue - left.revenue);
 
-  const statusRows = [
-    {
-      id: "confirmed",
-      label: messages.statuses.confirmed,
-      value: confirmedAppointments.length,
-      percentage: getPercentage(confirmedAppointments.length, filteredAppointments.length),
-      tone: "success" as const
-    },
-    {
-      id: "pending",
-      label: messages.statuses.pending,
-      value: pendingAppointments.length,
-      percentage: getPercentage(pendingAppointments.length, filteredAppointments.length),
-      tone: "warning" as const
-    },
-    {
-      id: "cancelled",
-      label: messages.statuses.cancelled,
-      value: cancelledAppointments.length,
-      percentage: getPercentage(cancelledAppointments.length, filteredAppointments.length),
-      tone: "danger" as const
-    }
+  const statusRows = (Object.keys(statusToneMap) as AppointmentLifecycleStatus[]).map((status) => {
+    const value = filteredAppointments.filter((appointment) => appointment.appointmentStatus === status).length;
+    return {
+      id: status, label: messages.appointmentStatuses[status], value,
+      percentage: filteredAppointments.length ? (value / filteredAppointments.length) * 100 : 0,
+      tone: statusToneMap[status]
+    };
+  }).filter((row) => row.value > 0);
+  const paymentBreakdown = buildStatisticsPaymentBreakdown(filteredAppointments);
+  const paymentDefinitions: { id: keyof typeof paymentBreakdown.counts; label: string; tone: StatisticsStatusRow["tone"] }[] = [
+    { id: "paid", label: messages.paymentStatuses.paid, tone: "success" },
+    { id: "pending", label: messages.statistics.pendingAppointments, tone: "warning" },
+    { id: "cancelled", label: messages.statistics.cancelledPaymentBookings, tone: "danger" },
+    { id: "refunded", label: messages.paymentStatuses.refunded, tone: "neutral" }
   ];
+  const paymentRows = paymentDefinitions.filter((row) => row.id !== "refunded" || paymentBreakdown.counts.refunded > 0).map((row) => {
+    const value = paymentBreakdown.counts[row.id];
+    return { ...row, value, percentage: paymentBreakdown.total ? (value / paymentBreakdown.total) * 100 : 0 };
+  });
+
+  function viewRevenueAppointments(filter: StatisticsRevenueFilter) {
+    setAppointmentPage(1);
+    setRevenueFilter(filter);
+    window.requestAnimationFrame(() => appointmentsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-6 [overflow-anchor:none]">
       <SectionHeader
         icon={<FiBarChart2 />}
         eyebrow={messages.statistics.eyebrow}
@@ -196,7 +199,7 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
         description={messages.statistics.description}
       />
 
-      <div className="relative">
+      <div className="relative min-w-0">
         {isLocked ? (
           <div className="pointer-events-none fixed inset-y-0 left-0 right-0 z-10 grid place-items-center px-4 lg:left-72">
             <div className="pointer-events-auto w-full max-w-lg">
@@ -209,7 +212,7 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
             </div>
           </div>
         ) : null}
-        <div className={cx("grid gap-6", isLocked ? "pointer-events-none select-none blur-sm" : "")}>
+        <div className={cx("grid min-w-0 gap-6", isLocked ? "pointer-events-none select-none blur-sm" : "")}>
       <Card className="bg-brand-soft">
         <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
@@ -228,7 +231,7 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
             <SelectField
               label={messages.statistics.periodFilter}
               value={selectedPeriod}
-              onChange={(event) => setSelectedPeriod(event.target.value as PeriodId)}
+              onChange={(event) => { setSelectedPeriod(event.target.value as PeriodId); setAppointmentPage(1); }}
               options={periodIds.map((periodId) => ({
                 value: periodId,
                 label: messages.statistics.periods[periodId]
@@ -237,7 +240,7 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
             <SelectField
               label={messages.statistics.employeeFilter}
               value={selectedEmployeeId}
-              onChange={(event) => setSelectedEmployeeId(event.target.value)}
+              onChange={(event) => { setSelectedEmployeeId(event.target.value); setAppointmentPage(1); }}
               options={[
                 { value: "all", label: messages.statistics.allEmployees },
                 ...selectableEmployees.map((employee) => ({
@@ -250,30 +253,34 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
         </div>
       </Card>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <section className="grid min-w-0 gap-4 min-[900px]:grid-cols-2 2xl:grid-cols-3">
         {cards.map((card) => (
-          <Card key={card.id} className="transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
+          <Card key={card.id} className="min-w-0 transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm text-muted">{card.label}</p>
+              <div className="min-w-0 flex-1 break-words">
+                <p className="text-sm font-semibold text-brand-strong">{card.label}</p>
                 <p className="mt-3 text-3xl font-bold text-primary">{card.value}</p>
                 <p className="mt-2 text-sm text-muted">{card.helper}</p>
               </div>
-              <span className="grid h-11 w-11 place-items-center rounded-full bg-input text-lg text-primary">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-input text-lg text-primary">
                 {card.icon}
               </span>
             </div>
-            <div className="mt-4">
-              <Badge tone={card.tone}>{card.label}</Badge>
-            </div>
+            {card.filter ? <Button variant="ghost" size="sm" className="mt-3 bg-surface-strong hover:bg-brand-soft hover:!text-brand-strong" onClick={() => viewRevenueAppointments(card.filter ?? "all")}>{messages.statistics.viewAppointments}</Button> : null}
           </Card>
         ))}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
-        <AnalyticsPanel title={messages.statistics.panels.topServices} description={messages.statistics.panels.topServicesHint}>
-          {topServices.length > 0 ? (
-            <div className="grid gap-4">
+      <Card className="border-brand bg-brand-soft">
+        <p className="font-semibold text-brand-strong">{messages.statistics.revenueEquation}</p>
+        <p className="mt-2 text-sm leading-6 text-primary">{messages.statistics.revenueExplanation}</p>
+        <p className="mt-2 text-sm font-semibold text-brand-strong">{formatCurrency(estimatedRevenue)} = {formatCurrency(capturedRevenue)} + {formatCurrency(pendingRevenue)}</p>
+      </Card>
+
+      <section className="grid min-w-0 content-start items-start gap-6 xl:grid-cols-2">
+        <AnalyticsPanel controls={messages.statistics} title={messages.statistics.panels.topServices} description={messages.statistics.panels.topServicesHint}>
+          {(isExpanded) => topServices.length > 0 ? (
+            <div className={cx("grid gap-4", isExpanded && "xl:grid-cols-2")}>
               {topServices.map((service) => (
                 <MetricBar
                   key={service.id}
@@ -291,11 +298,12 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
         </AnalyticsPanel>
 
         <AnalyticsPanel
+          controls={messages.statistics}
           title={messages.statistics.panels.hourlyDistribution}
           description={messages.statistics.panels.hourlyDistributionHint}
         >
-          {hourlyDistribution.length > 0 ? (
-            <div className="grid gap-4">
+          {(isExpanded) => hourlyDistribution.length > 0 ? (
+            <div className={cx("grid gap-4", isExpanded && "xl:grid-cols-2")}>
               {hourlyDistribution.map((slot) => (
                 <MetricBar
                   key={slot.label}
@@ -311,49 +319,29 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
             <EmptyState message={messages.statistics.empty} />
           )}
         </AnalyticsPanel>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
         <AnalyticsPanel
+          controls={messages.statistics}
           title={messages.statistics.panels.statusBreakdown}
           description={messages.statistics.panels.statusBreakdownHint}
         >
-          {filteredAppointments.length > 0 ? (
-            <div className="grid gap-4">
-              {statusRows.map((row) => (
-                <div key={row.id} className="rounded-xl border border-subtle bg-input p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-semibold text-primary">{row.label}</span>
-                    <Badge tone={row.tone}>{row.value}</Badge>
-                  </div>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-strong">
-                    <div
-                      className={cx(
-                        "h-full rounded-full transition-all",
-                        row.tone === "success"
-                          ? "bg-success"
-                          : row.tone === "warning"
-                            ? "bg-warning"
-                            : "bg-danger"
-                      )}
-                      style={{ width: `${row.percentage}%` }}
-                    />
-                  </div>
-                  <p className="mt-2 text-sm text-muted">{Math.round(row.percentage)}%</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState message={messages.statistics.empty} />
-          )}
+          {(isExpanded) => filteredAppointments.length > 0 ? <StatusBreakdown rows={statusRows} isExpanded={isExpanded} /> : <EmptyState message={messages.statistics.empty} />}
         </AnalyticsPanel>
 
         <AnalyticsPanel
+          controls={messages.statistics}
+          title={messages.statistics.panels.paymentBreakdown}
+          description={messages.statistics.panels.paymentBreakdownHint}
+        >
+          {(isExpanded) => paymentBreakdown.total > 0 ? <StatusBreakdown rows={paymentRows} isExpanded={isExpanded} /> : <EmptyState message={messages.statistics.empty} />}
+        </AnalyticsPanel>
+
+        <AnalyticsPanel
+          controls={messages.statistics}
           title={messages.statistics.panels.employeePerformance}
           description={messages.statistics.panels.employeePerformanceHint}
         >
-          {employeePerformance.length > 0 ? (
-            <div className="grid gap-3">
+          {(isExpanded) => employeePerformance.length > 0 ? (
+            <div className={cx("grid gap-3", isExpanded && "xl:grid-cols-2")}>
               {employeePerformance.map((employee) => (
                 <div key={employee.id} className="rounded-xl border border-subtle bg-input p-4">
                   <div className="flex items-start gap-3">
@@ -377,7 +365,7 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
                         <MiniStat label={messages.statistics.cards.estimatedRevenue} value={formatCurrency(employee.revenue)} />
                         <MiniStat
                           label={messages.statistics.cards.averageTicket}
-                          value={formatCurrency(employee.bookings > 0 ? employee.revenue / employee.bookings : 0)}
+                          value={formatCurrency(employee.averageTicket)}
                         />
                       </div>
                     </div>
@@ -389,16 +377,64 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
             <EmptyState message={messages.statistics.empty} />
           )}
         </AnalyticsPanel>
+        <AnalyticsPanel
+          controls={messages.statistics}
+          title={messages.statistics.panels.weekdayDistribution}
+          description={messages.statistics.panels.weekdayDistributionHint}
+        >
+          {(isExpanded) => weekdayDistribution.length > 0 ? (
+            <div className={cx("grid gap-4", isExpanded && "xl:grid-cols-2")}>
+              {weekdayDistribution.map((day) => (
+                <MetricBar
+                  key={day.id}
+                  label={messages.days[day.id]}
+                  value={`${day.count} ${messages.statistics.bookings}`}
+                  helper={`${day.people} ${messages.statistics.people}`}
+                  progress={getPercentage(day.count, weekdayDistribution[0]?.count ?? 0)}
+                  toneClass="bg-brand"
+                />
+              ))}
+            </div>
+          ) : <EmptyState message={messages.statistics.empty} />}
+        </AnalyticsPanel>
       </section>
 
-      <AnalyticsPanel
-        title={messages.statistics.panels.latestAppointments}
-        description={messages.statistics.panels.latestAppointmentsHint}
-      >
+      <div ref={appointmentsRef} className="min-w-0 scroll-mt-20">
+      <Card className="min-w-0">
+        <div className="mb-5 flex flex-col gap-4 border-b border-subtle pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold text-primary">{messages.statistics.panels.latestAppointments}</h2>
+            <p className="mt-1 text-sm leading-6 text-muted">{messages.statistics.panels.latestAppointmentsHint}</p>
+          </div>
+          <div className="w-40 shrink-0">
+            <SelectField
+              label={messages.statistics.perPage}
+              value={String(pageSize)}
+              onChange={(event) => { setPageSize(Number(event.target.value)); setAppointmentPage(1); }}
+              options={[10, 20, 50].map((value) => ({ value: String(value), label: String(value) }))}
+            />
+          </div>
+        </div>
+        <div className="mb-5 grid gap-3 sm:grid-cols-[minmax(12rem,24rem)_1fr] sm:items-end">
+          <SelectField
+            label={messages.statistics.revenueFilter}
+            value={revenueFilter}
+            onChange={(event) => { setRevenueFilter(event.target.value as StatisticsRevenueFilter); setAppointmentPage(1); }}
+            options={[
+              { value: "all", label: messages.statistics.allAppointments },
+              { value: "estimated", label: messages.statistics.estimatedFilter },
+              { value: "paid", label: messages.statistics.paidFilter },
+              { value: "pending", label: messages.statistics.pendingFilter }
+            ]}
+          />
+          <p className="text-sm text-muted">
+            {latestAppointments.length} {messages.statistics.bookings} · {revenueFilter === "paid" ? messages.statistics.capturedRevenue : revenueFilter === "pending" ? messages.statistics.cards.pendingRevenue : messages.statistics.cards.estimatedRevenue}: {formatCurrency(buildStatisticsRevenue(latestAppointments).estimatedRevenue)}
+          </p>
+        </div>
         {latestAppointments.length > 0 ? (
           <>
-            <div className="grid gap-3 sm:hidden">
-              {latestAppointments.map((appointment) => {
+            <div className="grid min-w-0 gap-3 min-[900px]:hidden">
+              {pagedAppointments.map((appointment) => {
                 const service = services.find((item) => item.id === appointment.serviceId);
                 const employee = employees.find((item) => item.id === appointment.employeeId);
 
@@ -409,9 +445,9 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
                         <p className="font-semibold text-primary">{appointment.customerName}</p>
                         <p className="mt-1 text-sm text-muted">{service?.name ?? "-"}</p>
                       </div>
-                    <Badge tone={statusToneMap[appointment.appointmentStatus]}>
-                      {messages.appointmentDisplayStatuses[getAppointmentDisplayStatusKey(appointment)]}
-                    </Badge>
+                      <Badge tone={statusToneMap[appointment.appointmentStatus]} className="justify-center text-center whitespace-nowrap">
+                        {messages.appointmentStatuses[appointment.appointmentStatus]}
+                      </Badge>
                     </div>
 
                     <div className="mt-4 grid gap-3">
@@ -421,16 +457,20 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
                         value={`${appointment.date} · ${appointment.startTime} - ${appointment.endTime}`}
                       />
                       <MiniStat
-                        label={messages.statistics.cards.estimatedRevenue}
+                        label={messages.statistics.appointmentAmount}
                         value={formatCurrency(appointment.revenue)}
                       />
+                      <div className="rounded-lg border border-subtle bg-surface px-3 py-2">
+                        <p className="mb-1 text-xs font-semibold uppercase text-muted">{messages.statistics.paymentColumn}</p>
+                        <PaymentStatusBadge appointment={appointment} messages={messages} />
+                      </div>
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            <div className="hidden overflow-x-auto sm:block">
+            <div className="hidden min-w-0 overflow-x-auto min-[900px]:block">
               <table className="w-full min-w-[760px] border-collapse text-sm">
                 <thead className="bg-surface-strong text-left text-muted">
                   <tr>
@@ -439,11 +479,12 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
                     <th className="px-4 py-3 font-semibold">{messages.home.employee}</th>
                     <th className="px-4 py-3 font-semibold">{messages.home.time}</th>
                     <th className="px-4 py-3 font-semibold">{messages.home.status}</th>
-                    <th className="px-4 py-3 font-semibold">{messages.statistics.cards.estimatedRevenue}</th>
+                    <th className="px-4 py-3 font-semibold">{messages.statistics.paymentColumn}</th>
+                    <th className="px-4 py-3 font-semibold">{messages.statistics.appointmentAmount}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-subtle">
-                  {latestAppointments.map((appointment) => {
+                  {pagedAppointments.map((appointment) => {
                     const service = services.find((item) => item.id === appointment.serviceId);
                     const employee = employees.find((item) => item.id === appointment.employeeId);
 
@@ -456,10 +497,11 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
                           {appointment.date} · {appointment.startTime} - {appointment.endTime}
                         </td>
                         <td className="px-4 py-4">
-                          <Badge tone={statusToneMap[appointment.appointmentStatus]}>
-                            {messages.appointmentDisplayStatuses[getAppointmentDisplayStatusKey(appointment)]}
+                          <Badge tone={statusToneMap[appointment.appointmentStatus]} className="justify-center text-center whitespace-nowrap">
+                            {messages.appointmentStatuses[appointment.appointmentStatus]}
                           </Badge>
                         </td>
+                        <td className="px-4 py-4"><PaymentStatusBadge appointment={appointment} messages={messages} /></td>
                         <td className="px-4 py-4 text-muted">{formatCurrency(appointment.revenue)}</td>
                       </tr>
                     );
@@ -471,30 +513,33 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
         ) : (
           <EmptyState message={messages.statistics.empty} />
         )}
-      </AnalyticsPanel>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={latestAppointments.length}
+          pageSize={pageSize}
+          onPageChange={setAppointmentPage}
+          labels={{
+            summary: messages.statistics.paginationSummary,
+            previous: messages.statistics.previousPage,
+            next: messages.statistics.nextPage,
+            navigation: messages.statistics.panels.latestAppointments
+          }}
+        />
+      </Card>
+      </div>
         </div>
       </div>
     </div>
   );
 }
 
-function AnalyticsPanel({
-  title,
-  description,
-  children
-}: {
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
+function PaymentStatusBadge({ appointment, messages }: { appointment: Appointment; messages: Messages }) {
   return (
-    <Card>
-      <div className="border-b border-subtle pb-4">
-        <h2 className="text-lg font-bold text-primary">{title}</h2>
-        <p className="mt-1 text-sm leading-6 text-muted">{description}</p>
-      </div>
-      <div className="mt-5">{children}</div>
-    </Card>
+    <span title={messages.paymentStatuses[appointment.paymentStatus]}>
+      <Badge tone={appointment.paymentStatus === "paid" ? "success" : appointment.paymentStatus === "pending" ? "warning" : "neutral"} className="justify-center whitespace-nowrap text-center">
+        {appointment.paymentStatus === "pending" ? messages.statistics.paymentPendingShort : messages.paymentStatuses[appointment.paymentStatus]}
+      </Badge>
+    </span>
   );
 }
 
@@ -540,6 +585,20 @@ function EmptyState({ message }: { message: string }) {
   return <p className="text-sm text-muted">{message}</p>;
 }
 
+function buildWeekdayDistribution(appointments: Appointment[]) {
+  const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+  const buckets = days.map((id) => ({ id, count: 0, people: 0 }));
+  for (const appointment of appointments) {
+    if (appointment.appointmentStatus === "cancelled" || appointment.appointmentStatus === "rescheduled") continue;
+    const weekday = new Date(`${appointment.date}T12:00:00Z`).getUTCDay();
+    if (!Number.isFinite(weekday)) continue;
+    const bucket = buckets[(weekday + 6) % 7];
+    bucket.count += 1;
+    bucket.people += appointment.partySize;
+  }
+  return buckets.some((bucket) => bucket.count > 0) ? buckets.sort((left, right) => right.count - left.count) : [];
+}
+
 function buildHourlyDistribution(appointments: Appointment[]) {
   const buckets = [
     { label: "08:00 - 11:59", start: 8, end: 11, count: 0, people: 0 },
@@ -561,26 +620,6 @@ function buildHourlyDistribution(appointments: Appointment[]) {
   });
 
   return buckets.filter((bucket) => bucket.count > 0).sort((left, right) => right.count - left.count);
-}
-
-function getAppointmentDisplayStatusKey(appointment: Appointment) {
-  if (appointment.appointmentStatus === "cancelled") {
-    return "cancelled";
-  }
-
-  if (appointment.appointmentStatus === "rescheduled") {
-    return "rescheduled";
-  }
-
-  if (appointment.appointmentStatus === "no_show") {
-    return "noShow";
-  }
-
-  if (appointment.appointmentStatus === "completed") {
-    return "completed";
-  }
-
-  return appointment.paymentStatus === "paid" ? "confirmed" : "paymentPending";
 }
 
 function matchesPeriod(date: string, period: PeriodId, referenceDate: string) {

@@ -15,6 +15,7 @@ import {
   BusinessPaymentSettings,
   BusinessProfile,
   CalendarMode,
+  DashboardMetric,
   Employee,
   Locale,
   Profile,
@@ -61,15 +62,7 @@ import { trackMetaEvent, trackMetaEventOnce } from "@/lib/analytics/meta";
 type SchedulingContextValue = {
   appointments: Appointment[];
   businessDayBlocks: BusinessDayBlock[];
-  dashboardMetrics: {
-    id: string;
-    labelKey: "revenue" | "activeEmployees" | "bookedAppointments" | "cancelledAppointments";
-    value: string;
-    trendValue: number | null;
-    trendFormat: "currency" | "count" | "current";
-    trendTone: "success" | "danger" | "neutral";
-    trendContextKey: "monthComparison" | "currentTeam";
-  }[];
+  dashboardMetrics: DashboardMetric[];
   employees: Employee[];
   focusedDate: string;
   isFetching: boolean;

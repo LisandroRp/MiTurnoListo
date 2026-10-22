@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiChevronDown, FiHome, FiPlusCircle, FiUsers } from "react-icons/fi";
+import { FiChevronDown, FiHome, FiPlusCircle } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -10,8 +10,8 @@ import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { AppointmentCard } from "@/features/scheduling/components/CalendarView";
-import { getDayKeyForDate, getEmployeesWorkingNowOnDate } from "@/features/scheduling/components/dashboardTeamUtils";
-import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
+import { getEmployeesScheduledOnDate, getEmployeesWorkingNowOnDate } from "@/features/scheduling/components/dashboardTeamUtils";
+import { DashboardActiveTeam } from "@/features/scheduling/components/DashboardActiveTeam";
 import { WalkInAppointmentModal } from "@/features/scheduling/components/WalkInAppointmentModal";
 import { Appointment, DashboardMetric, Employee, Service } from "@/features/scheduling/types";
 import { Messages } from "@/features/scheduling/i18n/messages";
@@ -59,11 +59,14 @@ export function DashboardView({
   const activeServiceIds = new Set(services.filter((service) => !service.isArchived).map((service) => service.id));
   const todaysAppointments = appointments.filter((appointment) => appointment.date === referenceDate && activeServiceIds.has(appointment.serviceId));
   const activeTodaysAppointments = todaysAppointments.filter((appointment) => appointment.appointmentStatus !== "cancelled");
-  const todayKey = getDayKeyForDate(referenceDate);
   const freeEmployeeIds = isFreePlan(subscriptionTier)
     ? getFreePlanIncludedIds(employees.filter((employee) => !employee.isArchived), freePlanLimits.activeEmployees)
     : null;
   const employeesWorkingToday = getEmployeesWorkingNowOnDate(
+    employees.filter((employee) => !freeEmployeeIds || freeEmployeeIds.has(employee.id)),
+    referenceDate
+  );
+  const employeesScheduledToday = getEmployeesScheduledOnDate(
     employees.filter((employee) => !freeEmployeeIds || freeEmployeeIds.has(employee.id)),
     referenceDate
   );
@@ -115,8 +118,16 @@ export function DashboardView({
         </section>
       </div>
 
-      <section className="grid flex-1 items-stretch gap-6 xl:grid-cols-[1.5fr_1fr]">
-        <Card className="flex min-h-[28rem] h-[34rem] flex-col overflow-hidden p-0">
+      <DashboardActiveTeam
+        employees={employeesScheduledToday}
+        appointments={activeTodaysAppointments}
+        referenceDate={referenceDate}
+        messages={messages}
+        onEmployeeClick={openEmployeeInPersonnel}
+      />
+
+      <section className="grid min-w-0 flex-1 gap-6">
+        <Card className="flex min-h-[28rem] h-[34rem] min-w-0 flex-col overflow-hidden p-0">
           <div className="flex flex-col gap-3 border-b border-subtle p-5 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-bold text-primary">{messages.home.todayAgenda}</h2>
             <Button size="sm" icon={<FiPlusCircle />} onClick={openWalkInFlow}>
@@ -136,54 +147,6 @@ export function DashboardView({
           />
         </Card>
 
-        <Card className="flex min-h-[28rem] h-[34rem] flex-col">
-          <h2 className="text-lg font-bold text-primary">{messages.home.teamToday}</h2>
-          {employeesWorkingToday.length > 0 ? (
-            <div className="mt-4 grid content-start gap-3 overflow-auto py-2">
-              {employeesWorkingToday.map((employee) => {
-              const employeeSchedule = employee.schedule[todayKey] ?? [];
-              const employeeAppointments = activeTodaysAppointments.filter((appointment) => appointment.employeeId === employee.id);
-
-              return (
-                <button
-                  key={employee.id}
-                  type="button"
-                  className="grid cursor-pointer gap-3 rounded-lg border border-subtle bg-input p-3 text-left transition duration-200 hover:-translate-y-1 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-focus"
-                  onClick={() => openEmployeeInPersonnel(employee)}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className={cx("grid h-10 w-10 place-items-center rounded-full text-sm font-bold text-on-brand", employeeColorClasses[employee.color])}>
-                      {employee.initials}
-                    </span>
-                    <span className="min-w-0 leading-tight">
-                      <span className="block truncate font-semibold text-primary">{employee.name}</span>
-                      <span className="text-sm leading-tight text-muted">{employee.role}</span>
-                    </span>
-                  </div>
-
-                  <div className="grid text-sm leading-tight">
-                    <DashboardTeamFact
-                      label={messages.home.todayHours}
-                      value={formatTodaySchedule(employeeSchedule, messages)}
-                    />
-                    <DashboardTeamFact
-                      label={messages.home.todayAppointments}
-                      value={formatAppointmentCount(employeeAppointments.length, messages)}
-                    />
-                  </div>
-                </button>
-              );
-              })}
-            </div>
-          ) : (
-            <div className="grid flex-1 place-items-center py-8 text-center">
-              <div className="grid justify-items-center gap-3">
-                <FiUsers className="text-5xl text-muted opacity-35" aria-hidden="true" />
-                <p className="max-w-56 text-sm font-semibold text-muted">{messages.home.noActiveTeam}</p>
-              </div>
-            </div>
-          )}
-        </Card>
       </section>
 
       <WalkInAppointmentModal
@@ -217,27 +180,6 @@ export function DashboardView({
       </Modal>
     </div>
   );
-}
-
-function DashboardTeamFact({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-lg bg-surface px-3 py-1 leading-tight">
-      <span className="text-xs font-bold uppercase leading-tight text-muted">{label}</span>
-      <span className="text-right font-semibold text-primary">{value}</span>
-    </div>
-  );
-}
-
-function formatTodaySchedule(ranges: Employee["schedule"][string], messages: Messages) {
-  if (ranges.length === 0) {
-    return messages.home.noTodayHours;
-  }
-
-  return ranges.map((range) => `${range.start} - ${range.end}`).join(", ");
-}
-
-function formatAppointmentCount(count: number, messages: Messages) {
-  return `${count} ${count === 1 ? messages.calendar.appointment : messages.calendar.appointments}`;
 }
 
 function DayAgenda({

@@ -1,5 +1,10 @@
 import type { Employee } from "@/features/scheduling/types";
 
+export function getEmployeesScheduledOnDate(employees: Employee[], date: string) {
+  const dayKey = getDayKeyForDate(date);
+  return employees.filter((employee) => !employee.isArchived && employee.isVisible && (employee.schedule[dayKey] ?? []).length > 0);
+}
+
 export function getEmployeesWorkingNowOnDate(
   employees: Employee[],
   date: string,

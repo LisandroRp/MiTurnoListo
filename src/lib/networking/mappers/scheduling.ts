@@ -20,6 +20,7 @@ import {
   TimeRange
 } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
+import { buildStatisticsRevenue } from "@/features/scheduling/utils/statistics-revenue";
 import { normalizeStoredImageUrl } from "@/lib/networking/utils/assets";
 import { formatDateForTimeZone, formatTimeForTimeZone, formatTodayForTimeZone } from "@/lib/networking/utils/date-time";
 import { getEffectiveSubscriptionTier } from "@/lib/referral-rules";
@@ -433,37 +434,38 @@ export function mapBusinessDayBlocks(rows: BusinessDayBlockRow[]): BusinessDayBl
     .sort((left, right) => left.startsOn.localeCompare(right.startsOn));
 }
 
-export function buildDashboardMetrics(appointments: Appointment[], employees: Employee[], referenceDate: string): DashboardMetric[] {
+export function buildDashboardMetrics(appointments: Appointment[], referenceDate: string): DashboardMetric[] {
   const currentMonthAppointments = appointments.filter((appointment) => matchesMonth(appointment.date, referenceDate, 0));
   const previousMonthAppointments = appointments.filter((appointment) => matchesMonth(appointment.date, referenceDate, -1));
   const bookedAppointments = currentMonthAppointments.filter((appointment) => appointment.appointmentStatus !== "cancelled" && appointment.appointmentStatus !== "rescheduled");
   const previousBookedAppointments = previousMonthAppointments.filter((appointment) => appointment.appointmentStatus !== "cancelled" && appointment.appointmentStatus !== "rescheduled");
   const cancelledAppointments = currentMonthAppointments.filter((appointment) => appointment.appointmentStatus === "cancelled");
   const previousCancelledAppointments = previousMonthAppointments.filter((appointment) => appointment.appointmentStatus === "cancelled");
-  const estimatedRevenue = bookedAppointments.reduce((total, appointment) => total + appointment.revenue, 0);
-  const previousEstimatedRevenue = previousBookedAppointments.reduce((total, appointment) => total + appointment.revenue, 0);
-  const revenueDelta = estimatedRevenue - previousEstimatedRevenue;
+  const currentRevenue = buildStatisticsRevenue(currentMonthAppointments);
+  const previousRevenue = buildStatisticsRevenue(previousMonthAppointments);
+  const paidDelta = currentRevenue.capturedRevenue - previousRevenue.capturedRevenue;
+  const pendingDelta = currentRevenue.pendingRevenue - previousRevenue.pendingRevenue;
   const bookedDelta = bookedAppointments.length - previousBookedAppointments.length;
   const cancelledDelta = cancelledAppointments.length - previousCancelledAppointments.length;
 
   return [
     {
       id: "revenue",
-      labelKey: "revenue",
-      value: formatCurrency(estimatedRevenue),
-      trendValue: revenueDelta,
+      labelKey: "collectedRevenue",
+      value: formatCurrency(currentRevenue.capturedRevenue),
+      trendValue: paidDelta,
       trendFormat: "currency",
-      trendTone: getDeltaTone(revenueDelta),
+      trendTone: getDeltaTone(paidDelta),
       trendContextKey: "monthComparison"
     },
     {
-      id: "employees",
-      labelKey: "activeEmployees",
-      value: String(employees.length),
-      trendValue: null,
-      trendFormat: "current",
-      trendTone: "neutral",
-      trendContextKey: "currentTeam"
+      id: "pending",
+      labelKey: "pendingRevenue",
+      value: formatCurrency(currentRevenue.pendingRevenue),
+      trendValue: pendingDelta,
+      trendFormat: "currency",
+      trendTone: getInverseDeltaTone(pendingDelta),
+      trendContextKey: "monthComparison"
     },
     {
       id: "booked",
@@ -489,6 +491,7 @@ export function buildDashboardMetrics(appointments: Appointment[], employees: Em
 function matchesMonth(dateValue: string, referenceDate: string, monthOffset: number) {
   const date = new Date(`${dateValue}T12:00:00`);
   const reference = new Date(`${referenceDate}T12:00:00`);
+  reference.setDate(1);
   reference.setMonth(reference.getMonth() + monthOffset);
 
   return date.getFullYear() === reference.getFullYear() && date.getMonth() === reference.getMonth();

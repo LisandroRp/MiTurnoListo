@@ -207,7 +207,7 @@ export type PaymentRecord = {
 
 export type DashboardMetric = {
   id: string;
-  labelKey: "revenue" | "activeEmployees" | "bookedAppointments" | "cancelledAppointments";
+  labelKey: "collectedRevenue" | "pendingRevenue" | "bookedAppointments" | "cancelledAppointments";
   value: string;
   trendValue: number | null;
   trendFormat: "currency" | "count" | "current";

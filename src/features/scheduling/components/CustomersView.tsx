@@ -1,11 +1,12 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
-import { FiChevronLeft, FiChevronRight, FiSearch, FiUserCheck } from "react-icons/fi";
+import { FiSearch, FiUserCheck } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { Card } from "@/components/ui/Card";
+import { Pagination } from "@/components/ui/Pagination";
 import { Button } from "@/components/ui/Button";
 import { SelectField } from "@/components/ui/SelectField";
 import { cx } from "@/components/ui/utils";
@@ -282,52 +283,19 @@ function CustomersPagination({
   meta: CustomersPaginationMeta;
   onPageChange: (page: number) => void;
 }) {
-  const pages = getVisiblePages(meta.currentPage, meta.totalPages);
-  const firstItem = meta.totalCustomers === 0 ? 0 : ((meta.currentPage - 1) * meta.perPage) + 1;
-  const lastItem = Math.min(meta.currentPage * meta.perPage, meta.totalCustomers);
-
   return (
-    <div className="flex flex-col gap-3 border-t border-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm font-semibold text-muted">
-        {messages.customers.paginationSummary
-          .replace("{from}", String(firstItem))
-          .replace("{to}", String(lastItem))
-          .replace("{total}", String(meta.totalCustomers))}
-      </p>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="icon"
-          variant="secondary"
-          aria-label={messages.customers.previousPage}
-          disabled={meta.currentPage <= 1}
-          onClick={() => onPageChange(meta.currentPage - 1)}
-        >
-          <FiChevronLeft />
-        </Button>
-
-        {pages.map((page) => (
-          <Button
-            key={page}
-            size="sm"
-            variant={page === meta.currentPage ? "primary" : "secondary"}
-            onClick={() => onPageChange(page)}
-          >
-            {page}
-          </Button>
-        ))}
-
-        <Button
-          size="icon"
-          variant="secondary"
-          aria-label={messages.customers.nextPage}
-          disabled={meta.currentPage >= meta.totalPages}
-          onClick={() => onPageChange(meta.currentPage + 1)}
-        >
-          <FiChevronRight />
-        </Button>
-      </div>
-    </div>
+    <Pagination
+      currentPage={meta.currentPage}
+      totalItems={meta.totalCustomers}
+      pageSize={meta.perPage}
+      onPageChange={onPageChange}
+      labels={{
+        summary: messages.customers.paginationSummary,
+        previous: messages.customers.previousPage,
+        next: messages.customers.nextPage,
+        navigation: messages.customers.title
+      }}
+    />
   );
 }
 
@@ -442,14 +410,6 @@ function formatPhoneForDisplay(value: string) {
   const compactValue = value.replace(/\s+/g, "");
 
   return compactValue || "-";
-}
-
-function getVisiblePages(currentPage: number, totalPages: number) {
-  const start = Math.max(1, currentPage - 2);
-  const end = Math.min(totalPages, start + 4);
-  const adjustedStart = Math.max(1, end - 4);
-
-  return Array.from({ length: end - adjustedStart + 1 }, (_, index) => adjustedStart + index);
 }
 
 function getCustomerTag(customer: Customer, messages: Messages) {

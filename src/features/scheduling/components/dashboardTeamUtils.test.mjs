@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getEmployeesWorkingNowOnDate } from "./dashboardTeamUtils.ts";
+import { getEmployeesScheduledOnDate, getEmployeesWorkingNowOnDate } from "./dashboardTeamUtils.ts";
 
 function createEmployee(overrides = {}) {
   return {
@@ -31,6 +31,19 @@ function createSchedule(overrides = {}) {
     ...overrides
   };
 }
+
+test("the daily team includes all scheduled professionals regardless of the current time", () => {
+  const employees = [
+    createEmployee(),
+    createEmployee({ id: "evening", schedule: createSchedule({ monday: [{ start: "20:00", end: "23:00" }] }) }),
+    createEmployee({ id: "hidden", isVisible: false }),
+    createEmployee({ id: "archived", isArchived: true }),
+    createEmployee({ id: "other-day", schedule: createSchedule({ tuesday: [{ start: "09:00", end: "17:00" }] }) })
+  ];
+  assert.deepEqual(getEmployeesScheduledOnDate(employees, "2026-08-03").map((employee) => employee.id), ["employee-1", "evening"]);
+  assert.deepEqual(getEmployeesScheduledOnDate(employees, "2026-08-04").map((employee) => employee.id), ["other-day"]);
+  assert.deepEqual(getEmployeesScheduledOnDate(employees, "2026-08-05"), []);
+});
 
 test("getEmployeesWorkingNowOnDate returns employees inside the current schedule range", () => {
   const employees = getEmployeesWorkingNowOnDate(

@@ -293,7 +293,7 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
     appointments,
     businessDayBlocks,
     businessId,
-    dashboardMetrics: buildDashboardMetrics(appointments, employees, focusedDate),
+    dashboardMetrics: buildDashboardMetrics(appointments, focusedDate),
     employees,
     focusedDate,
     locale: membership.locale,

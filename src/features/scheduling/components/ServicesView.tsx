@@ -18,7 +18,7 @@ import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
 import { AvailabilityEditor, dayKeys, getScheduleValidationMessage, maxRangesPerDay } from "@/features/scheduling/components/AvailabilityEditor";
-import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
+import { assignEmployeeDisplayColors, employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { ShareCatalogModal, ShareServiceModal } from "@/features/scheduling/components/ServicesView/ShareResourceModal";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, getFreePlanIncludedIds, isFreePlan } from "@/features/scheduling/plan-limits";
@@ -67,7 +67,7 @@ const visibleServiceEmployeeLimit = 1;
 export function ServicesView({
   messages,
   services,
-  employees,
+  employees: storedEmployees,
   appointments,
   businessId,
   businessSlug,
@@ -82,6 +82,7 @@ export function ServicesView({
   onShareSuccess,
   onShareError
 }: ServicesViewProps) {
+  const employees = assignEmployeeDisplayColors(storedEmployees);
   const rangeIdCounter = useRef(1);
   const [mode, setMode] = useState<ServicesMode>("grid");
   const [draft, setDraft] = useState<Service>(() => createNewServiceDraft());
@@ -686,7 +687,7 @@ export function ServicesView({
                         isSelected ? "border-brand bg-brand-soft" : "border-subtle bg-input hover:bg-surface-strong"
                       )}
                     >
-                      <span className={cx("h-3 w-3 rounded-full", employeeColorClasses[employee.color])} />
+                      <span className={cx("h-3 w-3 shrink-0 rounded-full", employeeColorClasses[employee.color])} aria-hidden="true" />
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold text-primary">{employee.name}</span>
                         <span className="block truncate text-xs text-muted">{employee.role}</span>
@@ -1401,7 +1402,7 @@ function ServiceReview({ messages, service, employees }: { messages: Messages; s
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {assignedEmployees.map((employee) => (
             <div key={employee.id} className="flex items-center gap-3 rounded-lg border border-subtle bg-input p-3">
-              <span className={cx("h-3 w-3 rounded-full", employeeColorClasses[employee.color])} />
+              <span className={cx("h-3 w-3 shrink-0 rounded-full", employeeColorClasses[employee.color])} aria-hidden="true" />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold text-primary">{employee.name}</span>
                 <span className="block truncate text-xs text-muted">{employee.role}</span>

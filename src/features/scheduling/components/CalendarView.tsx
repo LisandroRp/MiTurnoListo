@@ -26,6 +26,7 @@ import { SectionHeader } from "@/components/composed/SectionHeader";
 import { getAvailableSlotsForEmployees, isDateBlocked } from "@/features/booking-flow/utils/booking";
 import { BusinessDayBlocksModal } from "@/features/scheduling/components/CalendarView/BusinessDayBlocksModal";
 import { getDayKeyForDate } from "@/features/scheduling/components/dashboardTeamUtils";
+import { employeeDisplayColorKeys as calendarEmployeeColorKeys } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, getMonthlyAppointmentUsage, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
 import { getCancellationDeadline } from "@/features/scheduling/service-cancellation-policy";
@@ -53,17 +54,6 @@ const employeeDotClasses: Record<string, string> = {
   "employee-violet": "bg-employee-violet",
   "employee-rose": "bg-employee-rose"
 };
-
-const calendarEmployeeColorKeys = [
-  "employee-blue",
-  "employee-coral",
-  "employee-green",
-  "employee-violet",
-  "employee-amber",
-  "employee-teal",
-  "employee-indigo",
-  "employee-rose"
-] as const;
 
 type CalendarViewProps = {
   messages: Messages;

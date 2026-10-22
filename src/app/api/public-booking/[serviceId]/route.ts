@@ -456,7 +456,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Ese horario ya fue reservado. Elegí otro." }, { status: 409 });
     }
 
-    const bookingDateLimitResult = await enforceOneCustomerBookingForSelectedDate(
+    const bookingDateLimitResult = await enforceCustomerBookingLimitForSelectedDate(
       supabase,
       service.business_id,
       customer.email,
@@ -468,7 +468,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return bookingDateLimitResult.response;
     }
 
-    const submissionDayLimitResult = await enforceOneCustomerBookingSubmissionPerDay(
+    const submissionDayLimitResult = await enforceCustomerBookingSubmissionLimitPerDay(
       supabase,
       service.business_id,
       customer.email,
@@ -797,7 +797,9 @@ async function getMonthlyAppointmentLimitStatus(
   return { canBook: true, currentTier };
 }
 
-async function enforceOneCustomerBookingForSelectedDate(
+const customerDailyBookingLimit = 3;
+
+async function enforceCustomerBookingLimitForSelectedDate(
   supabase: ReturnType<typeof getSupabaseAdminClient>,
   businessId: string,
   customerEmail: string,
@@ -822,10 +824,10 @@ async function enforceOneCustomerBookingForSelectedDate(
     };
   }
 
-  if ((count ?? 0) > 0) {
+  if ((count ?? 0) >= customerDailyBookingLimit) {
     return {
       response: NextResponse.json(
-        { error: "Ya tenés una reserva para este día. Elegí otra fecha para sacar un nuevo turno." },
+        { error: `Ya tenés ${customerDailyBookingLimit} reservas para este día. Elegí otra fecha para sacar un nuevo turno.` },
         { status: 409 }
       )
     };
@@ -834,7 +836,7 @@ async function enforceOneCustomerBookingForSelectedDate(
   return { canBook: true };
 }
 
-async function enforceOneCustomerBookingSubmissionPerDay(
+async function enforceCustomerBookingSubmissionLimitPerDay(
   supabase: ReturnType<typeof getSupabaseAdminClient>,
   businessId: string,
   customerEmail: string,
@@ -859,10 +861,10 @@ async function enforceOneCustomerBookingSubmissionPerDay(
     };
   }
 
-  if ((count ?? 0) > 0) {
+  if ((count ?? 0) >= customerDailyBookingLimit) {
     return {
       response: NextResponse.json(
-        { error: "Ya hiciste una reserva hoy. Podés volver a reservar mañana." },
+        { error: `Ya hiciste ${customerDailyBookingLimit} reservas hoy. Podés volver a reservar mañana.` },
         { status: 409 }
       )
     };

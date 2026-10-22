@@ -234,7 +234,7 @@ test("month calendar shows daily time range and employee color dots", () => {
   assert.equal(calendarView.includes("hiddenEmployeeCount > 0"), true);
   assert.equal(calendarView.includes("hiddenTimeRangeCount > 0"), true);
   assert.equal(calendarView.includes('className="mt-2 text-xs font-semibold text-muted-strong"'), true);
-  assert.equal(calendarView.includes('className={cx("h-2.5 w-2.5 rounded-full ring-2 ring-surface", employeeDotClasses[employee.color])}'), true);
+  assert.equal(calendarView.includes('className={cx("h-2.5 w-2.5 rounded-full ring-2 ring-surface", employeeDotClasses[employee.color] ?? employeeDotClasses["employee-blue"])}'), true);
 });
 
 test("day calendar groups appointments by start hour in full-width rows", () => {

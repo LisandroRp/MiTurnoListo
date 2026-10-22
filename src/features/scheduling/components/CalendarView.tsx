@@ -44,7 +44,8 @@ const appointmentToneClasses: Record<string, string> = {
   "employee-cyan": "border-employee-cyan/35 bg-employee-cyan/12 hover:bg-employee-cyan/18",
   "employee-olive": "border-employee-olive/35 bg-employee-olive/12 hover:bg-employee-olive/18",
   "employee-magenta": "border-employee-magenta/35 bg-employee-magenta/12 hover:bg-employee-magenta/18",
-  "employee-slate": "border-employee-slate/35 bg-employee-slate/12 hover:bg-employee-slate/18"
+  "employee-orange": "border-employee-orange/35 bg-employee-orange/12 hover:bg-employee-orange/18",
+  "employee-slate": "border-employee-orange/35 bg-employee-orange/12 hover:bg-employee-orange/18"
 };
 
 const employeeDotClasses: Record<string, string> = {
@@ -59,7 +60,8 @@ const employeeDotClasses: Record<string, string> = {
   "employee-cyan": "bg-employee-cyan",
   "employee-olive": "bg-employee-olive",
   "employee-magenta": "bg-employee-magenta",
-  "employee-slate": "bg-employee-slate"
+  "employee-orange": "bg-employee-orange",
+  "employee-slate": "bg-employee-orange"
 };
 
 type CalendarViewProps = {
@@ -252,12 +254,15 @@ export function CalendarView({
                       onClick={() => onToggleEmployee(employee.id)}
                       className={cx(
                         "grid max-w-64 cursor-pointer gap-0.5 rounded-lg border px-3 py-2 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-sm",
-                        appointmentToneClasses[employee.color],
+                        appointmentToneClasses[employee.color] ?? appointmentToneClasses["employee-blue"],
                         isSelected ? "opacity-100 ring-2 ring-brand/20" : "opacity-45 grayscale hover:opacity-70"
                       )}
                       aria-pressed={isSelected}
                     >
-                      <span className="block truncate text-xs font-bold leading-4 text-primary">{employee.name}</span>
+                      <span className="block truncate text-xs font-bold leading-4 text-primary">
+                        <span aria-hidden="true" className={cx("mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle", employeeDotClasses[employee.color] ?? employeeDotClasses["employee-blue"])} />
+                        {employee.name}
+                      </span>
                       <span className="block truncate text-[11px] font-semibold leading-4 text-muted">{employee.role}</span>
                     </button>
                   );
@@ -419,7 +424,7 @@ function EmployeeDropdown({
                   onClick={() => onToggleEmployee(employee.id)}
                   className={cx(
                     "grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-sm",
-                    appointmentToneClasses[employee.color],
+                    appointmentToneClasses[employee.color] ?? appointmentToneClasses["employee-blue"],
                     isSelected ? "ring-2 ring-brand/25" : "border-subtle bg-shell opacity-60 grayscale hover:bg-shell"
                   )}
                 >
@@ -686,7 +691,7 @@ export function AppointmentCard({
   const [rescheduleEmployeeId, setRescheduleEmployeeId] = useState(appointment.employeeId);
   const [rescheduleSlotKey, setRescheduleSlotKey] = useState(`${appointment.startTime}-${appointment.endTime}`);
   const [loadingAction, setLoadingAction] = useState<"paid" | "cancel" | "noShow" | "reschedule" | null>(null);
-  const appointmentToneClass = employee ? appointmentToneClasses[employee.color] : "border-brand bg-brand-soft";
+  const appointmentToneClass = employee ? appointmentToneClasses[employee.color] ?? appointmentToneClasses["employee-blue"] : "border-brand bg-brand-soft";
   const isHistoricalAppointment = appointment.appointmentStatus === "cancelled" || appointment.appointmentStatus === "rescheduled";
   const sourceLabel = messages.calendar.sources[getAppointmentSourceMessageKey(appointment.source)];
   const displayStatus = getAppointmentDisplayStatus(appointment, messages);
@@ -1426,7 +1431,7 @@ function MonthCalendar({
                     {visibleDayEmployees.map((employee) => (
                       <span
                         key={employee.id}
-                        className={cx("h-2.5 w-2.5 rounded-full ring-2 ring-surface", employeeDotClasses[employee.color])}
+                        className={cx("h-2.5 w-2.5 rounded-full ring-2 ring-surface", employeeDotClasses[employee.color] ?? employeeDotClasses["employee-blue"])}
                         title={employee.name}
                       />
                     ))}

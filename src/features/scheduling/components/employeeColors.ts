@@ -10,5 +10,6 @@ export const employeeColorClasses: Record<string, string> = {
   "employee-cyan": "bg-employee-cyan",
   "employee-olive": "bg-employee-olive",
   "employee-magenta": "bg-employee-magenta",
-  "employee-slate": "bg-employee-slate"
+  "employee-orange": "bg-employee-orange",
+  "employee-slate": "bg-employee-orange"
 };

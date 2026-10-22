@@ -14,6 +14,8 @@ test("new employees receive unused persisted colors before the palette repeats",
     employees.push({ id: `employee-${employees.length}`, color: selected });
   }
   assert.equal(employeeDisplayColorKeys.length, 12);
+  assert.equal(employeeDisplayColorKeys.includes("employee-slate"), false);
+  assert.equal(employeeColorClasses["employee-slate"], employeeColorClasses["employee-orange"]);
   assert.equal(new Set(employees.map((employee) => employee.color)).size, 12);
   assert.equal(getNextEmployeeColor(employees), employeeDisplayColorKeys[0]);
   employees.push({ id: "thirteenth", color: employeeDisplayColorKeys[0] });
@@ -30,6 +32,21 @@ test("choosing the next color does not recolor existing employees or depend on l
   assert.equal(getNextEmployeeColor(employees), "employee-green");
   assert.equal(getNextEmployeeColor([...employees].reverse()), "employee-green");
   assert.deepEqual(employees, original);
+});
+
+test("the palette separates neighboring hues and the calendar exposes full-color identity markers", () => {
+  const globals = readFileSync(new URL("../../../app/globals.css", import.meta.url), "utf8");
+  const hues = employeeDisplayColorKeys.map((key) => {
+    const match = globals.match(new RegExp(`--${key}: oklch\\([^ ]+ [^ ]+ ([0-9.]+)\\)`));
+    assert.ok(match);
+    return Number(match[1]);
+  }).sort((left, right) => left - right);
+  for (let index = 0; index < hues.length; index += 1) {
+    const next = index === hues.length - 1 ? hues[0] + 360 : hues[index + 1];
+    assert.ok(next - hues[index] >= 25);
+  }
+  const calendar = readFileSync(new URL("./CalendarView.tsx", import.meta.url), "utf8");
+  assert.match(calendar, /mr-2 inline-block h-2\.5 w-2\.5 rounded-full align-middle/);
 });
 
 test("service and calendar screens use stored colors and preserve fixed circular markers", () => {

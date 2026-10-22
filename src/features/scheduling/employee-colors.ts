@@ -10,7 +10,7 @@ export const employeeDisplayColorKeys = [
   "employee-cyan",
   "employee-olive",
   "employee-magenta",
-  "employee-slate"
+  "employee-orange"
 ] as const;
 
 export function getNextEmployeeColor(employees: readonly { color: string }[]) {

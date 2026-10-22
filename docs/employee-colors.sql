@@ -8,7 +8,7 @@ with colors as (
   select array[
     'employee-blue', 'employee-coral', 'employee-green', 'employee-violet',
     'employee-amber', 'employee-teal', 'employee-indigo', 'employee-rose',
-    'employee-cyan', 'employee-olive', 'employee-magenta', 'employee-slate'
+    'employee-cyan', 'employee-olive', 'employee-magenta', 'employee-orange'
   ]::text[] as palette
 ), businesses_to_repair as (
   select employee.business_id

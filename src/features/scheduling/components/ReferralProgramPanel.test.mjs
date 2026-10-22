@@ -35,6 +35,20 @@ componentModule._compile(output, fileUrl.pathname);
 
 const { ReferralProgramPanel } = componentModule.exports;
 
+for (const isProgramActive of [false, true]) {
+  test(`renders three separate referral rules when the program is ${isProgramActive ? "active" : "inactive"}`, () => {
+    const rules = ["Registration rule", "Payment rule", "Activation rule"];
+    const html = renderToStaticMarkup(createElement(ReferralProgramPanel, {
+      messages: { profile: { referralsRules: rules } },
+      profile: { referralSummary: { isProgramActive, availableDays: 0 } },
+      onActivate: async () => true
+    }));
+    assert.equal((html.match(/<ul\b/g) ?? []).length, 1);
+    assert.equal((html.match(/<li\b/g) ?? []).length, 3);
+    for (const rule of rules) assert.ok(html.includes(`<li>${rule}</li>`));
+  });
+}
+
 test("shows remaining referral days even when a paused reward is shorter than a month", () => {
   const html = renderToStaticMarkup(createElement(ReferralProgramPanel, {
     messages: {
@@ -43,7 +57,8 @@ test("shows remaining referral days even when a paused reward is shorter than a 
         referralsAvailableMetric: "Available days",
         referralsRegisteredMetric: "Registered",
         referralsPremiumMetric: "Premium",
-        referralsUsedMetric: "Used months"
+        referralsUsedMetric: "Used months",
+        referralsRules: ["Registration rule", "Payment rule", "Activation rule"]
       }
     },
     profile: {

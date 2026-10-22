@@ -608,7 +608,7 @@ export const messages = {
       passwordResetToastTitle: "Mail de recuperación enviado",
       passwordResetToastDescription: "Revisá tu casilla y abrí el enlace para elegir una nueva contraseña.",
       passwordResetErrorTitle: "No pudimos enviar el mail de recuperación",
-      plansDescription: "Elegí el plan que mejor acompaña la etapa de tu negocio y mirá qué desbloquea cada uno.",
+      plansDescription: "Compará las funciones de cada plan y elegí el que mejor se adapte a las necesidades de tu negocio.",
       currentPlan: "Plan actual",
       recommendedPlan: "Recomendado",
       freePlan: "Free",
@@ -670,7 +670,11 @@ export const messages = {
       referralsAvailableMetric: "Días disponibles",
       referralsUsedMetric: "Meses usados",
       referralsInactiveHint: "Activá tu código para preparar tu perfil y empezar a compartir la app.",
-      referralsRules: "Solo cuentan cuentas nuevas. El primer código válido queda asociado al crear la cuenta. El beneficio se acredita cuando se confirma el primer pago Premium aprobado. Podés acumular hasta 3 meses y activar un beneficio desde Perfil cuando estés en Free.",
+      referralsRules: [
+        "El programa de referidos aplica a cuentas nuevas que se registren con un código de invitación válido, que queda asociado al momento del registro.",
+        "El beneficio se acredita cuando se aprueba el primer pago del plan Pro.",
+        "Podés acumular hasta tres beneficios y activarlos de a uno desde Perfil cuando tu cuenta esté en el plan Free."
+      ],
       referralsActivatedToast: "Código de referidos activado",
       superAdminReferralSignups: "Altas por referidos",
       superAdminReferralPremium: "Referidos Premium",
@@ -1582,7 +1586,7 @@ export const messages = {
       passwordResetToastTitle: "Recovery email sent",
       passwordResetToastDescription: "Check your inbox and open the link to choose a new password.",
       passwordResetErrorTitle: "We could not send the reset email",
-      plansDescription: "Choose the plan that best fits your business stage and compare what each one unlocks.",
+      plansDescription: "Compare the features of each plan and choose the one that best meets your business needs.",
       currentPlan: "Current plan",
       recommendedPlan: "Recommended",
       freePlan: "Free",
@@ -1644,7 +1648,11 @@ export const messages = {
       referralsAvailableMetric: "Available days",
       referralsUsedMetric: "Used months",
       referralsInactiveHint: "Activate your code to prepare your profile and start sharing the app.",
-      referralsRules: "Only new accounts count. The first valid code is attached when the account is created. The reward is granted after the first approved Premium payment is confirmed. You can save up to 3 months and activate one reward from Profile while on Free.",
+      referralsRules: [
+        "The referral program applies to new accounts that register with a valid invitation code, which is linked to the account at registration.",
+        "The reward is granted when the first Pro payment is approved.",
+        "You can save up to three rewards and activate them one at a time from Profile while your account is on the Free plan."
+      ],
       referralsActivatedToast: "Referral code activated",
       superAdminReferralSignups: "Referral signups",
       superAdminReferralPremium: "Premium referrals",

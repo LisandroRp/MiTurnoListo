@@ -22,6 +22,11 @@ export function ReferralProgramPanel({
   const [copiedReferralLink, setCopiedReferralLink] = useState(false);
   const summary = profile.referralSummary;
   const isMaxed = summary.availableDays >= 90;
+  const rules = (
+    <ul className="min-w-0 list-disc space-y-2 pl-5 text-sm leading-6 text-muted">
+      {messages.profile.referralsRules.map((rule) => <li key={rule}>{rule}</li>)}
+    </ul>
+  );
 
   async function handleActivate() {
     setIsActivating(true);
@@ -85,13 +90,13 @@ export function ReferralProgramPanel({
 
           <div className="mt-5 flex items-start gap-3 rounded-lg border border-subtle bg-surface-strong p-4">
             <FiShare2 className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" />
-            <p className="text-sm leading-6 text-muted">{messages.profile.referralsRules}</p>
+            {rules}
           </div>
         </>
       ) : (
         <div className="mt-5 grid gap-3 rounded-lg border border-subtle bg-input p-4 text-sm leading-6 text-muted">
           <p>{messages.profile.referralsInactiveHint}</p>
-          <p>{messages.profile.referralsRules}</p>
+          {rules}
         </div>
       )}
     </Card>

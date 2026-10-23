@@ -168,6 +168,7 @@ export function AppShell({ children }: AppShellProps) {
           onLogout={() => void logout()}
           onToggle={() => setIsSidebarCollapsed((current) => !current)}
           showProUpgrade={Boolean(businessId) && !isLoading && isFreePlan(profile.subscriptionTier)}
+          account={profile}
         />
       </div>
 
@@ -200,6 +201,7 @@ export function AppShell({ children }: AppShellProps) {
             onLogout={() => void logout()}
             onToggle={() => setIsMobileSidebarOpen(false)}
             showProUpgrade={Boolean(businessId) && !isLoading && isFreePlan(profile.subscriptionTier)}
+            account={profile}
           />
         </div>
       </div>

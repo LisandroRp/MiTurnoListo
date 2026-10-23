@@ -11,11 +11,20 @@ const fileUrl = new URL("./NavigationSidebar.tsx", import.meta.url);
 const loaded = new Module(fileUrl.pathname);
 loaded.filename = fileUrl.pathname;
 const modules = {
+  "next/image": { default: ({ src, alt }) => createElement("img", { src, alt }) },
   "next/link": { default: ({ children, ...props }) => createElement("a", props, children) },
   "@/components/composed/BrandMark": { BrandMark: () => null },
   "@/components/ui/Button": { Button: ({ children, onClick, "aria-label": label }) => createElement("button", { onClick, "aria-label": label }, children) },
   "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") }
 };
+const groupUrl = new URL("./NavigationSidebarGroup.tsx", import.meta.url);
+const groupModule = new Module(groupUrl.pathname);
+groupModule.filename = groupUrl.pathname;
+groupModule.require = (name) => modules[name] ?? require(name);
+groupModule._compile(ts.transpileModule(readFileSync(groupUrl, "utf8"), {
+  compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS }
+}).outputText, groupUrl.pathname);
+modules["@/features/scheduling/components/NavigationSidebarGroup"] = groupModule.exports;
 loaded.require = (specifier) => modules[specifier] ?? require(specifier);
 loaded._compile(ts.transpileModule(readFileSync(fileUrl, "utf8"), {
   compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS }
@@ -54,18 +63,12 @@ test("navigation groups operational links and keeps Profile in the fixed footer"
   assert.doesNotMatch(html, /href="\/paymentMethods"/);
   assert.match(html, /href="\/messages"[^>]*aria-current="page"/);
   const icons = [...html.matchAll(/<span data-navigation-icon="true" class="([^"]*)"/g)];
-  assert.equal(icons.length, items.length - 1);
+  assert.equal(icons.length, items.length - 2);
   for (const icon of icons) assert.match(icon[1], /\btext-brand-strong\b/);
-  const groups = [...html.matchAll(/<details([^>]*)>([\s\S]*?)<\/details>/g)];
-  assert.equal(groups.length, 3);
-  assert.match(groups[0][1], /\bopen=""/);
-  assert.doesNotMatch(groups[1][1], /\bopen/);
-  assert.doesNotMatch(groups[2][1], /\bopen/);
-  for (const group of groups) {
-    assert.match(group[2], /<summary/);
-    assert.match(group[2], /class="h-4 w-4 shrink-0 text-brand-strong transition-transform/);
-    assert.doesNotMatch(group[1], /\bname=/);
-  }
+  const states = [...html.matchAll(/<button[^>]*aria-expanded="(true|false)"/g)].map((match) => match[1]);
+  assert.deepEqual(states, ["true", "false", "false"]);
+  assert.equal((html.match(/transition-\[grid-template-rows,opacity\]/g) ?? []).length, 3);
+  assert.equal((html.match(/inert=""/g) ?? []).length, 2);
 });
 
 test("all navigation groups remain independently toggleable in compact and mobile menus", () => {
@@ -76,8 +79,31 @@ test("all navigation groups remain independently toggleable in compact and mobil
         actions: { logout: "Log out" }
       }, onLogout: () => {}, onToggle: () => {}, ...layout
     }));
-    assert.equal((html.match(/<summary/g) ?? []).length, 3);
-    assert.equal((html.match(/<details open=""/g) ?? []).length, 1);
+    assert.equal((html.match(/aria-expanded=/g) ?? []).length, 3);
+    assert.equal((html.match(/aria-expanded="true"/g) ?? []).length, 1);
     for (const label of ["Operations", "Business", "Communication"]) assert.ok(html.includes(label));
   }
+});
+
+test("account footer displays the business identity, a circular logo and a separate icon-only logout", () => {
+  const props = {
+    items: [], activeView: "profile", isCollapsed: false,
+    messages: { nav: { profile: "Profile" }, actions: { logout: "Log out" } },
+    account: { businessName: "Studio", email: "owner@example.com", publicLogoUrl: "https://example.com/logo.png" },
+    onLogout: () => {}, onToggle: () => {}
+  };
+  const html = renderToStaticMarkup(createElement(loaded.exports.NavigationSidebar, props));
+  const footer = html.slice(html.indexOf("</nav>"));
+  assert.match(footer, /href="\/perfil"[^>]*aria-current="page"/);
+  assert.match(footer, /rounded-full/);
+  assert.match(footer, /src="https:\/\/example.com\/logo.png"/);
+  assert.match(footer, /truncate text-sm font-semibold text-primary">Studio/);
+  assert.match(footer, /truncate text-xs text-muted">owner@example.com/);
+  assert.match(footer, /<button aria-label="Log out"><\/button>/);
+  const withoutName = renderToStaticMarkup(createElement(loaded.exports.NavigationSidebar, { ...props, account: { ...props.account, businessName: "", publicLogoUrl: "" } }));
+  assert.doesNotMatch(withoutName, /<img/);
+  assert.match(withoutName, /owner@example.com/);
+  const compact = renderToStaticMarkup(createElement(loaded.exports.NavigationSidebar, { ...props, isCollapsed: true }));
+  assert.doesNotMatch(compact, />Studio<|>owner@example.com</);
+  assert.match(compact, /aria-label="Profile · Studio · owner@example.com"/);
 });

@@ -1,12 +1,15 @@
 import { IconType } from "react-icons";
-import { FiChevronDown, FiChevronLeft, FiChevronRight, FiLogOut, FiX, FiZap } from "react-icons/fi";
+import { useState } from "react";
+import { FiChevronLeft, FiChevronRight, FiLogOut, FiUser, FiX, FiZap } from "react-icons/fi";
 import Link from "next/link";
+import Image from "next/image";
 
 import { BrandMark } from "@/components/composed/BrandMark";
 import { Button } from "@/components/ui/Button";
 import { cx } from "@/components/ui/utils";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { ViewId } from "@/features/scheduling/types";
+import { NavigationSidebarGroup } from "@/features/scheduling/components/NavigationSidebarGroup";
 
 export type NavigationItem = {
   id: ViewId;
@@ -25,6 +28,7 @@ type NavigationSidebarProps = {
   onLogout: () => void;
   onToggle: () => void;
   showProUpgrade?: boolean;
+  account?: { businessName: string; email: string; publicLogoUrl: string };
 };
 
 export function NavigationSidebar({
@@ -36,10 +40,16 @@ export function NavigationSidebar({
   onNavigate,
   onLogout,
   onToggle,
-  showProUpgrade = false
+  showProUpgrade = false,
+  account
 }: NavigationSidebarProps) {
   const isMobile = mode === "mobile";
   const shouldCollapse = !isMobile && isCollapsed;
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+  const logoUrl = account?.publicLogoUrl?.trim() ?? "";
+  const businessName = account?.businessName?.trim() ?? "";
+  const email = account?.email?.trim() ?? "";
+  const isAccountActive = activeView === "profile" || activeView === "paymentMethods";
   const groups = [
     { label: messages.nav.operationsGroup, ids: ["home", "calendar", "newBooking", "customers"] },
     { label: messages.nav.businessGroup, ids: ["personnel", "services", "payments", "statistics"] },
@@ -124,21 +134,9 @@ export function NavigationSidebar({
 
       <nav className="grid min-h-0 flex-1 auto-rows-max gap-1 overflow-y-auto p-3">
         {groups.map((group, index) => (
-          <details key={group.ids[0]} open={index === 0} className={cx("group", index > 0 && "mt-2 border-t border-subtle pt-2")}>
-            <summary
-              title={shouldCollapse ? group.label : undefined}
-              className={cx(
-                "flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-lg px-3 text-xs font-bold text-muted transition-colors hover:bg-surface-strong hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus [&::-webkit-details-marker]:hidden",
-                shouldCollapse ? "justify-center" : "justify-between"
-              )}
-            >
-              <span className={shouldCollapse ? "sr-only" : undefined}>{group.label}</span>
-              <FiChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-brand-strong transition-transform group-open:rotate-180" />
-            </summary>
-            <div className="mt-1 grid gap-1">
-              {group.ids.map((id) => items.find((item) => item.id === id)).filter((item): item is NavigationItem => Boolean(item)).map(renderItem)}
-            </div>
-          </details>
+          <NavigationSidebarGroup key={group.ids[0]} label={group.label} isCollapsed={shouldCollapse} defaultOpen={index === 0} className={index > 0 ? "mt-2 border-t border-subtle pt-2" : undefined}>
+            {group.ids.map((id) => items.find((item) => item.id === id)).filter((item): item is NavigationItem => Boolean(item)).map(renderItem)}
+          </NavigationSidebarGroup>
         ))}
       </nav>
 
@@ -157,18 +155,33 @@ export function NavigationSidebar({
             <span className={shouldCollapse ? "sr-only" : undefined}>{messages.upgrade.action}</span>
           </Link>
         ) : null}
-        {items.filter((item) => item.id === "profile").map(renderItem)}
+        <div className={cx("flex items-center gap-1 rounded-xl p-1", shouldCollapse && "flex-col", isAccountActive ? "bg-brand-soft" : "bg-surface-strong")}>
+          <Link
+            href={items.find((item) => item.id === "profile")?.href ?? "/perfil"}
+            onClick={onNavigate}
+            aria-label={[messages.nav.profile, businessName, email].filter(Boolean).join(" · ")}
+            aria-current={isAccountActive ? "page" : undefined}
+            title={[businessName, email].filter(Boolean).join(" · ") || messages.nav.profile}
+            className={cx("flex min-w-0 items-center gap-3 rounded-lg p-2 transition-colors hover:bg-brand-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus", shouldCollapse ? "justify-center" : "flex-1")}
+          >
+            <span className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-surface text-xl text-brand-strong">
+              {logoUrl && failedLogoUrl !== logoUrl ? <Image src={logoUrl} alt="" fill sizes="40px" unoptimized className="object-cover" onError={() => setFailedLogoUrl(logoUrl)} /> : <FiUser aria-hidden="true" />}
+            </span>
+            {!shouldCollapse ? <span className="min-w-0">
+              {businessName ? <span className="block truncate text-sm font-semibold text-primary">{businessName}</span> : null}
+              <span className="block truncate text-xs text-muted">{email || messages.nav.profile}</span>
+            </span> : null}
+          </Link>
         <Button
-          size={shouldCollapse ? "icon" : "md"}
+          size="icon"
           variant="ghost"
-          className={cx("w-full", shouldCollapse ? "" : "justify-start")}
+          className="shrink-0"
           aria-label={messages.actions.logout}
           title={messages.actions.logout}
           icon={<FiLogOut />}
           onClick={onLogout}
-        >
-          {shouldCollapse ? null : messages.actions.logout}
-        </Button>
+        />
+        </div>
       </div>
     </aside>
   );

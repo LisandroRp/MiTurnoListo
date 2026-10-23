@@ -3,7 +3,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { FiSearch, FiUserCheck } from "react-icons/fi";
 
-import { Badge } from "@/components/ui/Badge";
+import { CustomerTagBadge } from "@/features/scheduling/components/CustomerTagBadge";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
@@ -25,6 +25,7 @@ const perPageOptions = [10, 20, 50, 100];
 const defaultPaginationMeta: CustomersPaginationMeta = {
   currentPage: 1,
   perPage: 10,
+  newCustomers: 0,
   recurringCustomers: 0,
   totalBookings: 0,
   totalCustomers: 0,
@@ -124,7 +125,7 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <CustomerMetricCard label={messages.customers.totalCustomers} value={String(paginationMeta.totalCustomers)} isLoading={isLoading} />
-        <CustomerMetricCard label={messages.customers.recurringCustomers} value={String(paginationMeta.recurringCustomers)} isLoading={isLoading} />
+        <CustomerMetricCard label={messages.customers.newCustomers} value={String(paginationMeta.newCustomers)} isLoading={isLoading} />
         <CustomerMetricCard label={messages.customers.totalBookings} value={String(paginationMeta.totalBookings)} isLoading={isLoading} />
         <CustomerMetricCard label={messages.customers.estimatedRevenue} value={formatCurrency(paginationMeta.totalRevenue)} isLoading={isLoading} />
       </div>
@@ -218,7 +219,6 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
                 </thead>
                 <tbody className="divide-y divide-subtle">
                   {customers.map((customer) => {
-                    const customerTag = getCustomerTag(customer, messages);
 
                     return (
                     <tr key={customer.id} className="transition-colors hover:bg-brand-soft/45">
@@ -231,7 +231,7 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
                       <td className="px-4 py-4 text-muted">{customer.lastServiceName || "-"}</td>
                       <td className="whitespace-nowrap px-4 py-4 text-muted">{formatLastBookingLabel(customer.lastBookedAt, messages)}</td>
                       <td className="min-w-28 px-4 py-4">
-                        <Badge tone={customerTag.tone} className={cx("whitespace-nowrap", customerTag.className)}>{customerTag.label}</Badge>
+                        <CustomerTagBadge tag={getCustomerTagKey(customer)} messages={messages} />
                       </td>
                     </tr>
                     );
@@ -300,13 +300,12 @@ function CustomersPagination({
 }
 
 function CustomerMobileCard({ customer, messages }: { customer: Customer; messages: Messages }) {
-  const customerTag = getCustomerTag(customer, messages);
 
   return (
     <div className="rounded-xl border border-subtle bg-input p-4">
       <div className="flex items-start justify-between gap-3">
         <CustomerIdentity customer={customer} />
-        <Badge tone={customerTag.tone} className={customerTag.className}>{customerTag.label}</Badge>
+        <CustomerTagBadge tag={getCustomerTagKey(customer)} messages={messages} />
       </div>
       <div className="mt-4 grid gap-2 text-sm text-muted">
         <CustomerDetail label={messages.customers.email} value={customer.email || "-"} />
@@ -410,11 +409,4 @@ function formatPhoneForDisplay(value: string) {
   const compactValue = value.replace(/\s+/g, "");
 
   return compactValue || "-";
-}
-
-function getCustomerTag(customer: Customer, messages: Messages) {
-  const tag = getCustomerTagKey(customer);
-  const tone: "danger" | "warning" | "brand" | "neutral" | "success" = tag === "atRisk" ? "danger" : tag === "vip" ? "warning" : tag === "frequent" ? "brand" : tag === "new" ? "neutral" : "success";
-  const className = tag === "vip" ? "bg-warning-soft text-warning" : tag === "new" ? "bg-shell text-primary" : undefined;
-  return { label: messages.customers.tags[tag], tone, className };
 }

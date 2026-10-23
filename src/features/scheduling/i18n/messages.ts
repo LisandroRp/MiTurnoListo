@@ -477,6 +477,15 @@ export const messages = {
       searchPlaceholder: "Buscar por nombre, email o teléfono",
       totalCustomers: "Clientes totales",
       recurringCustomers: "Recurrentes",
+      newCustomers: "Nuevos",
+      tagRulesTitle: "Información sobre las etiquetas",
+      tagDescriptions: {
+        new: "Hasta 2 reservas.",
+        active: "De 3 a 10 reservas.",
+        frequent: "De 11 a 20 reservas.",
+        vip: "21 reservas o más.",
+        atRisk: "Más de 45 días desde la última reserva."
+      },
       totalBookings: "Reservas totales",
       estimatedRevenue: "Ingresos estimados",
       name: "Nombre",
@@ -1455,6 +1464,15 @@ export const messages = {
       searchPlaceholder: "Search by name, email or phone",
       totalCustomers: "Total customers",
       recurringCustomers: "Recurring",
+      newCustomers: "New customers",
+      tagRulesTitle: "About customer tags",
+      tagDescriptions: {
+        new: "Up to 2 bookings.",
+        active: "3 to 10 bookings.",
+        frequent: "11 to 20 bookings.",
+        vip: "21 bookings or more.",
+        atRisk: "More than 45 days since the last booking."
+      },
       totalBookings: "Total bookings",
       estimatedRevenue: "Estimated revenue",
       name: "Name",

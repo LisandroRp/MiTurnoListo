@@ -1,3 +1,5 @@
+import { CustomerTagInfo } from "@/features/scheduling/components/CustomerTagBadge";
+
 import { Button } from "@/components/ui/Button";
 import { SelectField } from "@/components/ui/SelectField";
 import { TextField } from "@/components/ui/TextField";
@@ -43,13 +45,18 @@ export function CustomerFilters({
         options={sorts.map((value) => ({ value, label: messages.customers.sortOptions[value] }))}
         onChange={(event) => onSortChange(event.target.value as CustomerSortOption)}
       />
-      <SelectField
-        label={messages.customers.tagFilter}
-        name="customers-tag"
-        value={tag}
-        options={tags.map((value) => ({ value, label: value === "all" ? messages.customers.allTags : messages.customers.tags[value] }))}
-        onChange={(event) => onTagChange(event.target.value as CustomerTagFilter)}
-      />
+      <div className="grid gap-2">
+        <div className="flex items-center gap-2">
+          <label htmlFor="customers-tag" className="text-sm font-medium text-primary">{messages.customers.tagFilter}</label>
+          <CustomerTagInfo messages={messages} />
+        </div>
+        <SelectField
+          name="customers-tag"
+          value={tag}
+          options={tags.map((value) => ({ value, label: value === "all" ? messages.customers.allTags : messages.customers.tags[value] }))}
+          onChange={(event) => onTagChange(event.target.value as CustomerTagFilter)}
+        />
+      </div>
       <TextField
         label={messages.customers.dateFrom}
         name="customers-date-from"

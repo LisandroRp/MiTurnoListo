@@ -32,11 +32,10 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getSupabaseAdminClient();
-  const hasGlobalFilters = sort !== "default" || tag !== "all" || Boolean(dateFrom || dateTo);
   const [firstResult, businessResult] = await Promise.all([
     supabase.rpc("get_customer_summaries", {
-      page_number: hasGlobalFilters ? 1 : page,
-      page_size: hasGlobalFilters ? batchSize : perPage,
+      page_number: 1,
+      page_size: batchSize,
       search_query: search,
       target_business_id: businessId
     }),
@@ -57,67 +56,51 @@ export async function GET(request: NextRequest) {
   const firstRow = rows[0];
   const totalCustomers = Number(firstRow?.total_customers ?? 0);
 
-  if (hasGlobalFilters) {
-    const allRows = [...rows];
-    const totalBatches = Math.ceil(totalCustomers / batchSize);
+  const allRows = [...rows];
+  const totalBatches = Math.ceil(totalCustomers / batchSize);
 
-    for (let start = 2; start <= totalBatches; start += 4) {
-      const batchPages = Array.from({ length: Math.min(4, totalBatches - start + 1) }, (_, index) => start + index);
-      const batchResults = await Promise.all(batchPages.map((pageNumber) => supabase.rpc("get_customer_summaries", {
-        page_number: pageNumber,
-        page_size: batchSize,
-        search_query: search,
-        target_business_id: businessId
-      })));
-      const failedResult = batchResults.find((result) => result.error);
+  for (let start = 2; start <= totalBatches; start += 4) {
+    const batchPages = Array.from({ length: Math.min(4, totalBatches - start + 1) }, (_, index) => start + index);
+    const batchResults = await Promise.all(batchPages.map((pageNumber) => supabase.rpc("get_customer_summaries", {
+      page_number: pageNumber,
+      page_size: batchSize,
+      search_query: search,
+      target_business_id: businessId
+    })));
+    const failedResult = batchResults.find((result) => result.error);
 
-      if (failedResult?.error) {
-        return createApiErrorResponse(failedResult.error, {
-          code: "CUSTOMERS_LOAD_FAILED",
-          fallbackMessage: "Unable to load customers.",
-          status: 500
-        });
-      }
-
-      batchResults.forEach((result) => allRows.push(...((result.data ?? []) as CustomerSummaryRow[])));
+    if (failedResult?.error) {
+      return createApiErrorResponse(failedResult.error, {
+        code: "CUSTOMERS_LOAD_FAILED",
+        fallbackMessage: "Unable to load customers.",
+        status: 500
+      });
     }
 
-    const filtered = filterAndSortCustomers(allRows.map(mapCustomer), {
-      dateFrom,
-      dateTo,
-      sort,
-      tag,
-      timeZone: businessResult.data?.timezone ?? "America/Argentina/Buenos_Aires"
-    });
-    const totals = getCustomerTotals(filtered);
-    const paginated = paginateCustomers(filtered, page, perPage);
-
-    return NextResponse.json({
-      data: paginated.data,
-      meta: {
-        currentPage: paginated.currentPage,
-        perPage,
-        recurringCustomers: tag === "all" && !dateFrom && !dateTo ? Number(firstRow?.recurring_customers ?? 0) : totals.recurringCustomers,
-        totalBookings: tag === "all" && !dateFrom && !dateTo ? Number(firstRow?.total_bookings ?? 0) : totals.totalBookings,
-        totalCustomers: filtered.length,
-        totalPages: paginated.totalPages,
-        totalRevenue: tag === "all" && !dateFrom && !dateTo ? Number(firstRow?.total_revenue_sum ?? 0) : totals.totalRevenue
-      }
-    });
+    batchResults.forEach((result) => allRows.push(...((result.data ?? []) as CustomerSummaryRow[])));
   }
 
-  const totalPages = Math.max(1, Math.ceil(totalCustomers / perPage));
+  const filtered = filterAndSortCustomers(allRows.map(mapCustomer), {
+    dateFrom,
+    dateTo,
+    sort,
+    tag,
+    timeZone: businessResult.data?.timezone ?? "America/Argentina/Buenos_Aires"
+  });
+  const totals = getCustomerTotals(filtered);
+  const paginated = paginateCustomers(filtered, page, perPage);
 
   return NextResponse.json({
-    data: rows.map(mapCustomer),
+    data: paginated.data,
     meta: {
-      currentPage: Math.min(page, totalPages),
+      currentPage: paginated.currentPage,
       perPage,
-      recurringCustomers: Number(firstRow?.recurring_customers ?? 0),
-      totalBookings: Number(firstRow?.total_bookings ?? 0),
-      totalCustomers,
-      totalPages,
-      totalRevenue: Number(firstRow?.total_revenue_sum ?? 0)
+      newCustomers: totals.newCustomers,
+      recurringCustomers: tag === "all" && !dateFrom && !dateTo ? Number(firstRow?.recurring_customers ?? 0) : totals.recurringCustomers,
+      totalBookings: tag === "all" && !dateFrom && !dateTo ? Number(firstRow?.total_bookings ?? 0) : totals.totalBookings,
+      totalCustomers: filtered.length,
+      totalPages: paginated.totalPages,
+      totalRevenue: tag === "all" && !dateFrom && !dateTo ? Number(firstRow?.total_revenue_sum ?? 0) : totals.totalRevenue
     }
   });
 }

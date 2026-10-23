@@ -8,6 +8,7 @@ import { getResponseErrorMessage } from "@/lib/networking/response-errors";
 export type CustomersPaginationMeta = {
   currentPage: number;
   perPage: number;
+  newCustomers: number;
   recurringCustomers: number;
   totalBookings: number;
   totalCustomers: number;
@@ -68,6 +69,7 @@ export async function getCustomers(businessId: string, options: GetCustomersOpti
     meta: {
       currentPage: payload.meta?.currentPage ?? options.page,
       perPage: payload.meta?.perPage ?? options.perPage,
+      newCustomers: payload.meta?.newCustomers ?? 0,
       recurringCustomers: payload.meta?.recurringCustomers ?? 0,
       totalBookings: payload.meta?.totalBookings ?? 0,
       totalCustomers: payload.meta?.totalCustomers ?? 0,

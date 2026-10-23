@@ -24,6 +24,7 @@ export function FloatingInfoPopover({ ariaLabel, children, className, content }:
   const popoverRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<PopoverPosition | null>(null);
+  const [themeClass, setThemeClass] = useState("");
 
   useEffect(() => {
     if (!isOpen) {
@@ -37,6 +38,8 @@ export function FloatingInfoPopover({ ariaLabel, children, className, content }:
         return;
       }
 
+      const themeRoot = trigger.closest(".theme-coral, .theme-blue, .theme-sage");
+      setThemeClass(Array.from(themeRoot?.classList ?? []).find((value) => /^theme-(coral|blue|sage)$/.test(value)) ?? "");
       const triggerRect = trigger.getBoundingClientRect();
       const popoverHeight = popoverRef.current?.offsetHeight ?? 0;
       const availableBelow = window.innerHeight - triggerRect.bottom - viewportPadding;
@@ -69,6 +72,8 @@ export function FloatingInfoPopover({ ariaLabel, children, className, content }:
         type="button"
         className={className}
         aria-label={ariaLabel}
+        onClick={() => setIsOpen(true)}
+        onKeyDown={(event) => { if (event.key === "Escape") setIsOpen(false); }}
         onBlur={() => setIsOpen(false)}
         onFocus={() => setIsOpen(true)}
         onMouseEnter={() => setIsOpen(true)}
@@ -83,6 +88,7 @@ export function FloatingInfoPopover({ ariaLabel, children, className, content }:
               role="tooltip"
               className={cx(
                 "pointer-events-none fixed z-50 w-64 rounded-lg border border-subtle bg-surface p-3 text-left text-xs leading-5 text-muted shadow-lg",
+                themeClass,
                 !position && "opacity-0"
               )}
               style={position ?? { left: 0, top: 0 }}

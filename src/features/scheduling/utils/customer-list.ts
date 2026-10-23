@@ -58,12 +58,13 @@ export function filterAndSortCustomers(customers: Customer[], filters: CustomerL
   });
 }
 
-export function getCustomerTotals(customers: Customer[]) {
+export function getCustomerTotals(customers: Customer[], now = new Date()) {
   return customers.reduce((totals, customer) => ({
+    newCustomers: totals.newCustomers + Number(getCustomerTag(customer, now) === "new"),
     recurringCustomers: totals.recurringCustomers + Number(customer.bookingCount > 1),
     totalBookings: totals.totalBookings + customer.bookingCount,
     totalRevenue: totals.totalRevenue + customer.totalRevenue
-  }), { recurringCustomers: 0, totalBookings: 0, totalRevenue: 0 });
+  }), { newCustomers: 0, recurringCustomers: 0, totalBookings: 0, totalRevenue: 0 });
 }
 
 export function paginateCustomers(customers: Customer[], requestedPage: number, perPage: number) {

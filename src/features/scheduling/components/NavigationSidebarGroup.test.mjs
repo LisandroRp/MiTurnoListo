@@ -42,6 +42,7 @@ test("sidebar groups animate both directions, preserve independent state and rem
   groups[1].props.children[0].props.onClick();
   groups = render();
   const trigger = groups[1].props.children[0];
+  assert.match(trigger.props.children[1].props.className, /text-brand-strong/);
   const closed = groups[1].props.children[1];
   assert.equal(trigger.props["aria-controls"], closed.props.id);
   assert.equal(closed.props.inert, true);

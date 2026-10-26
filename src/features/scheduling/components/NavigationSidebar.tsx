@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 
 import { BrandMark } from "@/components/composed/BrandMark";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { cx } from "@/components/ui/utils";
 import { Messages } from "@/features/scheduling/i18n/messages";
@@ -75,7 +74,7 @@ export function NavigationSidebar({
         )}
         title={shouldCollapse ? item.label : undefined}
       >
-        <Icon className={cx("shrink-0 text-base", isActive || isBookingAction ? "text-brand-strong" : "text-muted")} aria-hidden="true" />
+        <Icon className="shrink-0 text-base text-brand-strong" aria-hidden="true" />
         <span className={shouldCollapse ? "sr-only" : undefined}>{item.label}</span>
       </Link>
     );
@@ -166,7 +165,7 @@ export function NavigationSidebar({
           <Link
             href={items.find((item) => item.id === "profile")?.href ?? "/perfil"}
             onClick={onNavigate}
-            aria-label={[messages.nav.profile, businessName, email, account?.subscriptionTier === "pro" ? "PRO" : ""].filter(Boolean).join(" · ")}
+            aria-label={[messages.nav.profile, businessName, email].filter(Boolean).join(" · ")}
             aria-current={isAccountActive ? "page" : undefined}
             title={[businessName, email].filter(Boolean).join(" · ") || messages.nav.profile}
             className={cx("flex min-w-0 items-center gap-2 rounded-lg p-2 transition-colors hover:bg-surface-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus", shouldCollapse ? "justify-center" : "flex-1")}
@@ -177,7 +176,6 @@ export function NavigationSidebar({
             {!shouldCollapse ? <span className="min-w-0">
               <span className="flex items-center gap-1.5">
                 {businessName ? <span className="line-clamp-2 min-w-0 break-words text-xs font-semibold leading-4 text-primary">{businessName}</span> : null}
-                {account?.subscriptionTier === "pro" ? <Badge tone="brand" className="h-6 w-6 shrink-0 justify-center !bg-brand !p-0 !text-brand-soft"><FiZap className="h-3.5 w-3.5" aria-hidden="true" /><span className="sr-only">PRO</span></Badge> : null}
               </span>
               <span className="block truncate text-xs text-muted">{email || messages.nav.profile}</span>
             </span> : null}

@@ -32,7 +32,7 @@ export function NavigationSidebarGroup({ label, isCollapsed, defaultOpen, active
         className={cx("flex min-h-9 w-full cursor-pointer items-center gap-2 rounded-lg px-3 text-xs font-medium text-muted transition-colors hover:bg-surface-strong hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus", isCollapsed ? "justify-center" : "justify-between")}
       >
         <span className={isCollapsed ? "sr-only" : undefined}>{label}</span>
-        <FiChevronDown aria-hidden="true" className={cx("h-3.5 w-3.5 shrink-0 text-muted transition-transform duration-300 motion-reduce:transition-none", isOpen && "rotate-180")} />
+        <FiChevronDown aria-hidden="true" className={cx("h-3.5 w-3.5 shrink-0 text-brand-strong transition-transform duration-300 motion-reduce:transition-none", isOpen && "rotate-180")} />
       </button>
       <div
         id={`${id}-content`}

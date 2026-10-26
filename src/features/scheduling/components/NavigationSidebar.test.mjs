@@ -65,7 +65,7 @@ test("navigation groups operational links and keeps Profile in the fixed footer"
   assert.match(html, /href="\/messages"[^>]*aria-current="page"/);
   const icons = [...html.matchAll(/<span data-navigation-icon="true" class="([^"]*)"/g)];
   assert.equal(icons.length, items.length - 1);
-  assert.equal(icons.filter((icon) => icon[1].includes("text-brand-strong")).length, 2);
+  assert.equal(icons.filter((icon) => icon[1].includes("text-brand-strong")).length, icons.length);
   for (const icon of icons) assert.match(icon[1], /text-base/);
   const states = [...html.matchAll(/<button[^>]*aria-expanded="(true|false)"/g)].map((match) => match[1]);
   assert.deepEqual(states, ["false", "true"]);
@@ -146,21 +146,17 @@ test("payment methods belongs to Business, opens its group and does not select P
 });
 
 
-test("footer shows a branded lightning icon beside the business name only for PRO accounts", () => {
-  const props = {
-    items: [], activeView: "home", isCollapsed: false,
-    messages: { nav: { profile: "Profile" }, actions: { logout: "Log out" } },
-    account: { businessName: "Studio", email: "owner@example.com", publicLogoUrl: "", subscriptionTier: "pro" },
-    onLogout: () => {}, onToggle: () => {}
-  };
-  const html = renderToStaticMarkup(createElement(loaded.exports.NavigationSidebar, props));
-  assert.match(html, /Studio<\/span><span class="bg-brand-soft text-brand-strong [^"]*shrink-0[^"]*"><svg/);
-  assert.match(html, /class="sr-only">PRO<\/span>/);
-  assert.match(html, /h-6 w-6 shrink-0 justify-center !bg-brand !p-0/);
-  assert.match(html, /aria-label="Profile · Studio · owner@example.com · PRO"/);
-  assert.match(html, /!bg-brand[^"]*!text-brand-soft/);
-  const selected = renderToStaticMarkup(createElement(loaded.exports.NavigationSidebar, { ...props, activeView: "profile" }));
-  assert.match(selected, /!bg-brand[^"]*!text-brand-soft/);
-  const free = renderToStaticMarkup(createElement(loaded.exports.NavigationSidebar, { ...props, account: { ...props.account, subscriptionTier: "free" } }));
-  assert.doesNotMatch(free, />PRO</);
+test("account footer has no plan badge for either tier", () => {
+  for (const subscriptionTier of ["pro", "free"]) {
+    const html = renderToStaticMarkup(createElement(loaded.exports.NavigationSidebar, {
+      items: [], activeView: "profile", isCollapsed: false,
+      messages: { nav: { profile: "Profile" }, actions: { logout: "Log out" } },
+      account: { businessName: "Studio", email: "owner@example.com", publicLogoUrl: "", subscriptionTier },
+      onLogout: () => {}, onToggle: () => {}
+    }));
+    const footer = html.slice(html.indexOf("</nav>"));
+    assert.match(footer, /aria-label="Profile · Studio · owner@example.com"/);
+    assert.match(footer, />Studio</);
+    assert.doesNotMatch(footer, /PRO|!bg-brand/);
+  }
 });

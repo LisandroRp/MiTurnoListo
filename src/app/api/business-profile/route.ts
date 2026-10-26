@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { hasInvalidBusinessProfileText } from "@/features/scheduling/business-profile-limits";
 import { BusinessProfile } from "@/features/scheduling/types";
 import { createApiErrorResponse, getSafeErrorMessage } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
@@ -45,6 +46,10 @@ export async function PUT(request: NextRequest) {
 
     if (membershipError || !membership || !["owner", "admin"].includes(membership.role)) {
       return NextResponse.json({ error: "Insufficient permissions." }, { status: 403 });
+    }
+
+    if (hasInvalidBusinessProfileText(payload.profile)) {
+      return NextResponse.json({ error: "La descripción admite hasta 333 caracteres, el horario 200 y la dirección 100." }, { status: 400 });
     }
 
     const nextProfile = normalizeBusinessProfile(payload.profile);

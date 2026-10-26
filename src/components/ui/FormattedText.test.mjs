@@ -83,6 +83,11 @@ test("toolbar buttons format the selection and restore focus without submitting 
     }
     assert.deepEqual(changes, ["**Hello**", "__Hello__", "- Hello"]);
     assert.equal(selection.filter((value) => value === "focus").length, 3);
+    const limited = FormattingTextArea({ label: "Description", value: "Hello", maxLength: 5, helperText: "5/5", labels: { bold: "Bold", underline: "Underline", list: "List" }, onChange: (value) => changes.push(value) });
+    assert.equal(limited.props.children[1].props.maxLength, 5);
+    assert.equal(limited.props.children[1].props.helperText, "5/5");
+    for (const button of limited.props.children[0].props.children[1].props.children) button.props.onClick();
+    assert.equal(changes.length, 3, "formatting cannot expand text beyond the limit");
   } finally {
     globalThis.requestAnimationFrame = original;
   }

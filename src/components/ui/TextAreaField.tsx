@@ -4,10 +4,11 @@ import { cx } from "@/components/ui/utils";
 
 type TextAreaFieldProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
   label: string;
+  helperText?: string;
   ref?: Ref<HTMLTextAreaElement>;
 };
 
-export function TextAreaField({ label, className, id, ...props }: TextAreaFieldProps) {
+export function TextAreaField({ label, helperText, className, id, ...props }: TextAreaFieldProps) {
   const fieldId = id ?? props.name;
 
   return (
@@ -19,12 +20,14 @@ export function TextAreaField({ label, className, id, ...props }: TextAreaFieldP
       <textarea
         {...props}
         id={fieldId}
+        aria-describedby={[props["aria-describedby"], helperText && fieldId ? `${fieldId}-hint` : undefined].filter(Boolean).join(" ") || undefined}
         className={cx(
           "min-h-24 w-full resize-y rounded-lg border border-subtle bg-input px-3 py-3 text-sm text-primary outline-none transition-colors",
           "placeholder:text-placeholder focus:border-brand focus:ring-2 focus:ring-focus",
           className
         )}
       />
+      {helperText ? <span id={fieldId ? `${fieldId}-hint` : undefined} className="text-xs font-normal text-muted">{helperText}</span> : null}
     </label>
   );
 }

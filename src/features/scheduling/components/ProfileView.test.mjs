@@ -27,7 +27,11 @@ const formattedUrl = new URL("../../../components/ui/FormattedText.tsx", import.
 const formattedModule = new Module(formattedUrl.pathname);
 formattedModule.require = (name) => name === "@/components/ui/utils" ? { cx: (...values) => values.filter(Boolean).join(" ") } : require(name);
 formattedModule._compile(ts.transpileModule(readFileSync(formattedUrl, "utf8"), { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, formattedUrl.pathname);
+const limitsUrl = new URL("../business-profile-limits.ts", import.meta.url);
+const limitsModule = new Module(limitsUrl.pathname);
+limitsModule._compile(ts.transpileModule(readFileSync(limitsUrl, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, limitsUrl.pathname);
 const components = {
+  "@/features/scheduling/business-profile-limits": limitsModule.exports,
   "@/components/ui/FormattingTextArea": { FormattingTextArea: passthrough("div") },
   "@/components/ui/FormattedText": formattedModule.exports,
   "@/components/ui/Badge": { Badge: passthrough("span") },
@@ -355,4 +359,30 @@ test("public profile preview renders the saved description formatting", () => {
   assert.match(html, /class="space-y-1 break-words text-left w-full text-sm leading-6 text-muted"/);
   assert.match(html, /<strong>Welcome<\/strong>/);
   assert.match(html, /<li><span class="underline">Arrive early<\/span><\/li>/);
+});
+
+
+test("business profile fields expose matching limits and visible character counters", () => {
+  const app = interactiveProfile();
+  app.render();
+  const tree = app.panel().type(app.panel().props);
+  const nodes = app.nodes(tree);
+  for (const [label, limit] of [[messages.profile.address, 100], [messages.profile.publicDescription, 333], [messages.profile.publicOpeningHours, 200]]) {
+    const field = nodes.find((node) => node.props?.label === label);
+    assert.equal(field.props.maxLength, limit);
+    assert.equal(field.props.helperText, `0/${limit}`);
+  }
+});
+
+test("overlong legacy descriptions remain editable but cannot be saved", async () => {
+  const app = interactiveProfile();
+  app.render();
+  app.panel().props.onChange({ ...app.panel().props.draft, publicDescription: "x".repeat(334) });
+  app.render();
+  const panel = app.panel();
+  const nodes = app.nodes(panel.type(panel.props));
+  assert.ok(nodes.some((node) => node.props?.role === "alert"));
+  assert.ok(nodes.some((node) => node.props?.disabled === true && node.props.children === messages.actions.save));
+  await panel.props.onSave();
+  assert.equal(app.saved.length, 0);
 });

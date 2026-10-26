@@ -16,6 +16,7 @@ import { SectionHeader } from "@/components/composed/SectionHeader";
 import { ProfileSuperAdminPanel } from "@/features/scheduling/components/ProfileSuperAdminPanel";
 import { ProfileReferralRewardCallout } from "@/features/scheduling/components/ProfileReferralRewardCallout";
 import { Messages } from "@/features/scheduling/i18n/messages";
+import { businessProfileTextLimits, hasInvalidBusinessProfileText } from "@/features/scheduling/business-profile-limits";
 import { BusinessProfile, Locale, Profile, SubscriptionTier, ThemeId } from "@/features/scheduling/types";
 import {
   getSuperAdminBusinesses,
@@ -221,6 +222,7 @@ export function ProfileView({
   }
 
   async function handleBusinessSave() {
+    if (hasInvalidBusinessProfileText(businessDraft)) return;
     setIsSavingBusiness(true);
 
     try {
@@ -611,12 +613,16 @@ function BusinessProfilePanel({
           <TextField
             label={messages.profile.address}
             value={draft.address}
+            maxLength={businessProfileTextLimits.address}
+            helperText={`${draft.address.length}/${businessProfileTextLimits.address}`}
             onChange={(event) => onChange({ ...draft, address: event.target.value })}
           />
           <FormattingTextArea
             label={messages.profile.publicDescription}
             placeholder={messages.profile.publicDescriptionHint}
             value={draft.publicDescription}
+            maxLength={businessProfileTextLimits.publicDescription}
+            helperText={`${draft.publicDescription.length}/${businessProfileTextLimits.publicDescription}`}
             labels={messages.profile.descriptionFormatting}
             onChange={(publicDescription) => onChange({ ...draft, publicDescription })}
           />
@@ -624,12 +630,18 @@ function BusinessProfilePanel({
             label={messages.profile.publicOpeningHours}
             placeholder={messages.profile.publicOpeningHoursHint}
             value={draft.publicOpeningHours}
+            name="business-opening-hours"
+            maxLength={businessProfileTextLimits.publicOpeningHours}
+            helperText={`${draft.publicOpeningHours.length}/${businessProfileTextLimits.publicOpeningHours}`}
             onChange={(event) => onChange({ ...draft, publicOpeningHours: event.target.value })}
           />
         </div>
       </div>
+      {hasInvalidBusinessProfileText(draft) ? (
+        <p role="alert" className="mt-4 text-sm text-danger">{messages.profile.publicTextLimitError}</p>
+      ) : null}
       <div className="mt-6 flex justify-end border-t border-subtle pt-4">
-        <Button isLoading={isSaving} onClick={onSave}>
+        <Button isLoading={isSaving} disabled={hasInvalidBusinessProfileText(draft)} onClick={onSave}>
           {messages.actions.save}
         </Button>
       </div>

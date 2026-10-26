@@ -73,7 +73,11 @@ function setup({ contentHeight = 500, reducedMotion = false, rightColumn = false
     animate: (keyframes, options) => animate("container", keyframes, options)
   };
   panel.parentElement = container;
+  const scrollListeners = new Set();
   const content = {
+    scrollTop: 0,
+    addEventListener: (event, callback) => { if (event === "scroll") scrollListeners.add(callback); },
+    removeEventListener: (event, callback) => { if (event === "scroll") scrollListeners.delete(callback); },
     get scrollHeight() { return contentHeight; },
     get clientHeight() { return states[0] ? contentHeight : Math.min(contentHeight, 288); }
   };
@@ -104,7 +108,9 @@ function setup({ contentHeight = 500, reducedMotion = false, rightColumn = false
     render();
   }
   function button() { return tree.props.children.props.children[0].props.children[1]; }
-  function region() { return tree.props.children.props.children[1]; }
+  function region() { return tree.props.children.props.children[1].props.children[0]; }
+  function fade() { return tree.props.children.props.children[1].props.children[1]; }
+  function scroll(top) { content.scrollTop = top; scrollListeners.forEach((callback) => callback()); render(); }
   function finishSize() { animations.filter((animation) => animation.target === "card").at(-1).onfinish?.(); render(); }
   function resize(height) { contentHeight = height; observers.filter((observer) => !observer.disconnected).forEach((observer) => observer.callback()); render(); }
   function close() {
@@ -113,7 +119,7 @@ function setup({ contentHeight = 500, reducedMotion = false, rightColumn = false
     globalThis.ResizeObserver = previousObserver;
   }
   render(); measure();
-  return { render, button, region, finishSize, resize, animations, panel, peer, close, get flushes() { return flushes; }, get tree() { return tree; } };
+  return { render, button, region, fade, scroll, finishSize, resize, animations, panel, peer, close, get flushes() { return flushes; }, get tree() { return tree; } };
 }
 
 test("panels show expansion controls only when the collapsed content actually overflows", () => {
@@ -133,7 +139,8 @@ test("panels show expansion controls only when the collapsed content actually ov
 test("panels keep the full-width space until shrinking finishes, then animate neighboring panels into place", () => {
   const app = setup();
   try {
-    assert.match(app.region().props.className, /max-h-72/);
+    assert.match(app.region().props.className, /min-h-0 flex-1 overflow-y-auto/);
+    assert.doesNotMatch(app.region().props.className, /max-h-72/);
     assert.match(app.tree.props.className, /h-\[28rem\]/);
     assert.match(app.tree.props.children.props.className, /flex h-full min-h-0 flex-col/);
     app.button().props.onClick();
@@ -325,5 +332,29 @@ test("reduced motion closes immediately, and shrinking data still leaves a close
     app.resize(100);
     assert.equal(app.button(), null);
     assert.equal(app.animations.length, 0);
+  } finally { app.close(); }
+});
+
+
+test("collapsed panels fill remaining height and fade only while content remains below", () => {
+  const app = setup();
+  try {
+    const viewport = app.tree.props.children.props.children[1];
+    assert.match(viewport.props.className, /min-h-0 flex flex-1 flex-col/);
+    assert.match(app.fade().props.className, /pointer-events-none.*from-surface.*opacity-100/);
+    assert.equal(app.fade().props["aria-hidden"], "true");
+    app.scroll(100);
+    assert.match(app.fade().props.className, /opacity-100/);
+    app.scroll(212);
+    assert.match(app.fade().props.className, /opacity-0/);
+    app.scroll(40);
+    assert.match(app.fade().props.className, /opacity-100/);
+    app.button().props.onClick(); app.render();
+    assert.equal(app.fade(), null);
+    app.finishSize();
+    app.button().props.onClick(); app.render(); app.finishSize();
+    assert.match(app.fade().props.className, /opacity-100/);
+    app.resize(200);
+    assert.match(app.fade().props.className, /opacity-0/);
   } finally { app.close(); }
 });

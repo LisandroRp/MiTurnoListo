@@ -15,7 +15,7 @@ type PopoverPosition = {
   top: number;
 };
 
-const popoverWidth = 256;
+const maxPopoverWidth = 256;
 const popoverGap = 10;
 const viewportPadding = 12;
 
@@ -41,6 +41,7 @@ export function FloatingInfoPopover({ ariaLabel, children, className, content }:
       const themeRoot = trigger.closest(".theme-coral, .theme-blue, .theme-sage");
       setThemeClass(Array.from(themeRoot?.classList ?? []).find((value) => /^theme-(coral|blue|sage)$/.test(value)) ?? "");
       const triggerRect = trigger.getBoundingClientRect();
+      const popoverWidth = popoverRef.current?.offsetWidth ?? maxPopoverWidth;
       const popoverHeight = popoverRef.current?.offsetHeight ?? 0;
       const availableBelow = window.innerHeight - triggerRect.bottom - viewportPadding;
       const shouldOpenAbove = popoverHeight > 0 && availableBelow < popoverHeight + popoverGap;
@@ -50,16 +51,19 @@ export function FloatingInfoPopover({ ariaLabel, children, className, content }:
       const centeredLeft = triggerRect.left + triggerRect.width / 2 - popoverWidth / 2;
 
       setPosition({
-        left: Math.min(Math.max(centeredLeft, viewportPadding), window.innerWidth - popoverWidth - viewportPadding),
+        left: Math.max(viewportPadding, Math.min(centeredLeft, window.innerWidth - popoverWidth - viewportPadding)),
         top: Math.max(viewportPadding, nextTop)
       });
     }
 
     updatePosition();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updatePosition);
+    if (popoverRef.current) observer?.observe(popoverRef.current);
     window.addEventListener("scroll", updatePosition, true);
     window.addEventListener("resize", updatePosition);
 
     return () => {
+      observer?.disconnect();
       window.removeEventListener("scroll", updatePosition, true);
       window.removeEventListener("resize", updatePosition);
     };
@@ -87,11 +91,11 @@ export function FloatingInfoPopover({ ariaLabel, children, className, content }:
               ref={popoverRef}
               role="tooltip"
               className={cx(
-                "pointer-events-none fixed z-50 w-64 rounded-lg border border-subtle bg-surface p-3 text-left text-xs leading-5 text-muted shadow-lg",
+                "pointer-events-none fixed z-50 w-fit max-w-64 break-words rounded-lg border border-subtle bg-surface p-3 text-left text-xs leading-5 text-muted shadow-lg",
                 themeClass,
                 !position && "opacity-0"
               )}
-              style={position ?? { left: 0, top: 0 }}
+              style={{ ...position ?? { left: 0, top: 0 }, maxWidth: "min(16rem, calc(100vw - 24px))" }}
             >
               {content}
             </div>,

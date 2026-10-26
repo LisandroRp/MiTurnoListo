@@ -74,6 +74,7 @@ export function AnalyticsPanel({ title, description, controls, children }: Analy
   const [isExpanded, setIsExpanded] = useState(false);
   const [isWide, setIsWide] = useState(false);
   const [hasOverflow, setHasOverflow] = useState(false);
+  const [hasMoreContent, setHasMoreContent] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const innerContentRef = useRef<HTMLDivElement>(null);
@@ -89,17 +90,21 @@ export function AnalyticsPanel({ title, description, controls, children }: Analy
     if (!content || !inner || isExpanded) return;
 
     function measureOverflow() {
-      if (content) setHasOverflow(content.scrollHeight > content.clientHeight + 1);
+      if (!content) return;
+      setHasOverflow(content.scrollHeight > content.clientHeight + 1);
+      setHasMoreContent(content.scrollHeight - content.clientHeight - content.scrollTop > 1);
     }
 
     const frame = window.requestAnimationFrame(measureOverflow);
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measureOverflow);
     observer?.observe(content);
     observer?.observe(inner);
+    content.addEventListener("scroll", measureOverflow, { passive: true });
     window.addEventListener("resize", measureOverflow);
     return () => {
       window.cancelAnimationFrame(frame);
       observer?.disconnect();
+      content.removeEventListener("scroll", measureOverflow);
       window.removeEventListener("resize", measureOverflow);
     };
   }, [children, isExpanded]);
@@ -217,15 +222,18 @@ export function AnalyticsPanel({ title, description, controls, children }: Analy
           <FiChevronDown aria-hidden="true" className={cx("text-lg transition-transform", isExpanded && "rotate-180")} />
         </Button> : null}
       </div>
+      <div className={cx("relative mt-5 min-h-0", !isExpanded && "flex flex-1 flex-col")}>
       <div
         ref={contentRef}
         id={`${id}-content`}
         role="region"
         aria-labelledby={titleId}
         tabIndex={0}
-        className={cx("mt-5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-focus", !isExpanded && "min-h-0 flex-1 max-h-72 overflow-y-auto overscroll-contain pr-1")}
+        className={cx("rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-focus", !isExpanded && "min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1")}
       >
         <div ref={innerContentRef}>{typeof children === "function" ? children(isExpanded) : children}</div>
+      </div>
+      {!isExpanded ? <div aria-hidden="true" className={cx("pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-linear-to-t from-surface via-surface/60 via-35% to-surface/0 transition-opacity duration-300 motion-reduce:transition-none", hasMoreContent ? "opacity-100" : "opacity-0")} /> : null}
       </div>
     </Card>
     </div>

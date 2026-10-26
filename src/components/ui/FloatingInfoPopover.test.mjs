@@ -71,10 +71,15 @@ for (const theme of ["theme-coral", "theme-blue", "theme-sage"]) {
       let tree = render();
       refs[0].current = { closest: () => ({ classList: ["app-shell", activeTheme] }), getBoundingClientRect: () => ({ left: 100, top: 100, bottom: 124, width: 24 }) };
       tree.props.children[0].props.onClick();
-      render(); effects.at(-1)();
+      render();
+      refs[1].current = { offsetWidth: 100, offsetHeight: 44 };
+      effects.at(-1)();
       tree = render();
       assert.ok(tree.props.children[1].props.className.split(" ").includes(theme));
       assert.equal(tree.props.children[1].props.children, "All badges");
+      assert.match(tree.props.children[1].props.className, /w-fit max-w-64/);
+      assert.equal(tree.props.children[1].props.style.left, 62);
+      assert.equal(tree.props.children[1].props.style.maxWidth, "min(16rem, calc(100vw - 24px))");
       tree.props.children[0].props.onBlur(); render();
       activeTheme = theme === "theme-blue" ? "theme-sage" : "theme-blue";
       tree.props.children[0].props.onClick(); render(); effects.at(-1)();

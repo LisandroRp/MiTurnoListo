@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
-import { FiClock, FiMapPin, FiSearch, FiShield, FiUserCheck, FiUsers } from "react-icons/fi";
+import { FiClock, FiSearch, FiShield, FiUserCheck, FiUsers } from "react-icons/fi";
 
+import { PublicBusinessHeader } from "@/features/booking-flow/components/PublicBusinessHeader";
 import { BrandMark } from "@/components/composed/BrandMark";
 import { Card } from "@/components/ui/Card";
 import { TextField } from "@/components/ui/TextField";
@@ -89,37 +90,13 @@ export function PublicServicesCatalog({ businessId }: PublicServicesCatalogProps
             <LoadingState title={messages.publicServices.loadingTitle} dotCount={loadingDotCount} />
           </div>
         ) : (
-          <header className="relative grid justify-items-center gap-4 pt-8 text-center md:pt-0">
-            <Link href="/" className="hidden absolute left-0 top-0 md:block" aria-label="Ir al inicio">
-              <BrandMark variant="full" size="md" />
-            </Link>
-            <Link href="/" className="absolute left-0 top-0 md:hidden" aria-label="Ir al inicio">
-              <BrandMark variant="compact" size="md" />
-            </Link>
-            <div>
-              {payload?.publicLogoUrl ? (
-                <div
-                  className="mx-auto grid h-36 w-36 place-items-center rounded-3xl bg-contain bg-center bg-no-repeat text-lg font-bold text-primary"
-                  style={{ backgroundImage: `url(${payload.publicLogoUrl})` }}
-                  aria-label={payload.businessName}
-                />
-              ) : (
-                <h1 className="mt-3 text-4xl font-bold text-primary">{payload?.businessName ?? messages.appName}</h1>
-              )}
-              {payload?.address ? (
-                <div className="mt-3 flex items-center justify-center gap-2 text-base font-semibold text-muted">
-                  <FiMapPin className="shrink-0 text-brand-strong" aria-hidden="true" />
-                  <span>{payload.address}</span>
-                </div>
-              ) : null}
-              {payload?.publicOpeningHours ? (
-                <div className="mt-3 flex items-start justify-center gap-2 text-sm leading-6 text-muted">
-                  <FiClock className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" />
-                  <span className="whitespace-pre-line">{payload.publicOpeningHours}</span>
-                </div>
-              ) : null}
-            </div>
-          </header>
+          <PublicBusinessHeader
+            businessName={payload?.businessName ?? messages.appName}
+            logoUrl={payload?.publicLogoUrl}
+            description={payload?.publicDescription}
+            address={payload?.address}
+            openingHours={payload?.publicOpeningHours}
+          />
         )}
 
         {isLoading ? null : errorMessage ? (

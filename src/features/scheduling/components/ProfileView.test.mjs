@@ -23,7 +23,13 @@ const passthrough = (tag) => {
 
   return Passthrough;
 };
+const formattedUrl = new URL("../../../components/ui/FormattedText.tsx", import.meta.url);
+const formattedModule = new Module(formattedUrl.pathname);
+formattedModule.require = (name) => name === "@/components/ui/utils" ? { cx: (...values) => values.filter(Boolean).join(" ") } : require(name);
+formattedModule._compile(ts.transpileModule(readFileSync(formattedUrl, "utf8"), { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, formattedUrl.pathname);
 const components = {
+  "@/components/ui/FormattingTextArea": { FormattingTextArea: passthrough("div") },
+  "@/components/ui/FormattedText": formattedModule.exports,
   "@/components/ui/Badge": { Badge: passthrough("span") },
   "@/components/ui/Button": { Button: passthrough("button") },
   "@/components/ui/Card": { Card: passthrough("section") },
@@ -341,4 +347,12 @@ test("the PRO plan heading carries its lightning mark while Free does not", () =
   assert.equal(free.props.children[0], null);
   assert.equal(pro.props.children[0].type, components["react-icons/fi"].FiZap);
   assert.equal(pro.props.children[1], messages.profile.proPlan);
+});
+
+
+test("public profile preview renders the saved description formatting", () => {
+  const html = render(false, { ...profile, publicDescription: "**Welcome**\n- __Arrive early__" });
+  assert.match(html, /class="space-y-1 break-words text-left w-full text-sm leading-6 text-muted"/);
+  assert.match(html, /<strong>Welcome<\/strong>/);
+  assert.match(html, /<li><span class="underline">Arrive early<\/span><\/li>/);
 });

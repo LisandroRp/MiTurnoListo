@@ -8,6 +8,8 @@ import { Card } from "@/components/ui/Card";
 import { ImageUploadField } from "@/components/ui/ImageUploadField";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/SelectField";
+import { FormattingTextArea } from "@/components/ui/FormattingTextArea";
+import { FormattedText } from "@/components/ui/FormattedText";
 import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
 import { SectionHeader } from "@/components/composed/SectionHeader";
@@ -611,11 +613,12 @@ function BusinessProfilePanel({
             value={draft.address}
             onChange={(event) => onChange({ ...draft, address: event.target.value })}
           />
-          <TextAreaField
+          <FormattingTextArea
             label={messages.profile.publicDescription}
             placeholder={messages.profile.publicDescriptionHint}
             value={draft.publicDescription}
-            onChange={(event) => onChange({ ...draft, publicDescription: event.target.value })}
+            labels={messages.profile.descriptionFormatting}
+            onChange={(publicDescription) => onChange({ ...draft, publicDescription })}
           />
           <TextAreaField
             label={messages.profile.publicOpeningHours}
@@ -655,9 +658,10 @@ function BusinessPublicPreview({ draft, messages }: { draft: BusinessProfile; me
           </div>
 
           <div className="grid gap-4 p-5">
-            <p className="text-sm leading-6 text-muted">
-              {draft.publicDescription || messages.profile.publicDescriptionHint}
-            </p>
+            <FormattedText
+              className="w-full text-sm leading-6 text-muted"
+              value={draft.publicDescription || messages.profile.publicDescriptionHint}
+            />
             <div className="grid gap-3 rounded-xl border border-subtle bg-input p-4 text-sm">
               <div className="flex items-start gap-3">
                 <FiMapPin className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" />

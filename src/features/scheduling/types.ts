@@ -69,6 +69,9 @@ export type Appointment = {
   paymentStatus: AppointmentPaymentStatus;
   source: AppointmentSource;
   revenue: number;
+  paymentNote?: string;
+  createdAt?: string;
+  paymentConfirmedAt?: string;
   paymentMethod: PaymentMethod;
   partySize: number;
 };

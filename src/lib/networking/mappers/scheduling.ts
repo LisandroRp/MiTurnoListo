@@ -89,6 +89,9 @@ type AppointmentRow = {
   payment_status: string | null;
   source: string | null;
   total_amount: number;
+  payment_note?: string | null;
+  created_at?: string;
+  payment_confirmed_at?: string | null;
   selected_payment_method: Exclude<PaymentMethod, "mixed"> | null;
   refunded_at: string | null;
   party_size: number;
@@ -244,6 +247,9 @@ export function mapAppointments(appointmentRows: AppointmentRow[], timeZone: str
       paymentStatus: normalizeAppointmentPaymentStatus(appointment.payment_status, appointment.status, appointment.refunded_at),
       source: normalizeAppointmentSource(appointment.source),
       revenue: appointment.total_amount,
+      paymentNote: appointment.payment_note ?? "",
+      createdAt: appointment.created_at,
+      paymentConfirmedAt: appointment.payment_confirmed_at ?? undefined,
       paymentMethod: appointment.selected_payment_method ?? "cash",
       partySize: appointment.party_size
     }))

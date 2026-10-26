@@ -34,7 +34,7 @@ type DashboardViewProps = {
   onCreateAppointment: (appointment: Appointment) => Promise<boolean> | void;
   onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
   onMarkAppointmentNoShow: (appointmentId: string) => Promise<boolean> | void;
-  onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
+  onMarkAppointmentPaid: (appointmentId: string, amount?: number, paymentNote?: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean> | void;
 };
 
@@ -200,7 +200,7 @@ function DayAgenda({
   services: Service[];
   onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
   onMarkAppointmentNoShow: (appointmentId: string) => Promise<boolean> | void;
-  onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
+  onMarkAppointmentPaid: (appointmentId: string, amount?: number, paymentNote?: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean> | void;
 }) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);

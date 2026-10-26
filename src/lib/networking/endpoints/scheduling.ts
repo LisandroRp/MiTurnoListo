@@ -231,7 +231,7 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
     scopeConfig.includeAppointments
       ? supabase
         .from("appointments")
-        .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot, custom_field_responses")
+        .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, payment_note, created_at, payment_confirmed_at, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot, custom_field_responses")
         .eq("business_id", businessId)
         .order("starts_at", { ascending: true })
       : createSkippedQueryResult([]),
@@ -447,11 +447,13 @@ export async function deleteAppointment(businessId: string, appointmentId: strin
   });
 }
 
-export async function markAppointmentPaid(businessId: string, appointmentId: string) {
+export async function markAppointmentPaid(businessId: string, appointmentId: string, amount?: number, paymentNote?: string) {
   await runSchedulingMutation({
     action: "markAppointmentPaid",
     appointmentId,
-    businessId
+    businessId,
+    ...(amount !== undefined ? { amount } : {}),
+    ...(paymentNote !== undefined ? { paymentNote } : {})
   });
 }
 
@@ -718,6 +720,10 @@ export function getSchedulingSnapshotScopeConfig(scope: SchedulingSnapshotScope)
       includeServices: true
     },
     statistics: {
+      includeBusinessDayBlocks: true,
+      includeEmployeeAvailability: true,
+      includeServiceAvailability: true,
+      includeServiceEmployees: true,
       includeAppointments: true,
       includeEmployees: true,
       includeServices: true

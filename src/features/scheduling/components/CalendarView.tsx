@@ -1,11 +1,14 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import {
   FiCalendar,
+  FiEye,
   FiCheck,
   FiChevronDown,
   FiChevronLeft,
   FiChevronRight,
   FiMail,
+  FiDollarSign,
+  FiMessageSquare,
   FiPhone,
   FiSearch,
   FiTrash2,
@@ -14,6 +17,7 @@ import {
   FiX
 } from "react-icons/fi";
 
+import { AppointmentPaymentModal } from "@/features/scheduling/components/AppointmentPaymentModal";
 import { CollapsibleRow } from "@/components/composed/CollapsibleRow";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -83,7 +87,7 @@ type CalendarViewProps = {
   onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
   onDeleteBusinessDayBlock: (dayBlockId: string) => Promise<boolean> | void;
   onMarkAppointmentNoShow: (appointmentId: string) => Promise<boolean> | void;
-  onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
+  onMarkAppointmentPaid: (appointmentId: string, amount?: number, paymentNote?: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean> | void;
   onSaveBusinessDayBlock: (dayBlock: BusinessDayBlock) => Promise<boolean> | void;
 };
@@ -444,7 +448,7 @@ type CalendarContentProps = {
   appointments: Appointment[];
   onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
   onMarkAppointmentNoShow: (appointmentId: string) => Promise<boolean> | void;
-  onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
+  onMarkAppointmentPaid: (appointmentId: string, amount?: number, paymentNote?: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean> | void;
 };
 
@@ -533,7 +537,7 @@ type DateGroupedCalendarProps = {
   onDateClick: (date: string) => void;
   onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
   onMarkAppointmentNoShow: (appointmentId: string) => Promise<boolean> | void;
-  onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
+  onMarkAppointmentPaid: (appointmentId: string, amount?: number, paymentNote?: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean> | void;
 };
 
@@ -639,13 +643,13 @@ type AppointmentCardProps = {
   service?: Service;
   serviceName?: string;
   employeeName?: string;
-  variant?: "calendar" | "dashboardRow";
+  variant?: "calendar" | "dashboardRow" | "action";
   employees: Employee[];
   appointments: Appointment[];
   businessDayBlocks?: BusinessDayBlock[];
   onDeleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean> | void;
   onMarkAppointmentNoShow: (appointmentId: string) => Promise<boolean> | void;
-  onMarkAppointmentPaid: (appointmentId: string) => Promise<boolean> | void;
+  onMarkAppointmentPaid: (appointmentId: string, amount?: number, paymentNote?: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean> | void;
 };
 
@@ -666,6 +670,7 @@ export function AppointmentCard({
   onRescheduleAppointment
 }: AppointmentCardProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [isCancellationOpen, setIsCancellationOpen] = useState(false);
   const [cancellationReason, setCancellationReason] = useState("");
@@ -773,14 +778,16 @@ export function AppointmentCard({
     setIsOpen(true);
   }
 
-  async function markAppointmentPaid() {
+  async function markAppointmentPaid(amount: number, paymentNote?: string) {
     setLoadingAction("paid");
     try {
-      const didMarkPaid = await onMarkAppointmentPaid(appointment.id);
+      const didMarkPaid = await onMarkAppointmentPaid(appointment.id, amount, paymentNote);
 
       if (didMarkPaid !== false) {
         setIsOpen(false);
+        setIsPaymentOpen(false);
       }
+      return didMarkPaid;
     } finally {
       setLoadingAction(null);
     }
@@ -876,7 +883,9 @@ export function AppointmentCard({
     setRescheduleEmployeeId(nextEmployeeId);
   }
 
-  const trigger = variant === "dashboardRow" ? (
+  const trigger = variant === "action" ? (
+    <Button size="icon" variant="ghost" aria-label={`${messages.calendar.appointmentDetails}: ${appointment.customerName}`} title={messages.calendar.appointmentDetails} className="text-brand-strong" onClick={() => setIsOpen(true)}><FiEye aria-hidden="true" /></Button>
+  ) : variant === "dashboardRow" ? (
     <button
       type="button"
       onClick={() => setIsOpen(true)}
@@ -947,6 +956,8 @@ export function AppointmentCard({
         </div>
 
         <div className="mt-5 grid gap-3 rounded-xl border border-subtle bg-input p-4 text-sm">
+          <AppointmentDetail icon={<FiDollarSign />} label={messages.calendar.paymentAmount} value={new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(appointment.revenue)} />
+          {appointment.paymentNote ? <AppointmentDetail icon={<FiMessageSquare />} label={messages.calendar.paymentAdditionalInfo} value={appointment.paymentNote} /> : null}
           <AppointmentDetail icon={<FiMail />} label={messages.calendar.customerEmail} value={appointment.customerEmail || "-"} />
           <AppointmentDetail icon={<FiPhone />} label={messages.calendar.customerPhone} value={formatPhoneForDisplay(appointment.customerPhone)} />
           {(appointment.customFieldResponses ?? []).filter((field) => field.label.trim()).map((field) => (
@@ -1048,7 +1059,7 @@ export function AppointmentCard({
                   isLoading={loadingAction === "paid"}
                   disabled={loadingAction !== null || !canMarkPaid}
                   className="w-full whitespace-nowrap !border-success !bg-success px-3 !text-white hover:!bg-success-soft hover:!text-success"
-                  onClick={() => void markAppointmentPaid()}
+                  onClick={() => { setIsOpen(false); setIsPaymentOpen(true); }}
                 >
                   {messages.calendar.markAsPaid}
                 </Button>
@@ -1091,6 +1102,8 @@ export function AppointmentCard({
           )}
         </div>
       </Modal>
+
+      {isPaymentOpen ? <AppointmentPaymentModal amount={appointment.revenue} messages={messages} onClose={() => { setIsPaymentOpen(false); setIsOpen(true); }} onConfirm={markAppointmentPaid} /> : null}
 
       <Modal isOpen={isCancellationOpen}>
         <div className="grid gap-5">

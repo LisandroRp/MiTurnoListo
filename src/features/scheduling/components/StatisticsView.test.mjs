@@ -4,6 +4,7 @@ import Module, { createRequire } from "node:module";
 import test from "node:test";
 import ts from "typescript";
 import { messages } from "../i18n/messages.ts";
+import * as appointmentOrder from "../utils/appointment-order.ts";
 import * as revenue from "../utils/statistics-revenue.ts";
 
 const require = createRequire(import.meta.url);
@@ -18,14 +19,16 @@ function setup() {
       return [states[index], (value) => { states[index] = value; }];
     }, useRef: () => ({ current: null }) },
     "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") },
+    "@/features/scheduling/components/CalendarView": { AppointmentCard: "AppointmentCard" },
     "@/features/scheduling/components/employeeColors": { employeeColorClasses: {} },
     "@/features/scheduling/utils/statistics-revenue": revenue,
+    "@/features/scheduling/utils/appointment-order": appointmentOrder,
     "@/features/scheduling/components/StatisticsView/AnalyticsPanel": { AnalyticsPanel: "AnalyticsPanel" },
     "@/features/scheduling/components/StatisticsView/StatusBreakdown": { StatusBreakdown: "StatusBreakdown" },
     "@/components/composed/SectionHeader": { SectionHeader: "SectionHeader" },
     "@/components/composed/PremiumFeatureCard": { PremiumFeatureCard: "PremiumFeatureCard" }
   };
-  for (const name of ["Badge", "Button", "Card", "SelectField", "Pagination"]) modules[`@/components/ui/${name}`] = { [name]: name };
+  for (const name of ["FloatingInfoPopover", "Badge", "Button", "Card", "SelectField", "Pagination"]) modules[`@/components/ui/${name}`] = { [name]: name };
   const url = new URL("./StatisticsView.tsx", import.meta.url);
   const loaded = new Module(url.pathname);
   loaded.filename = url.pathname;
@@ -76,7 +79,7 @@ test("revenue cards link to the matching list and no longer repeat their labels 
     const filter = app.nodes().find((node) => node.type === "SelectField" && node.props.label === messages.es.statistics.revenueFilter);
     assert.equal(filter.props.value, "pending");
     const customerCells = app.nodes().filter((node) => node.type === "td" && node.props.className.includes("font-semibold")).map((node) => node.props.children);
-    assert.deepEqual(customerCells, ["pending", "completed"]);
+    assert.deepEqual(customerCells, ["completed", "pending"]);
     const tableHeaders = app.nodes().filter((node) => node.type === "th").map((node) => node.props.children);
     assert.ok(tableHeaders.includes("Pago"));
     assert.ok(tableHeaders.includes("Estado"));
@@ -121,6 +124,7 @@ test("booking lifecycle and payment status have separate panels with disjoint pa
 test("the period table stays open and paginates both layouts without changing totals", () => {
   const app = setup();
   const appointments = Array.from({ length: 45 }, (_, index) => ({
+    createdAt: new Date(Date.UTC(2026, 9, 22, 12, 45 - index)).toISOString(),
     id: `booking-${index}`, customerName: `Customer ${index}`, date: "2026-10-22", startTime: "12:00", endTime: "12:30",
     employeeId: "employee", serviceId: "service", appointmentStatus: "scheduled", paymentStatus: "paid", revenue: 100, partySize: 1
   }));
@@ -186,4 +190,89 @@ test("the sixth panel ranks weekdays using the selected period and employee and 
   app.nodes().find((node) => node.type === "SelectField" && node.props.label === messages.es.statistics.periodFilter).props.onChange({ target: { value: "lastMonth" } });
   render();
   assert.equal(panel().props.children(false).props.message, messages.es.statistics.empty);
+});
+
+
+test("period summary keeps the booking count beside the employee label", () => {
+  const app = setup();
+  app.render();
+  const row = app.nodes().find((node) => node.type === "div" && node.props.className === "mt-2 flex flex-wrap items-center gap-3");
+  assert.ok(row);
+  assert.equal(row.props.children[0].props.children, messages.es.statistics.allEmployees);
+  assert.equal(row.props.children[1].type, "Badge");
+  assert.equal(row.props.children[1].props.children[0], 6);
+});
+
+
+test("ordering defaults to activity, remains independent of the revenue filter and resets pagination", () => {
+  const app = setup(); app.render();
+  const select = (label) => app.nodes().find((node) => node.type === "SelectField" && node.props.label === label);
+  assert.equal(select(messages.es.statistics.orderBy).props.value, "activity");
+  select(messages.es.statistics.revenueFilter).props.onChange({ target: { value: "paid" } }); app.render();
+  select(messages.es.statistics.orderBy).props.onChange({ target: { value: "nameDesc" } }); app.render();
+  assert.equal(select(messages.es.statistics.revenueFilter).props.value, "paid");
+  assert.equal(select(messages.es.statistics.orderBy).props.value, "nameDesc");
+  const pagination = app.nodes().find((node) => node.type === "Pagination");
+  assert.equal(pagination.props.currentPage, 1);
+});
+
+
+test("order precedes the display filter and payment comments appear beside amounts in both layouts", () => {
+  const app = setup(); app.render({ appointments: [{ id: "note", customerName: "Example", date: "2026-10-22", startTime: "12:00", endTime: "12:30", employeeId: "employee", serviceId: "service", appointmentStatus: "scheduled", paymentStatus: "paid", revenue: 12000, paymentNote: "  Servicio adicional  ", partySize: 1 }] });
+  const nodes = app.nodes();
+  const orderIndex = nodes.findIndex((node) => node.type === "SelectField" && node.props.label === messages.es.statistics.orderBy);
+  const filterIndex = nodes.findIndex((node) => node.type === "SelectField" && node.props.label === messages.es.statistics.revenueFilter);
+  assert.ok(orderIndex < filterIndex);
+  const amountComponents = nodes.filter((node) => node.type?.name === "AppointmentAmount");
+  assert.equal(amountComponents.length, 1);
+  // The mobile amount is composed inside MiniStat; the desktop amount is rendered directly.
+  const mini = nodes.find((node) => node.type?.name === "MiniStat" && node.props.label === messages.es.statistics.appointmentAmount);
+  assert.equal(mini.props.value.type.name, "AppointmentAmount");
+  for (const amount of [amountComponents[0], mini.props.value]) {
+    const rendered = amount.type(amount.props);
+    const popover = app.nodes(rendered).find((node) => node.type === "FloatingInfoPopover");
+    assert.equal(popover.props.content.props.children, "Servicio adicional");
+    assert.equal(popover.props.ariaLabel, messages.es.calendar.paymentAdditionalInfo);
+    const withoutNote = amount.type({ ...amount.props, appointment: { ...amount.props.appointment, paymentNote: "" } });
+    assert.equal(app.nodes(withoutNote).some((node) => node.type === "FloatingInfoPopover"), false);
+  }
+});
+
+test("statistics actions reuse the calendar appointment details and format date above the full time range", () => {
+  const app = setup();
+  const handlers = {
+    onDeleteAppointment: async () => true,
+    onMarkAppointmentPaid: async () => true,
+    onMarkAppointmentNoShow: async () => true,
+    onRescheduleAppointment: async () => true
+  };
+  app.render({ ...handlers, businessDayBlocks: [{ id: "blocked" }] });
+  const nodes = app.nodes();
+  assert.ok(nodes.some((node) => node.type === "th" && node.props.children === messages.es.statistics.actionsColumn));
+  const actions = nodes.filter((node) => node.type === "AppointmentCard");
+  assert.equal(actions.length, 12);
+  for (const action of actions) {
+    assert.equal(action.props.variant, "action");
+    for (const key of Object.keys(handlers)) assert.equal(action.props[key], handlers[key]);
+    assert.deepEqual(action.props.businessDayBlocks, [{ id: "blocked" }]);
+    assert.equal(action.props.appointments.length, 6);
+  }
+  const time = nodes.find((node) => node.type?.name === "AppointmentTime");
+  const formatted = time.type(time.props);
+  assert.equal(formatted.props.children[0].props.children.join(""), "22/10/2026");
+  assert.equal(formatted.props.children[1].props.children.join(""), "12:00 – 12:30");
+  for (const line of formatted.props.children) assert.equal(line.props.className, "whitespace-nowrap");
+});
+
+
+test("estimated revenue explanation appears only in the information popover beside its metric title", () => {
+  const app = setup(); app.render();
+  const metric = app.nodes().find((node) => node.type === "Card" && node.key === "estimated");
+  const popover = app.nodes(metric).find((node) => node.type === "FloatingInfoPopover");
+  assert.ok(popover);
+  assert.equal(popover.props.ariaLabel, messages.es.statistics.cards.estimatedRevenue);
+  const explanation = app.nodes(popover.props.content);
+  assert.ok(explanation.some((node) => node.props?.children === messages.es.statistics.revenueExplanation));
+  assert.ok(explanation.some((node) => node.props?.children === messages.es.statistics.revenueEquation));
+  assert.equal(app.nodes().some((node) => node.type === "p" && node.props.children === messages.es.statistics.revenueExplanation), false);
 });

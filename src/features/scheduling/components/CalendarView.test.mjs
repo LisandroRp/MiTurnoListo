@@ -13,8 +13,16 @@ messagesModule._compile(ts.transpileModule(readFileSync(messagesUrl, "utf8"), op
 const messages = messagesModule.exports.messages.es;
 
 function harness() {
+  const states = [];
+  let stateCursor = 0;
+  const paidCalls = [];
   const modules = {
-    react: { useState: (value) => [value, () => {}], useRef: () => ({ current: null }) },
+    react: { useEffect: () => {}, useState: (value) => {
+      const index = stateCursor++;
+      if (!(index in states)) states[index] = value;
+      return [states[index], (update) => { states[index] = typeof update === "function" ? update(states[index]) : update; }];
+    }, useRef: () => ({ current: null }) },
+    "@/features/scheduling/components/AppointmentPaymentModal": { AppointmentPaymentModal: "AppointmentPaymentModal" },
     "@/components/composed/CollapsibleRow": { CollapsibleRow: "CollapsibleRow" },
     "@/components/composed/SectionHeader": { SectionHeader: "SectionHeader" },
     "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") },
@@ -44,13 +52,18 @@ function harness() {
   const toggled = [];
   let tree;
   const nodes = (node = tree) => !node || typeof node !== "object" ? [] : [node, ...[node.props?.children, node.props?.actions].flat(Infinity).filter((child) => child && typeof child === "object").flatMap((child) => nodes(child))];
-  const render = () => { tree = loaded.exports.CalendarView(props); };
+  const render = () => { stateCursor = 0; tree = loaded.exports.CalendarView(props); };
+  let cardProps = {
+    messages, appointment: { id: "one", customerName: "Example", customerEmail: "", customerPhone: "", serviceId: "service", employeeId: "a", date: "2099-10-26", startTime: "12:00", endTime: "12:30", status: "pending", appointmentStatus: "scheduled", paymentStatus: "pending", source: "dashboard", revenue: 1, paymentMethod: "cash", partySize: 1 },
+    employees: [], appointments: [], onMarkAppointmentPaid: async (...args) => { paidCalls.push(args); return true; }
+  };
+  function renderCard(overrides = {}) { cardProps = { ...cardProps, ...overrides }; stateCursor = 0; tree = loaded.exports.AppointmentCard(cardProps); }
   const visible = () => nodes().find((node) => node.type === "CollapsibleRow").props.children.filter(Boolean);
   const navigate = (direction) => {
     nodes().find((node) => node.type === "Button" && node.props["aria-label"] === messages.calendar[direction]).props.onClick();
     render();
   };
-  return { props, render, visible, nodes, navigate, toggled };
+  return { props, render, renderCard, paidCalls, visible, nodes, navigate, toggled };
 }
 
 for (const mode of ["day", "week", "month"]) {
@@ -83,3 +96,23 @@ test("staff can be toggled back on and the full selector stays searchable", () =
   const dropdown = app.nodes().find((node) => node.type?.name === "EmployeeDropdown");
   assert.deepEqual(dropdown.props.employees.map((employee) => employee.id), ["scheduled"]);
 });
+
+
+for (const variant of ["calendar", "dashboardRow", "action"]) {
+  test(`${variant} payment action opens confirmation without marking paid until confirmed`, async () => {
+    const app = harness(); app.renderCard({ variant });
+    app.nodes().find((node) => variant === "action" ? node.type === "Button" && node.props["aria-label"]?.startsWith(messages.calendar.appointmentDetails) : node.type === "button").props.onClick(); app.renderCard();
+    const accept = app.nodes().find((node) => node.type === "Button" && node.props.children === messages.calendar.markAsPaid);
+    accept.props.onClick(); app.renderCard();
+    assert.deepEqual(app.paidCalls, []);
+    const modal = app.nodes().find((node) => node.type === "AppointmentPaymentModal");
+    assert.equal(modal.props.amount, 1);
+    modal.props.onClose(); app.renderCard();
+    assert.equal(app.nodes().some((node) => node.type === "AppointmentPaymentModal"), false);
+    accept.props.onClick(); app.renderCard();
+    await app.nodes().find((node) => node.type === "AppointmentPaymentModal").props.onConfirm(15000, "Adicional");
+    app.renderCard();
+    assert.deepEqual(app.paidCalls, [["one", 15000, "Adicional"]]);
+    assert.equal(app.nodes().some((node) => node.type === "AppointmentPaymentModal"), false);
+  });
+}

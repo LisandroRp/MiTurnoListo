@@ -84,3 +84,18 @@ test("empty months show zero revenue and increasing pending amounts use a warnin
   assert.equal(metrics[1].trendValue, 100);
   assert.equal(metrics[1].trendTone, "danger");
 });
+
+test("adjusted appointment amounts and internal payment comments survive mapping and drive captured revenue", () => {
+  const appointments = loaded.exports.mapAppointments([{
+    id: "adjusted", business_id: "business", service_id: "service", employee_id: "employee",
+    starts_at: "2026-10-26T15:00:00Z", ends_at: "2026-10-26T15:30:00Z",
+    status: "confirmed", appointment_status: "scheduled", payment_status: "paid", source: "dashboard",
+    total_amount: 12000.5, payment_note: "Servicio adicional", created_at: "2026-10-25T12:00:00Z", payment_confirmed_at: "2026-10-26T12:00:00Z", selected_payment_method: "cash", refunded_at: null,
+    party_size: 1, customer_name_snapshot: "Example", customer_email_snapshot: "", customer_phone_snapshot: ""
+  }], "America/Argentina/Buenos_Aires");
+  assert.equal(appointments[0].revenue, 12000.5);
+  assert.equal(appointments[0].paymentNote, "Servicio adicional");
+  assert.equal(appointments[0].createdAt, "2026-10-25T12:00:00Z");
+  assert.equal(appointments[0].paymentConfirmedAt, "2026-10-26T12:00:00Z");
+  assert.equal(revenue.buildStatisticsRevenue(appointments).capturedRevenue, 12000.5);
+});

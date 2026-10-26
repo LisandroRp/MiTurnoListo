@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { isValidAppointmentPaymentAmount, isValidAppointmentPaymentNote } from "@/features/scheduling/appointment-payment";
 import { Appointment, BusinessDayBlock, Employee, Service } from "@/features/scheduling/types";
 import { canUseFreePlanSlot, freePlanLimits, getCurrentMonthRange, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
 import {
@@ -81,6 +82,8 @@ type SchedulingMutationPayload =
     }
   | {
       action: "markAppointmentPaid";
+      amount?: number;
+      paymentNote?: string;
       appointmentId: string;
       businessId: string;
     }
@@ -197,7 +200,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (payload.action === "markAppointmentPaid") {
-      await markAppointmentPaid(supabase, payload.businessId, payload.appointmentId);
+      await markAppointmentPaid(supabase, payload.businessId, payload.appointmentId, payload.amount, payload.paymentNote);
     }
 
     if (payload.action === "markAppointmentNoShow") {
@@ -1068,10 +1071,14 @@ async function cancelAppointment(
   });
 }
 
-async function markAppointmentPaid(supabase: SupabaseClient, businessId: string, appointmentId: string) {
+async function markAppointmentPaid(supabase: SupabaseClient, businessId: string, appointmentId: string, amount?: number, paymentNote?: string) {
+  if ((amount !== undefined && !isValidAppointmentPaymentAmount(amount)) || !isValidAppointmentPaymentNote(paymentNote)) {
+    throw new Error("PAYMENT_CONFIG:Revisá el importe y la información adicional del pago.");
+  }
+
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
-    .select("id, business_id, status, appointment_status, payment_status")
+    .select("id, business_id, status, appointment_status, payment_status, total_amount")
     .eq("id", appointmentId)
     .limit(1)
     .maybeSingle();
@@ -1092,15 +1099,23 @@ async function markAppointmentPaid(supabase: SupabaseClient, businessId: string,
     return;
   }
 
-  const { error: updateError } = await supabase
+  const { data: updated, error: updateError } = await supabase
     .from("appointments")
     .update({
       status: "confirmed",
-      payment_status: "paid"
+      payment_status: "paid",
+      ...(amount !== undefined ? { total_amount: amount } : {}),
+      ...(amount !== undefined && amount !== Number(appointment.total_amount) ? { payment_note: paymentNote?.trim() || null } : {})
     })
-    .eq("id", appointmentId);
+    .eq("id", appointmentId)
+    .eq("business_id", businessId)
+    .eq("appointment_status", "scheduled")
+    .eq("payment_status", "pending")
+    .eq("total_amount", appointment.total_amount)
+    .select("id")
+    .maybeSingle();
 
-  if (updateError) {
+  if (updateError || !updated) {
     throw new Error("Unable to mark the appointment as paid.");
   }
 }
@@ -1165,7 +1180,7 @@ async function rescheduleAppointment(
 
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
-    .select("id, business_id, customer_id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, unit_price_amount, deposit_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot, custom_field_responses")
+    .select("id, business_id, customer_id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, payment_note, created_at, payment_confirmed_at, unit_price_amount, deposit_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot, custom_field_responses")
     .eq("id", appointmentId)
     .eq("business_id", businessId)
     .limit(1)
@@ -1224,7 +1239,7 @@ async function rescheduleAppointment(
       .eq("employee_id", employeeId),
     supabase
       .from("appointments")
-      .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot, custom_field_responses")
+      .select("id, service_id, employee_id, starts_at, ends_at, status, appointment_status, payment_status, source, total_amount, payment_note, created_at, payment_confirmed_at, selected_payment_method, refunded_at, party_size, customer_name_snapshot, customer_email_snapshot, customer_phone_snapshot, custom_field_responses")
       .eq("business_id", businessId)
   ]);
 
@@ -1295,6 +1310,8 @@ async function rescheduleAppointment(
       party_size: appointment.party_size,
       unit_price_amount: appointment.unit_price_amount,
       total_amount: appointment.total_amount,
+      payment_note: appointment.payment_note ?? null,
+      payment_confirmed_at: appointment.payment_confirmed_at ?? null,
       deposit_amount: appointment.deposit_amount,
       selected_payment_method: appointment.selected_payment_method,
       customer_name_snapshot: appointment.customer_name_snapshot,

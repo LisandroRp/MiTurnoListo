@@ -102,7 +102,7 @@ type SchedulingContextValue = {
   createAppointment: (appointment: Appointment, addonIds?: string[]) => Promise<boolean>;
   deleteAppointment: (appointmentId: string, cancellationReason: string) => Promise<boolean>;
   markAppointmentNoShow: (appointmentId: string) => Promise<boolean>;
-  markAppointmentPaid: (appointmentId: string) => Promise<boolean>;
+  markAppointmentPaid: (appointmentId: string, amount?: number, paymentNote?: string) => Promise<boolean>;
   rescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean>;
   archiveEmployee: (employeeId: string) => Promise<boolean>;
   archiveService: (serviceId: string) => Promise<boolean>;
@@ -804,14 +804,14 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  async function markAppointmentPaid(appointmentId: string) {
+  async function markAppointmentPaid(appointmentId: string, amount?: number, paymentNote?: string) {
     if (!businessId) {
       return false;
     }
 
     if (snapshotScope === "payments") {
       try {
-        await markAppointmentPaidRequest(businessId, appointmentId);
+        await markAppointmentPaidRequest(businessId, appointmentId, amount, paymentNote);
         showToast({ tone: "success", title: copy.toast.appointmentPaid });
         return true;
       } catch (error) {
@@ -825,7 +825,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     }
 
     return runMutation(
-      () => markAppointmentPaidRequest(businessId, appointmentId),
+      () => markAppointmentPaidRequest(businessId, appointmentId, amount, paymentNote),
       copy.toast.appointmentPaid,
       "Unable to mark the appointment as paid."
     );

@@ -24,7 +24,7 @@ const copy = {
     target: "Link para compartir", catalog: "Catálogo del negocio", service: "Elegí un servicio para completar su nombre y link.",
     save: "Guardar plantilla", saveCopy: "Guardar como nueva", remove: "Eliminar", cancel: "Cancelar", deleteTitle: "¿Eliminar esta plantilla?",
     deleteHint: "Se eliminará de las plantillas guardadas de tu negocio.", preview: "Vista previa", previewHint: "Así se verá el texto. Copialo y pegalo en tu chat de WhatsApp.",
-    copy: "Copiar mensaje", copied: "¡Mensaje copiado!", copyError: "No pudimos copiarlo. Seleccioná y copiá el texto de la vista previa.",
+    copy: "Copiar mensaje", copying: "Copiando…", copied: "¡Copiado!", copyError: "No pudimos copiarlo. Seleccioná y copiá el texto de la vista previa.",
     loadError: "No pudimos cargar tus plantillas guardadas. Podés usar las de ejemplo y copiar mensajes mientras tanto.", retry: "Reintentar",
     saveError: "No pudimos guardar la plantilla. Intentá de nuevo.", deleteError: "No pudimos eliminar la plantilla.", savedNotice: "Plantilla guardada.", deletedNotice: "Plantilla eliminada.",
     loading: "Cargando tus plantillas…", empty: "Todavía no guardaste plantillas. Personalizá una de ejemplo o creá la tuya.",
@@ -39,7 +39,7 @@ const copy = {
     target: "Link to share", catalog: "Business catalog", service: "Choose a service to fill its name and link.",
     save: "Save template", saveCopy: "Save as new", remove: "Delete", cancel: "Cancel", deleteTitle: "Delete this template?",
     deleteHint: "It will be removed from your business's saved templates.", preview: "Preview", previewHint: "This is the message text. Copy it and paste it into your WhatsApp chat.",
-    copy: "Copy message", copied: "Message copied!", copyError: "Unable to copy. Select and copy the preview text manually.",
+    copy: "Copy message", copying: "Copying…", copied: "Copied!", copyError: "Unable to copy. Select and copy the preview text manually.",
     loadError: "Unable to load your saved templates. You can still use the examples and copy messages.", retry: "Retry",
     saveError: "Unable to save the template. Please try again.", deleteError: "Unable to delete the template.", savedNotice: "Template saved.", deletedNotice: "Template deleted.",
     loading: "Loading your templates…", empty: "No saved templates yet. Customize an example or create your own.",
@@ -64,6 +64,11 @@ export function MessageTemplatesView({ businessId, businessName, businessSlug, s
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [copyState, setCopyState] = useState<"idle" | "copying" | "copied">("idle");
+  const [copyError, setCopyError] = useState("");
+  const copyTimers = useRef<number[]>([]);
+  const copyActive = useRef(false);
+  const copyMounted = useRef(true);
   const [origin, setOrigin] = useState("");
   const [serviceId, setServiceId] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -87,6 +92,14 @@ export function MessageTemplatesView({ businessId, businessName, businessSlug, s
     }, 0);
     return () => { active = false; window.clearTimeout(timer); };
   }, [businessId, loadAttempt]);
+
+  useEffect(() => {
+    copyMounted.current = true;
+    return () => {
+      copyMounted.current = false;
+      copyTimers.current.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
 
   function selectTemplate(template: MessageTemplate) {
     const changed = draft.title !== baseline.current.title || draft.body !== baseline.current.body;
@@ -131,9 +144,28 @@ export function MessageTemplatesView({ businessId, businessName, businessSlug, s
   }
 
   async function copyMessage() {
-    setNotice(""); setError("");
-    try { await navigator.clipboard.writeText(preview); setNotice(text.copied); }
-    catch { setError(text.copyError); }
+    if (copyActive.current) return;
+    copyActive.current = true;
+    copyTimers.current.forEach((timer) => window.clearTimeout(timer));
+    setCopyError("");
+    setCopyState("copying");
+    const startedAt = Date.now();
+    try {
+      await navigator.clipboard.writeText(preview);
+      if (!copyMounted.current) return;
+      copyTimers.current = [window.setTimeout(() => {
+        setCopyState("copied");
+        copyTimers.current = [window.setTimeout(() => {
+          setCopyState("idle");
+          copyActive.current = false;
+        }, 1800)];
+      }, Math.max(0, 400 - (Date.now() - startedAt)))];
+    } catch {
+      if (!copyMounted.current) return;
+      setCopyState("idle");
+      copyActive.current = false;
+      setCopyError(text.copyError);
+    }
   }
 
   return (
@@ -182,7 +214,8 @@ export function MessageTemplatesView({ businessId, businessName, businessSlug, s
             </div>
             <div className="mx-auto mb-3 h-1 w-20 rounded-full bg-subtle" />
           </div>
-          <Button size="lg" icon={<FaWhatsapp />} disabled={!draft.body.trim() || !businessSlug || !origin || missingService} onClick={() => void copyMessage()}>{text.copy}</Button>
+          <Button size="lg" icon={copyState === "copied" ? <FiCheck /> : <FaWhatsapp />} isLoading={copyState === "copying"} disabled={copyState !== "idle" || !draft.body.trim() || !businessSlug || !origin || missingService} aria-live="polite" onClick={() => void copyMessage()}>{copyState === "copying" ? text.copying : copyState === "copied" ? text.copied : text.copy}</Button>
+          {copyError ? <p role="alert" className="text-center text-sm text-danger">{copyError}</p> : null}
           <p className="text-center text-xs leading-5 text-muted">{text.manual}</p>
         </div>
       </div>

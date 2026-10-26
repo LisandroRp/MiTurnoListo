@@ -11,7 +11,7 @@ const { FaWhatsapp } = require("react-icons/fa");
 const url = new URL("./MessageTemplatesView.tsx", import.meta.url);
 const output = ts.transpileModule(readFileSync(url, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
 
-function harness({ failLoad = false, failSave = false, props = {} } = {}) {
+function harness({ failLoad = false, failSave = false, failCopy = false, props = {} } = {}) {
   const states = [], refs = [], effects = [], timers = [];
   let stateIndex = 0, refIndex = 0;
   const saved = [], deleted = [], copied = [];
@@ -42,7 +42,7 @@ function harness({ failLoad = false, failSave = false, props = {} } = {}) {
   const previousWindow = globalThis.window;
   const previousNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
   globalThis.window = { location: { origin: "https://example.com" }, setTimeout: (callback) => { timers.push(callback); return 1; }, clearTimeout: () => {}, requestAnimationFrame: (callback) => callback(), confirm: () => true };
-  Object.defineProperty(globalThis, "navigator", { configurable: true, value: { clipboard: { writeText: async (value) => copied.push(value) } } });
+  Object.defineProperty(globalThis, "navigator", { configurable: true, value: { clipboard: { writeText: async (value) => { if (failCopy) throw new Error("Denied"); copied.push(value); } } } });
   let tree;
   const baseProps = { businessId: "business", businessName: "My clinic", businessSlug: "my-clinic", locale: "es", services: [{ id: "service", name: "Consultation", publicSlug: "consulta", isVisible: true, isArchived: false }], ...props };
   function render() { stateIndex = 0; refIndex = 0; effects.length = 0; tree = loaded.exports.MessageTemplatesView(baseProps); return tree; }
@@ -55,7 +55,7 @@ function harness({ failLoad = false, failSave = false, props = {} } = {}) {
   function button(label) { return find("Button", (props) => props.children === label); }
   async function load() { render(); effects[0](); timers.shift()(); await new Promise((resolve) => setImmediate(resolve)); render(); }
   return {
-    render, find, button, nodes, load, saved, deleted, copied,
+    render, find, button, nodes, load, saved, deleted, copied, timers,
     close() {
       globalThis.window = previousWindow;
       if (previousNavigator) Object.defineProperty(globalThis, "navigator", previousNavigator);
@@ -168,4 +168,36 @@ test("message service links respect public visibility, archived services and Fre
   assert.deepEqual(loaded.exports.default().props.services.map((service) => service.id), ["a", "b"]);
   tier = "pro";
   assert.deepEqual(loaded.exports.default().props.services.map((service) => service.id), ["c", "a", "b"]);
+});
+
+
+test("copy feedback stays in its button, shows loading, success and then resets", async () => {
+  const app = harness();
+  try {
+    await app.load();
+    app.button("Copiar mensaje").props.onClick();
+    app.render();
+    assert.equal(app.button("Copiando…").props.isLoading, true);
+    assert.equal(app.button("Copiando…").props.disabled, true);
+    await new Promise((resolve) => setImmediate(resolve));
+    app.timers.shift()();
+    app.render();
+    assert.ok(app.button("¡Copiado!"));
+    assert.equal(app.nodes().some((node) => node.props?.role === "status"), false);
+    app.timers.shift()();
+    app.render();
+    assert.equal(app.button("Copiar mensaje").props.disabled, false);
+  } finally { app.close(); }
+});
+
+test("clipboard failure shows an error next to the copy button and permits retry", async () => {
+  const app = harness({ failCopy: true });
+  try {
+    await app.load();
+    app.button("Copiar mensaje").props.onClick();
+    await new Promise((resolve) => setImmediate(resolve));
+    app.render();
+    assert.equal(app.button("Copiar mensaje").props.disabled, false);
+    assert.ok(app.find("p", (props) => props.role === "alert" && props.className.includes("text-center")));
+  } finally { app.close(); }
 });

@@ -775,7 +775,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       showToast({
         tone: "error",
         title: copy.toast.error,
-        description: getErrorMessage(error, "No pudimos activar Pro con referidos.")
+        description: getErrorMessage(error, "No pudimos activar PRO con referidos.")
       });
       return null;
     }

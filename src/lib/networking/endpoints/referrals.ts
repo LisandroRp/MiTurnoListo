@@ -54,7 +54,7 @@ export async function activateReferralReward() {
   const payload = await response.json().catch(() => null) as ReferralResponse | null;
 
   if (!response.ok || !payload?.summary) {
-    throw new Error(payload?.error ?? "No pudimos activar Pro con referidos.");
+    throw new Error(payload?.error ?? "No pudimos activar PRO con referidos.");
   }
 
   return payload.summary;

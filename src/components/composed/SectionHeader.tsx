@@ -6,9 +6,10 @@ type SectionHeaderProps = {
   description?: string;
   actions?: ReactNode;
   icon?: ReactNode;
+  titleAccessory?: ReactNode;
 };
 
-export function SectionHeader({ eyebrow, title, description, actions, icon }: SectionHeaderProps) {
+export function SectionHeader({ eyebrow, title, description, actions, icon, titleAccessory }: SectionHeaderProps) {
   return (
     <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div className="max-w-3xl">
@@ -16,7 +17,10 @@ export function SectionHeader({ eyebrow, title, description, actions, icon }: Se
           {icon ? <span className="grid shrink-0 place-items-center rounded-full bg-surface p-2.5 text-2xl text-brand-strong sm:text-3xl" aria-hidden="true">{icon}</span> : null}
           <div className="min-w-0">
             {eyebrow ? <p className="text-xs font-semibold uppercase text-muted">{eyebrow}</p> : null}
-            <h1 className="mt-1 text-2xl font-bold text-primary sm:text-3xl">{title}</h1>
+            <div className="mt-1 flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-bold text-primary sm:text-3xl">{title}</h1>
+              {titleAccessory}
+            </div>
           </div>
         </div>
         {description ? <p className="mt-2 text-sm leading-6 text-muted">{description}</p> : null}

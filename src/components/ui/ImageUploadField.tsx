@@ -15,6 +15,7 @@ type ImageUploadFieldProps = {
   removeLabel: string;
   requirementsLabel: string;
   className?: string;
+  layout?: "responsive" | "stacked";
   accept?: string;
   maxSizeInMb?: number;
   onSelectedFileChange?: (file: File | null) => void;
@@ -34,6 +35,7 @@ export function ImageUploadField({
   removeLabel,
   requirementsLabel,
   className,
+  layout = "responsive",
   accept = "image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif",
   maxSizeInMb = 5,
   onSelectedFileChange
@@ -102,8 +104,8 @@ export function ImageUploadField({
         />
 
         <div className="grid gap-4 rounded-lg border border-dashed border-subtle bg-input p-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-            <div className="relative h-32 w-full overflow-hidden rounded-lg border border-subtle bg-surface lg:w-40">
+          <div className={cx("flex flex-col gap-4", layout === "responsive" && "lg:flex-row lg:items-center")}>
+            <div className={cx("relative h-32 w-full overflow-hidden rounded-lg border border-subtle bg-surface", layout === "responsive" && "lg:w-40")}>
               {hasImage ? (
                 <div
                   role="img"

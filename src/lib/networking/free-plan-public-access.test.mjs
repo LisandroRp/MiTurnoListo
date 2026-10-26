@@ -68,7 +68,7 @@ test("Free public access includes only two visible services and one active emplo
   assert.equal(database.queries.find((query) => query.table === "employees").filters.some(([column]) => column === "is_public"), false);
 });
 
-test("Pro public access has no Free caps or extra database queries", async () => {
+test("PRO public access has no Free caps or extra database queries", async () => {
   const database = createDatabase({});
 
   assert.equal(await getFreePlanPublicAccess(database, "business", "pro"), null);

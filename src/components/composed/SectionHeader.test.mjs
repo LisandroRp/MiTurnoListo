@@ -22,7 +22,7 @@ test("the decorative icon sits beside a shared eyebrow and title column", () => 
   assert.match(html, /flex items-center gap-3/);
   assert.match(html, /shrink-0/);
   assert.match(html, /aria-hidden="true"/);
-  assert.match(html, /<div class="min-w-0"><p[^>]*>Business<\/p><h1[^>]*>Payments<\/h1><\/div>/);
+  assert.match(html, /<div class="min-w-0"><p[^>]*>Business<\/p><div[^>]*><h1[^>]*>Payments<\/h1><\/div><\/div>/);
   assert.ok(html.indexOf('data-icon="payments"') < html.indexOf(">Business<"));
   assert.match(html, /Business/);
   assert.match(html, /Manage payments/);
@@ -66,4 +66,11 @@ test("all dashboard section headings use the same icon as their drawer item", ()
     visit(file);
     assert.ok(headings > 0, `Missing heading in ${path}`);
   }
+});
+
+
+test("title accessories render beside the title while the heading remains plain text", () => {
+  const html = renderToStaticMarkup(createElement(loaded.exports.SectionHeader, { title: "Profile", titleAccessory: createElement("button", null, "PRO") }));
+  assert.match(html, /<h1[^>]*>Profile<\/h1><button>PRO<\/button>/);
+  assert.match(html, /flex flex-wrap items-center gap-3/);
 });

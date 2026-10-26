@@ -41,7 +41,7 @@ export async function createProSubscriptionCheckout(businessId: string) {
   } | null;
 
   if (!response.ok || !payload?.checkoutUrl || !payload.subscriptionTier || !payload.status) {
-    throw new Error(payload?.error ?? "No pudimos iniciar la suscripción al plan Pro.");
+    throw new Error(payload?.error ?? "No pudimos iniciar la suscripción al plan PRO.");
   }
 
   return {

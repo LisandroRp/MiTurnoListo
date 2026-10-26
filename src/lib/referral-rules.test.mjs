@@ -11,7 +11,7 @@ test("normalizeReferralCode keeps referral codes URL-safe and uppercase", () => 
   assert.equal(normalizeReferralCode("ana.lopez_2026"), "ANALOPEZ2026");
 });
 
-test("getEffectiveSubscriptionTier enables Pro for paid and referral access", () => {
+test("getEffectiveSubscriptionTier enables PRO for paid and referral access", () => {
   assert.equal(getEffectiveSubscriptionTier("paid", "free"), "pro");
   assert.equal(getEffectiveSubscriptionTier("referral", "free"), "pro");
   assert.equal(getEffectiveSubscriptionTier("free", "free"), "free");

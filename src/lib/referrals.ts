@@ -262,7 +262,7 @@ export async function activateReferralRewardForUser({
   ]);
 
   if (hasPaidSubscription || activeReward?.id || businessTier !== "free") {
-    throw new ReferralRewardNotAvailableError("Solo podés activar Pro con referidos cuando tu plan es Free.");
+    throw new ReferralRewardNotAvailableError("Solo podés activar PRO con referidos cuando tu plan es Free.");
   }
 
   const { data: reward, error: lookupError } = await supabase
@@ -286,7 +286,7 @@ export async function activateReferralRewardForUser({
   const claimedBusinessId = await claimFreeBusinessTierForUser(supabase, userId);
 
   if (!claimedBusinessId) {
-    throw new ReferralRewardNotAvailableError("Solo podés activar Pro con referidos cuando tu plan es Free.");
+    throw new ReferralRewardNotAvailableError("Solo podés activar PRO con referidos cuando tu plan es Free.");
   }
 
   const now = new Date().toISOString();
@@ -634,7 +634,7 @@ async function getUserBusinessSubscriptionTier(supabase: SupabaseClient, userId:
   }
 
   if (!membership?.business_id) {
-    throw new ReferralRewardNotAvailableError("Solo la cuenta propietaria puede activar Pro con referidos.");
+    throw new ReferralRewardNotAvailableError("Solo la cuenta propietaria puede activar PRO con referidos.");
   }
 
   const { data, error } = await supabase
@@ -744,7 +744,7 @@ async function claimFreeBusinessTierForUser(supabase: SupabaseClient, userId: st
   }
 
   if (!membership?.business_id) {
-    throw new ReferralRewardNotAvailableError("Solo la cuenta propietaria puede activar Pro con referidos.");
+    throw new ReferralRewardNotAvailableError("Solo la cuenta propietaria puede activar PRO con referidos.");
   }
 
   const { data: business, error } = await supabase
@@ -756,7 +756,7 @@ async function claimFreeBusinessTierForUser(supabase: SupabaseClient, userId: st
     .maybeSingle<{ id: string }>();
 
   if (error) {
-    throw new Error("No pudimos activar Pro con referidos. Intentá nuevamente.");
+    throw new Error("No pudimos activar PRO con referidos. Intentá nuevamente.");
   }
 
   return business?.id ?? null;

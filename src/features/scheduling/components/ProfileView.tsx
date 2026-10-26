@@ -1,4 +1,4 @@
-import { ChangeEvent, RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { ChangeEvent, ReactNode, RefObject, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { FiArrowRight, FiCheckCircle, FiClock, FiLock, FiMapPin, FiUpload, FiUser, FiX, FiZap } from "react-icons/fi";
 
@@ -25,7 +25,7 @@ import { uploadBusinessImageAsset } from "@/lib/storage/business-assets";
 
 const avatarAcceptedTypes = ["image/png", "image/jpeg", "image/webp", "image/heic", "image/heif"];
 const avatarAcceptedExtensions = [".heic", ".heif"];
-type ProfileTab = "account" | "business" | "superAdmin";
+type ProfileTab = "profile" | "superAdmin";
 
 type ProfileViewProps = {
   messages: Messages;
@@ -74,7 +74,7 @@ export function ProfileView({
 }: ProfileViewProps) {
   const plansRef = useRef<HTMLDivElement>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
-  const [activeTab, setActiveTab] = useState<ProfileTab>("account");
+  const [activeTab, setActiveTab] = useState<ProfileTab>("profile");
   const [businessDraft, setBusinessDraft] = useState<BusinessProfile>(() => createBusinessDraft(profile));
   const [avatarDraftFile, setAvatarDraftFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
@@ -99,7 +99,7 @@ export function ProfileView({
 
     const timer = window.setTimeout(() => {
       if (!isProPlan) {
-        setActiveTab("account");
+        setActiveTab("profile");
         setPendingTier("pro");
       }
       onProPlanOpened?.();
@@ -124,7 +124,7 @@ export function ProfileView({
 
   useEffect(() => {
     if (!isSuperAdmin && activeTab === "superAdmin") {
-      setActiveTab("account");
+      setActiveTab("profile");
     }
   }, [activeTab, isSuperAdmin]);
 
@@ -151,7 +151,8 @@ export function ProfileView({
   }, [avatarDraftFile]);
 
   function scrollToPlans() {
-    plansRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setActiveTab("profile");
+    window.requestAnimationFrame(() => plansRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
   function handlePlanClick(targetTier: SubscriptionTier) {
@@ -306,180 +307,113 @@ export function ProfileView({
         eyebrow={messages.profile.eyebrow}
         title={messages.profile.title}
         description={messages.profile.description}
+        titleAccessory={<div className="flex items-center gap-2">
+          <button type="button" onClick={scrollToPlans} aria-label={`${messages.profile.currentPlan}: ${isProPlan ? messages.profile.proPlan : messages.profile.freePlan}. ${messages.profile.viewPlans}`} className="cursor-pointer rounded-full transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+            <Badge tone="brand" className="gap-1.5 px-3 py-1.5 text-sm">{isProPlan ? <FiZap aria-hidden="true" /> : null}{isProPlan ? messages.profile.proPlan : messages.profile.freePlan}</Badge>
+          </button>
+          {!isProPlan ? <Button size="sm" className="button-bounce" icon={<FiZap />} onClick={() => {
+            setActiveTab("profile");
+            setPendingTier("pro");
+          }}>{messages.upgrade.action}</Button> : null}
+        </div>}
+        actions={isSuperAdmin ? <Button variant="secondary" onClick={() => setActiveTab(activeTab === "superAdmin" ? "profile" : "superAdmin")}>{activeTab === "superAdmin" ? messages.nav.profile : messages.profile.superAdminTab}</Button> : undefined}
       />
 
-      <div className="flex w-fit rounded-xl border border-subtle bg-surface p-1">
-        <ProfileTabButton
-          isActive={activeTab === "account"}
-          label={messages.profile.accountTab}
-          onClick={() => setActiveTab("account")}
+      {activeTab === "profile" ? <>
+        <BusinessProfilePanel
+          draft={businessDraft}
+          isSaving={isSavingBusiness}
+          messages={messages}
+          onChange={setBusinessDraft}
+          onSave={() => void handleBusinessSave()}
+          leftContent={<aside className="grid min-w-0 content-start gap-4">
+              <ImageUploadField
+                layout="stacked"
+                label={messages.profile.publicLogo}
+                value={businessDraft.publicLogoUrl}
+                onChange={(value) => setBusinessDraft({ ...businessDraft, publicLogoUrl: value })}
+                onSelectedFileChange={setPendingBusinessLogoFile}
+                onError={onBusinessImageUploadError}
+                chooseLabel={messages.actions.uploadImage}
+                replaceLabel={messages.actions.replaceImage}
+                removeLabel={messages.actions.removeImage}
+                requirementsLabel={messages.profile.publicLogo}
+                helperText={messages.profile.businessPublicHint}
+              />
+            <ProfileReferralRewardCallout hasError={hasReferralSummaryError} isLoading={isReferralSummaryLoading} messages={messages} onActivate={onActivateReferralReward} profile={profile} />
+          </aside>}
         />
-        <ProfileTabButton
-          isActive={activeTab === "business"}
-          label={messages.profile.businessTab}
-          onClick={() => setActiveTab("business")}
-        />
-        {isSuperAdmin ? (
-          <ProfileTabButton
-            isActive={activeTab === "superAdmin"}
-            label={messages.profile.superAdminTab}
-            onClick={() => setActiveTab("superAdmin")}
-          />
-        ) : null}
-      </div>
 
-      <section className={`grid gap-6 ${activeTab === "account" ? "xl:grid-cols-[22rem_1fr]" : ""}`}>
-        {activeTab === "account" ? (
-          <Card className="h-fit">
-            <ProfileAvatarUploader
-              inputRef={avatarInputRef}
-              isSaving={isSavingAvatar}
-              messages={messages}
-              previewUrl={avatarPreviewUrl}
-              profile={profile}
-              onCancel={() => setAvatarDraftFile(null)}
-              onConfirm={() => void confirmAvatarUpload()}
-              onFileChange={handleAvatarFileChange}
-              onOpenPicker={openAvatarPicker}
-            />
-            <div className="mt-4 text-center">
-              <h2 className="text-xl font-bold text-primary">{profile.firstName} {profile.lastName}</h2>
-              <p className="text-sm text-muted">{profile.email}</p>
+        <BusinessPublicPreview draft={businessDraft} messages={messages} />
+
+        <div id="planes" ref={plansRef} className="scroll-mt-24">
+          <Card>
+            <div className="flex flex-col gap-2 border-b border-subtle pb-4">
+              <h2 className="text-lg font-bold text-primary">{messages.profile.plans}</h2>
+              <p className="text-sm leading-6 text-muted">{messages.profile.plansDescription}</p>
             </div>
-            <button
-              type="button"
-              onClick={scrollToPlans}
-              className="mt-6 w-full cursor-pointer rounded-lg bg-brand-soft p-4 text-center transition-all hover:-translate-y-0.5 hover:shadow-sm"
-            >
-              <p className="text-xs font-semibold text-brand-strong">{messages.profile.plan}</p>
-              <p className="mt-1 text-lg font-bold text-primary">
-                {isReferralSummaryLoading
-                  ? (isProPlan ? messages.profile.proPlan : messages.profile.freePlan)
-                  : getPlanDisplayName(messages, profile)}
-              </p>
-            </button>
-            <ProfileReferralRewardCallout
-              hasError={hasReferralSummaryError}
-              isLoading={isReferralSummaryLoading}
-              messages={messages}
-              onActivate={onActivateReferralReward}
-              profile={profile}
-            />
+
+            <div className="mt-5 grid gap-4 xl:grid-cols-2">
+              <PlanCard
+                title={messages.profile.freePlan}
+                price={messages.profile.freePlanPrice}
+                description={messages.profile.freePlanDescription}
+                features={messages.profile.freePlanFeatures}
+                isCurrent={!isProPlan && !isReferralPlan}
+                onClick={() => handlePlanClick("free")}
+                currentPlanLabel={messages.profile.currentPlan}
+              />
+              <PlanCard
+                title={messages.profile.proPlan}
+                price={messages.profile.proPlanPrice}
+                description={messages.profile.proPlanDescription}
+                features={messages.profile.proPlanFeatures}
+                isCurrent={isProPlan && !isReferralPlan}
+                isRecommended
+                onClick={() => handlePlanClick("pro")}
+                currentPlanLabel={messages.profile.currentPlan}
+                recommendedLabel={messages.profile.recommendedPlan}
+              />
+            </div>
           </Card>
-        ) : null}
+        </div>
 
-        {activeTab === "account" ? (
-          <div className="grid gap-6">
-            <Card>
-              <h2 className="text-lg font-bold text-primary">{messages.profile.account}</h2>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <TextField label={messages.profile.firstName} value={profile.firstName} readOnly />
-                <TextField label={messages.profile.lastName} value={profile.lastName} readOnly />
-                <TextField label={messages.profile.email} value={profile.email} readOnly className="md:col-span-2" />
-              </div>
-            </Card>
-
-            <div id="planes" ref={plansRef}>
-              <Card>
-                <div className="flex flex-col gap-2 border-b border-subtle pb-4">
-                  <h2 className="text-lg font-bold text-primary">{messages.profile.plans}</h2>
-                  <p className="text-sm leading-6 text-muted">{messages.profile.plansDescription}</p>
-                </div>
-
-                <div className="mt-5 grid gap-4 xl:grid-cols-2">
-                  <PlanCard
-                    title={messages.profile.freePlan}
-                    price={messages.profile.freePlanPrice}
-                    description={messages.profile.freePlanDescription}
-                    features={messages.profile.freePlanFeatures}
-                    isCurrent={!isProPlan && !isReferralPlan}
-                    onClick={() => handlePlanClick("free")}
-                    currentPlanLabel={messages.profile.currentPlan}
-                  />
-                  <PlanCard
-                    title={messages.profile.proPlan}
-                    price={messages.profile.proPlanPrice}
-                    description={messages.profile.proPlanDescription}
-                    features={messages.profile.proPlanFeatures}
-                    isCurrent={isProPlan && !isReferralPlan}
-                    isRecommended
-                    onClick={() => handlePlanClick("pro")}
-                    currentPlanLabel={messages.profile.currentPlan}
-                    recommendedLabel={messages.profile.recommendedPlan}
-                  />
-                </div>
-              </Card>
+        <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+          <Card>
+            <h2 className="text-lg font-bold text-primary">{messages.nav.paymentMethods}</h2>
+            <p className="mt-2 text-sm text-muted">{messages.adminPaymentMethods.description}</p>
+            <Link href="/metodos-de-pago" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-brand-soft px-4 py-3 text-sm font-semibold text-brand-strong hover:bg-surface-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+              {messages.nav.paymentMethods} <FiArrowRight aria-hidden="true" />
+            </Link>
+          </Card>
+          <Card>
+            <h2 className="text-lg font-bold text-primary">{messages.profile.preferences}</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <SelectField label={messages.profile.theme} value={theme} onChange={(event) => onThemeChange(event.target.value as ThemeId)} options={themeOptions.map((item) => ({ value: item, label: messages.themes[item] }))} />
+              <SelectField label={messages.profile.language} value={locale} onChange={(event) => onLocaleChange(event.target.value as Locale)} options={[{ value: "es", label: "Español" }, { value: "en", label: "English" }]} />
             </div>
-
-            <Card>
-              <h2 className="text-lg font-bold text-primary">{messages.profile.preferences}</h2>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <SelectField
-                  label={messages.profile.theme}
-                  value={theme}
-                  onChange={(event) => onThemeChange(event.target.value as ThemeId)}
-                  options={themeOptions.map((item) => ({ value: item, label: messages.themes[item] }))}
-                />
-                <SelectField
-                  label={messages.profile.language}
-                  value={locale}
-                  onChange={(event) => onLocaleChange(event.target.value as Locale)}
-                  options={[
-                    { value: "es", label: "Español" },
-                    { value: "en", label: "English" }
-                  ]}
-                />
-              </div>
-              <div className="mt-5 flex flex-col gap-3 rounded-lg border border-subtle bg-input p-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-muted">{messages.profile.passwordHint}</p>
-                <Button
-                  variant="secondary"
-                  icon={<FiLock />}
-                  isLoading={isRequestingPasswordReset}
-                  disabled={!profile.email}
-                  onClick={() => void handlePasswordReset()}
-                >
-                  {messages.actions.changePassword}
-                </Button>
-              </div>
-            </Card>
+          </Card>
+        </div>
+        <Card>
+          <h2 className="text-lg font-bold text-primary">{messages.profile.account}</h2>
+          <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-4">
+              <ProfileAvatarUploader inputRef={avatarInputRef} isSaving={isSavingAvatar} messages={messages} previewUrl={avatarPreviewUrl} profile={profile} onCancel={() => setAvatarDraftFile(null)} onConfirm={() => void confirmAvatarUpload()} onFileChange={handleAvatarFileChange} onOpenPicker={openAvatarPicker} />
+              <div className="min-w-0"><p className="text-xs font-semibold text-muted">{messages.profile.email}</p><p className="mt-1 break-all text-sm font-medium text-primary">{profile.email}</p></div>
+            </div>
+            <div className="grid gap-2 sm:max-w-sm">
+              <p className="text-xs leading-5 text-muted">{messages.profile.passwordHint}</p>
+              <Button variant="secondary" icon={<FiLock />} isLoading={isRequestingPasswordReset} disabled={!profile.email} onClick={() => void handlePasswordReset()}>{messages.actions.changePassword}</Button>
+            </div>
           </div>
-        ) : null}
+        </Card>
+      </> : null}
 
-        {activeTab === "business" ? (
-          <div className="grid gap-6">
-            <BusinessProfilePanel
-              draft={businessDraft}
-              isSaving={isSavingBusiness}
-              messages={messages}
-              onChange={setBusinessDraft}
-              onImageUploadError={onBusinessImageUploadError}
-              onSelectedLogoFileChange={setPendingBusinessLogoFile}
-              onSave={() => void handleBusinessSave()}
-            />
-            <Card>
-              <h2 className="text-lg font-bold text-primary">{messages.nav.paymentMethods}</h2>
-              <p className="mt-2 text-sm text-muted">{messages.adminPaymentMethods.description}</p>
-              <Link href="/metodos-de-pago" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-brand-soft px-4 py-3 text-sm font-semibold text-brand-strong hover:bg-surface-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
-                {messages.nav.paymentMethods} <FiArrowRight aria-hidden="true" />
-              </Link>
-            </Card>
-          </div>
-        ) : null}
-
-        {activeTab === "superAdmin" && isSuperAdmin ? (
-          <ProfileSuperAdminPanel
-            actionBusinessId={superAdminActionBusinessId}
-            businesses={superAdminBusinesses}
-            errorMessage={superAdminError}
-            hasLoadedBusinesses={hasLoadedSuperAdminBusinesses}
-            isLoading={isLoadingSuperAdminBusinesses}
-            messages={messages}
-            onAction={(targetBusinessId, action) => void handleSuperAdminAction(targetBusinessId, action)}
-            onRefresh={() => void refreshSuperAdminBusinesses()}
-          />
-        ) : null}
-      </section>
+      {activeTab === "superAdmin" && isSuperAdmin ? <ProfileSuperAdminPanel
+        actionBusinessId={superAdminActionBusinessId} businesses={superAdminBusinesses} errorMessage={superAdminError}
+        hasLoadedBusinesses={hasLoadedSuperAdminBusinesses} isLoading={isLoadingSuperAdminBusinesses} messages={messages}
+        onAction={(targetBusinessId, action) => void handleSuperAdminAction(targetBusinessId, action)} onRefresh={() => void refreshSuperAdminBusinesses()}
+      /> : null}
 
       <Modal isOpen={Boolean(pendingTier)}>
         {pendingTier ? (
@@ -543,26 +477,6 @@ export function ProfileView({
   );
 }
 
-function ProfileTabButton({
-  isActive,
-  label,
-  onClick
-}: {
-  isActive: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-bold transition-colors ${isActive ? "bg-brand text-on-brand" : "text-muted hover:bg-surface-strong hover:text-primary"}`}
-    >
-      {label}
-    </button>
-  );
-}
-
 async function loadSuperAdminBusinesses() {
   try {
     return {
@@ -623,7 +537,7 @@ function ProfileAvatarUploader({
       <button
         type="button"
         aria-label={messages.profile.avatarUploadLabel}
-        className="group relative h-28 w-28 cursor-pointer overflow-hidden rounded-full border border-subtle bg-surface-strong transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-focus"
+        className="group relative h-14 w-14 cursor-pointer overflow-hidden rounded-full border border-subtle bg-surface-strong transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-focus"
         onClick={onOpenPicker}
       >
         {avatarUrl ? (
@@ -642,7 +556,6 @@ function ProfileAvatarUploader({
           </span>
         </span>
       </button>
-      <p className="text-center text-xs leading-5 text-muted">{messages.profile.avatarUploadHint}</p>
       {hasPendingAvatar ? (
         <div className="flex flex-wrap justify-center gap-2">
           <Button
@@ -668,77 +581,62 @@ function BusinessProfilePanel({
   isSaving,
   messages,
   onChange,
-  onImageUploadError,
-  onSelectedLogoFileChange,
-  onSave
+  onSave,
+  leftContent
 }: {
   draft: BusinessProfile;
   isSaving: boolean;
   messages: Messages;
   onChange: (draft: BusinessProfile) => void;
-  onImageUploadError: (message: string) => void;
-  onSelectedLogoFileChange: (file: File | null) => void;
   onSave: () => void;
+  leftContent: ReactNode;
 }) {
   return (
-    <div className="grid gap-6">
-      <Card className="bg-brand-soft">
+    <Card className="min-w-0">
+      <div className="flex flex-col gap-2 border-b border-subtle pb-4">
         <h2 className="text-lg font-bold text-primary">{messages.profile.business}</h2>
-        <p className="mt-2 text-sm leading-6 text-muted">{messages.profile.businessPublicHint}</p>
-      </Card>
+        <p className="text-sm leading-6 text-muted">{messages.profile.publicDescriptionHint}</p>
+      </div>
+      <div className="mt-5 grid min-w-0 items-start gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
+        {leftContent}
+        <div className="grid min-w-0 gap-4">
+          <TextField
+            label={messages.profile.businessName}
+            value={draft.name}
+            required
+            onChange={(event) => onChange({ ...draft, name: event.target.value })}
+          />
+          <TextField
+            label={messages.profile.address}
+            value={draft.address}
+            onChange={(event) => onChange({ ...draft, address: event.target.value })}
+          />
+          <TextAreaField
+            label={messages.profile.publicDescription}
+            placeholder={messages.profile.publicDescriptionHint}
+            value={draft.publicDescription}
+            onChange={(event) => onChange({ ...draft, publicDescription: event.target.value })}
+          />
+          <TextAreaField
+            label={messages.profile.publicOpeningHours}
+            placeholder={messages.profile.publicOpeningHoursHint}
+            value={draft.publicOpeningHours}
+            onChange={(event) => onChange({ ...draft, publicOpeningHours: event.target.value })}
+          />
+        </div>
+      </div>
+      <div className="mt-6 flex justify-end border-t border-subtle pt-4">
+        <Button isLoading={isSaving} onClick={onSave}>
+          {messages.actions.save}
+        </Button>
+      </div>
+    </Card>
+  );
+}
 
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <Card>
-          <div className="flex flex-col gap-2 border-b border-subtle pb-4">
-            <h2 className="text-lg font-bold text-primary">{messages.profile.business}</h2>
-            <p className="text-sm leading-6 text-muted">{messages.profile.publicDescriptionHint}</p>
-          </div>
 
-          <div className="mt-5 grid gap-4">
-            <TextField
-              label={messages.profile.businessName}
-              value={draft.name}
-              required
-              onChange={(event) => onChange({ ...draft, name: event.target.value })}
-            />
-            <TextField
-              label={messages.profile.address}
-              value={draft.address}
-              onChange={(event) => onChange({ ...draft, address: event.target.value })}
-            />
-            <TextAreaField
-              label={messages.profile.publicDescription}
-              placeholder={messages.profile.publicDescriptionHint}
-              value={draft.publicDescription}
-              onChange={(event) => onChange({ ...draft, publicDescription: event.target.value })}
-            />
-            <TextAreaField
-              label={messages.profile.publicOpeningHours}
-              placeholder={messages.profile.publicOpeningHoursHint}
-              value={draft.publicOpeningHours}
-              onChange={(event) => onChange({ ...draft, publicOpeningHours: event.target.value })}
-            />
-            <ImageUploadField
-              label={messages.profile.publicLogo}
-              value={draft.publicLogoUrl}
-              onChange={(value) => onChange({ ...draft, publicLogoUrl: value })}
-              onSelectedFileChange={onSelectedLogoFileChange}
-              onError={onImageUploadError}
-              chooseLabel={messages.actions.uploadImage}
-              replaceLabel={messages.actions.replaceImage}
-              removeLabel={messages.actions.removeImage}
-              requirementsLabel={messages.profile.publicLogo}
-              helperText={messages.profile.businessPublicHint}
-            />
-          </div>
-
-          <div className="mt-6 flex justify-end">
-            <Button isLoading={isSaving} onClick={onSave}>
-              {messages.actions.save}
-            </Button>
-          </div>
-        </Card>
-
+function BusinessPublicPreview({ draft, messages }: { draft: BusinessProfile; messages: Messages }) {
+  return (
         <Card className="h-fit overflow-hidden p-0">
           <div className="bg-brand-soft p-5">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-strong">{messages.profile.businessPreview}</p>
@@ -772,8 +670,6 @@ function BusinessProfilePanel({
             </div>
           </div>
         </Card>
-      </div>
-    </div>
   );
 }
 
@@ -806,7 +702,7 @@ function PlanCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-xl font-bold text-primary">{title}</h3>
+          <h3 className="flex items-center gap-2 text-xl font-bold text-primary">{isRecommended ? <FiZap className="shrink-0 text-brand-strong" aria-hidden="true" /> : null}{title}</h3>
           <p className="mt-2 text-3xl font-bold text-primary">{price}</p>
           <p className="mt-3 text-sm leading-6 text-muted">{description}</p>
         </div>
@@ -828,14 +724,6 @@ function PlanCard({
       </ul>
     </button>
   );
-}
-
-function getPlanDisplayName(messages: Messages, profile: Profile) {
-  if (profile.subscriptionAccessSource === "referral") {
-    return messages.profile.referralProPlan;
-  }
-
-  return profile.subscriptionTier === "pro" ? messages.profile.proPlan : messages.profile.freePlan;
 }
 
 function getPlanModalDescription(messages: Messages, profile: Profile, pendingTier: SubscriptionTier) {

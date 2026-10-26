@@ -11,6 +11,7 @@ test("sidebar groups animate both directions, preserve independent state and rem
   let cursor = 0;
   const modules = {
     react: {
+      useEffect: () => {},
       useId: () => `group-${cursor}`,
       useState(initial) {
         const index = cursor++;
@@ -46,4 +47,42 @@ test("sidebar groups animate both directions, preserve independent state and rem
   assert.equal(closed.props.inert, true);
   assert.equal(closed.props["aria-hidden"], true);
   assert.match(closed.props.className, /grid-rows-\[0fr\]/);
+});
+
+
+test("navigating to a group item opens a previously closed group", () => {
+  const states = [];
+  let effect, timer, cursor = 0;
+  const previousWindow = globalThis.window;
+  globalThis.window = { setTimeout: (callback) => { timer = callback; return 1; }, clearTimeout: () => {} };
+  const modules = {
+    react: {
+      useId: () => "business",
+      useEffect: (callback) => { effect = callback; },
+      useState(initial) {
+        const index = cursor++;
+        if (!(index in states)) states[index] = initial;
+        return [states[index], (update) => { states[index] = typeof update === "function" ? update(states[index]) : update; }];
+      }
+    },
+    "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") }
+  };
+  const url = new URL("./NavigationSidebarGroup.tsx", import.meta.url);
+  const loaded = new Module(url.pathname);
+  loaded.filename = url.pathname;
+  loaded.require = (name) => modules[name] ?? require(name);
+  loaded._compile(ts.transpileModule(readFileSync(url, "utf8"), { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS } }).outputText, url.pathname);
+  const render = (activeItemId) => { cursor = 0; return loaded.exports.NavigationSidebarGroup({ label: "Business", defaultOpen: false, activeItemId, children: "Links" }); };
+  try {
+    let group = render();
+    assert.equal(group.props.children[0].props["aria-expanded"], false);
+    render("paymentMethods");
+    effect(); timer();
+    group = render("paymentMethods");
+    assert.equal(group.props.children[0].props["aria-expanded"], true);
+    assert.equal(group.props.children[1].props.inert, false);
+    group.props.children[0].props.onClick();
+    group = render("paymentMethods");
+    assert.equal(group.props.children[0].props["aria-expanded"], false);
+  } finally { globalThis.window = previousWindow; }
 });

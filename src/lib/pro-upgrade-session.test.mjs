@@ -37,7 +37,7 @@ test("a new login allows the eligible account to see the prompt again", () => {
   assert.equal(consumeProUpgradePrompt(storage, "owner", 12, "free"), true);
 });
 
-test("paid or referral Pro accounts never receive an upgrade prompt", () => {
+test("paid or referral PRO accounts never receive an upgrade prompt", () => {
   assert.equal(consumeProUpgradePrompt(createStorage(), "owner", 15, "pro"), false);
 });
 

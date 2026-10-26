@@ -125,7 +125,7 @@ function reward(id, status = "available", daysRemaining = 30, expiresAt = null) 
   };
 }
 
-test("an approved referred payment saves a reward without turning on Pro", async () => {
+test("an approved referred payment saves a reward without turning on PRO", async () => {
   const supabase = createSupabase();
 
   assert.equal(await rewardReferralForBusinessPayment({
@@ -166,7 +166,7 @@ test("each available reward needs a separate activation after the previous one e
   assert.deepEqual(supabase.rows.referral_rewards.map((item) => item.status), ["used", "active"]);
 });
 
-test("paid or manually enabled Pro cannot consume a referral reward", async () => {
+test("paid or manually enabled PRO cannot consume a referral reward", async () => {
   const supabase = createSupabase({ referral_rewards: [reward("reward-1")] });
   supabase.rows.businesses[0].subscription_tier = "pro";
 
@@ -249,7 +249,7 @@ test("a paused partial reward remains available when the paid plan ends", async 
   assert.equal(summary.subscriptionAccessSource, "free");
 });
 
-test("tier-gated requests expire referral Pro without activating the next reward", async () => {
+test("tier-gated requests expire referral PRO without activating the next reward", async () => {
   const supabase = createSupabase({
     referral_rewards: [reward("reward-1", "active", 30, "2020-01-01T00:00:00Z"), reward("reward-2")]
   });

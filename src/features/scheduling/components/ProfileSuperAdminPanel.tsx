@@ -86,7 +86,7 @@ export function ProfileSuperAdminPanel({
             />
             <SuperAdminMetricCard
               label={messages.profile.superAdminPlans}
-              value={`${proCount} Pro / ${freeCount} Free`}
+              value={`${proCount} PRO / ${freeCount} Free`}
             />
             <SuperAdminMetricCard
               label={(

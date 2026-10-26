@@ -14,6 +14,7 @@ import {
   FiX
 } from "react-icons/fi";
 
+import { CollapsibleRow } from "@/components/composed/CollapsibleRow";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -114,8 +115,8 @@ export function CalendarView({
   onRescheduleAppointment,
   onSaveBusinessDayBlock
 }: CalendarViewProps) {
+  const calendarControlsRef = useRef<HTMLDivElement>(null);
   const [isDayBlocksModalOpen, setIsDayBlocksModalOpen] = useState(false);
-  const [showOnlyWithAppointments, setShowOnlyWithAppointments] = useState(false);
   const selectableEmployees = employees.filter((employee) => !employee.isArchived);
   const selectableEmployeeIds = new Set(selectableEmployees.map((employee) => employee.id));
   const visibleEmployees = selectableEmployees.filter((employee) => selectedEmployeeIds.includes(employee.id));
@@ -138,16 +139,10 @@ export function CalendarView({
   const periodDateSet = new Set(periodDates);
   const periodVisibleAppointments = visibleAppointments.filter((appointment) => periodDateSet.has(appointment.date));
   const periodActiveAppointments = activeAppointments.filter((appointment) => periodDateSet.has(appointment.date));
-  const contextualEmployees = selectableEmployees.filter((employee) => {
-    const hasPeriodAppointment = hasEmployeeAppointmentInDates(employee.id, periodActiveAppointments);
-
-    if (showOnlyWithAppointments) {
-      return hasPeriodAppointment;
-    }
-
-    return hasPeriodAppointment || doesEmployeeWorkInDates(employee, periodDates);
-  });
-  const filteredEmployeeOptions = contextualEmployees.filter((employee) =>
+  const contextualEmployees = selectableEmployees.filter((employee) =>
+    hasEmployeeAppointmentInDates(employee.id, periodActiveAppointments)
+  );
+  const filteredEmployeeOptions = selectableEmployees.filter((employee) =>
     employee.name.toLowerCase().includes(employeeQuery.toLowerCase())
   );
   const periodLabel = getPeriodLabel(safeFocusedDate, mode);
@@ -240,10 +235,8 @@ export function CalendarView({
 
       <section className="min-w-0">
         <Card className="min-h-[680px] min-w-0 overflow-visible p-0">
-          <div className="flex flex-col gap-4 border-b border-subtle p-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0">
-              <h2 className="text-lg font-bold text-primary">{messages.calendar.visibleEmployees}</h2>
-              <div className="mt-2 flex max-w-4xl flex-wrap gap-2">
+          <div className="flex flex-col gap-4 border-b border-subtle p-5 lg:flex-row lg:items-start lg:justify-between">
+            <CollapsibleRow heightReference={calendarControlsRef} title={messages.calendar.visibleEmployees} expandLabel={messages.calendar.expandEmployees} collapseLabel={messages.calendar.collapseEmployees}>
                 {contextualEmployees.map((employee) => {
                   const isSelected = selectedEmployeeIds.includes(employee.id);
 
@@ -267,9 +260,8 @@ export function CalendarView({
                     </button>
                   );
                 })}
-              </div>
-            </div>
-            <div className="grid w-full gap-2 sm:w-80">
+            </CollapsibleRow>
+            <div ref={calendarControlsRef} className="grid w-full shrink-0 gap-2 sm:w-80">
               <div className="flex w-full items-center justify-around gap-2 rounded-lg border border-subtle bg-input p-1">
                 <Button
                   size="icon"
@@ -299,14 +291,6 @@ export function CalendarView({
                 onEmployeeQueryChange={onEmployeeQueryChange}
                 onToggleEmployee={onToggleEmployee}
               />
-              <Button
-                size="sm"
-                variant={showOnlyWithAppointments ? "primary" : "secondary"}
-                className="w-full justify-center"
-                onClick={() => setShowOnlyWithAppointments((current) => !current)}
-              >
-                {messages.calendar.withAppointments}
-              </Button>
               <span className="px-1 text-sm font-semibold text-muted">
                 {periodVisibleAppointments.length} {messages.calendar.appointments}
               </span>
@@ -1464,13 +1448,6 @@ function getDayCalendarHourLabels(appointments: Appointment[]) {
 
 function hasEmployeeAppointmentInDates(employeeId: string, appointments: Appointment[]) {
   return appointments.some((appointment) => appointment.employeeId === employeeId);
-}
-
-function doesEmployeeWorkInDates(employee: Employee, dates: string[]) {
-  return dates.some((date) => {
-    const dayKey = getDayKeyForDate(date);
-    return (employee.schedule[dayKey] ?? []).length > 0;
-  });
 }
 
 function getDayEmployeeScheduleRanges(date: string, dayEmployees: Employee[]) {

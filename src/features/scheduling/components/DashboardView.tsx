@@ -352,6 +352,15 @@ function DayAgenda({
                     })}
                   </div>
                 </div>
+                {canExpand ? (
+                  <div
+                    aria-hidden="true"
+                    className={cx(
+                      "pointer-events-none absolute bottom-px left-[4.5rem] right-0 z-10 h-8 bg-linear-to-t from-surface via-surface/60 via-35% to-surface/0 transition-opacity duration-300 motion-reduce:transition-none",
+                      isExpanded ? "opacity-0" : "opacity-100"
+                    )}
+                  />
+                ) : null}
                 {isCurrentHour && currentTimeDetails ? (
                   <div
                     className="pointer-events-none absolute left-0 right-0 z-30 flex w-full items-center"

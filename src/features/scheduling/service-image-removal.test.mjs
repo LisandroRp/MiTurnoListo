@@ -156,6 +156,8 @@ test("today agenda expands overflowing hour rows without an inner scroll", () =>
   assert.equal(dashboardView.includes("absolute left-0 right-0 z-30 flex w-full items-center"), true);
   assert.equal(dashboardView.includes("rounded-md danger"), true);
   assert.equal(dashboardView.includes("text-danger shadow-sm"), true);
+  assert.equal(dashboardView.includes("pointer-events-none absolute bottom-px left-[4.5rem] right-0 z-10 h-8 bg-linear-to-t from-surface via-surface/60 via-35% to-surface/0"), true);
+  assert.equal(dashboardView.includes('isExpanded ? "opacity-0" : "opacity-100"'), true);
 });
 
 test("today agenda time indicator stays outside clipped hour content", () => {
@@ -206,8 +208,8 @@ test("calendar employee filter preserves stored colors and compact truncated row
   assert.equal(calendarView.includes('visibleEmployees.map((employee) => employee.name).join(", ")'), false);
   assert.equal(calendarView.includes("contextualEmployees.map((employee)"), true);
   assert.equal(calendarView.includes("onClick={() => onToggleEmployee(employee.id)}"), true);
-  assert.equal(calendarView.includes("showOnlyWithAppointments"), true);
-  assert.equal(calendarView.includes("doesEmployeeWorkInDates(employee, periodDates)"), true);
+  assert.equal(calendarView.includes("showOnlyWithAppointments"), false);
+  assert.equal(calendarView.includes("doesEmployeeWorkInDates(employee, periodDates)"), false);
   assert.equal(calendarView.includes("hasEmployeeAppointmentInDates(employee.id, periodActiveAppointments)"), true);
   assert.equal(calendarView.includes("grid max-w-64 cursor-pointer gap-0.5 rounded-lg border px-3 py-2 text-left"), true);
   assert.equal(calendarView.includes("block truncate text-xs font-bold leading-4 text-primary"), true);

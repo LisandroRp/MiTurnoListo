@@ -20,7 +20,7 @@ function loadComponent(relativePath, modules = {}) {
 const formattedText = loadComponent("../../../components/ui/FormattedText.tsx", {
   "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") }
 });
-const businessDetails = loadComponent("./PublicBusinessDetails.tsx", { "@/components/ui/FormattedText": formattedText });
+const businessDetails = loadComponent("./PublicBusinessDetails.tsx", { "@/components/ui/FormattedText": formattedText, "next/link": { default: ({ children, ...props }) => createElement("a", props, children) } });
 const businessHeader = loadComponent("./PublicBusinessHeader.tsx", {
   "@/features/booking-flow/components/PublicBusinessDetails": businessDetails,
   "next/link": { default: ({ children, ...props }) => createElement("a", props, children) },
@@ -35,8 +35,10 @@ function render(publicDescription, publicLogoUrl = "") {
     react: { ...require("react"), useEffect: () => {}, useState: (initial) => [cursor++ === 0 ? payload : cursor === 2 ? false : initial, () => {}] },
     "next/link": { default: ({ children, ...props }) => createElement("a", props, children) },
     "@/components/composed/BrandMark": { BrandMark: () => null },
+    "@/components/ui/FormattedText": formattedText,
     "@/components/ui/Card": { Card: ({ children }) => createElement("section", null, children) },
     "@/components/ui/TextField": { TextField: () => null },
+    "@/components/ui/SelectField": { SelectField: () => null },
     "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") },
     "@/features/scheduling/i18n/messages": { messages },
     "@/features/booking-flow/utils/catalog": {},
@@ -122,4 +124,121 @@ test("public logos use intrinsic proportions with responsive bounds instead of a
   }));
   assert.match(html, /h-auto max-h-36 w-auto max-w-full object-contain sm:max-h-44/);
   assert.doesNotMatch(html, /background-image|w-32|w-36|width=|height=/);
+});
+
+function interactiveCatalog() {
+  const services = [
+    { id: "one", name: "Cut", description: "Hair", employeeNames: ["Alex"] },
+    { id: "two", name: "Color", description: "Hair", employeeNames: ["Bea"] },
+    { id: "three", name: "Cut long", description: "Hair", employeeNames: ["Bea", "Alex"] }
+  ];
+  const states = [];
+  let cursor = 0;
+  const react = {
+    ...require("react"), useEffect: () => {}, useId: () => "service-details",
+    useState: (initial) => {
+      const index = cursor++;
+      if (!(index in states)) states[index] = index === 0 ? { services, theme: "blue" } : index === 1 ? false : initial;
+      return [states[index], (next) => { states[index] = typeof next === "function" ? next(states[index]) : next; }];
+    }
+  };
+  const modules = {
+    react,
+    "next/link": { default: "a" },
+    "@/features/booking-flow/components/PublicBusinessHeader": { PublicBusinessHeader: () => null },
+    "@/components/composed/BrandMark": { BrandMark: () => null },
+    "@/components/ui/FormattedText": formattedText,
+    "@/components/ui/Card": { Card: "section" },
+    "@/components/ui/TextField": { TextField: "search" },
+    "@/components/ui/SelectField": { SelectField: "select" },
+    "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") },
+    "@/features/scheduling/i18n/messages": { messages },
+    "@/features/booking-flow/utils/catalog": { getCatalogDescription: (value) => value, getProfessionalLabel: () => "Professional", getServiceTitleOverflowClass: () => "" },
+    "@/features/scheduling/utils/format": { formatCurrency: (value) => `$${value}` },
+    "@/lib/networking/endpoints/public-services": {},
+    "@/lib/networking/response-errors": {}
+  };
+  const components = loadComponent("./PublicServicesCatalog.tsx", modules);
+  const renderCatalog = () => { cursor = 0; return components.PublicServicesCatalog({ businessId: "business" }); };
+  const renderCard = (service) => { cursor = 10 + Math.max(0, services.findIndex((item) => item.id === service.id)); return components.PublicServiceCard({ service, messages: messages.es, businessSlug: "business" }); };
+  const nodes = (node) => !node || typeof node !== "object" ? [] : [node, ...[node.props?.children].flat(Infinity).filter(Boolean).flatMap(nodes)];
+  return { renderCatalog, renderCard, nodes, services };
+}
+
+test("professional filter combines with text search and can be reset", () => {
+  const app = interactiveCatalog();
+  let tree = app.renderCatalog();
+  const select = app.nodes(tree).find((node) => node.type === "select");
+  assert.deepEqual(select.props.options.map((option) => option.value), ["", "Alex", "Bea"]);
+  select.props.onChange({ target: { value: "Bea" } });
+  tree = app.renderCatalog();
+  const cards = () => app.nodes(tree).filter((node) => node.type?.name === "PublicServiceCard").map((node) => node.props.service.id);
+  assert.deepEqual(cards(), ["two", "three"]);
+  app.nodes(tree).find((node) => node.type === "search").props.onChange({ target: { value: "CUT" } });
+  tree = app.renderCatalog();
+  assert.deepEqual(cards(), ["three"]);
+  app.nodes(tree).find((node) => node.type === "select").props.onChange({ target: { value: "" } });
+  tree = app.renderCatalog();
+  assert.deepEqual(cards(), ["one", "three"]);
+  app.nodes(tree).find((node) => node.type === "search").props.onChange({ target: { value: "Unknown" } });
+  tree = app.renderCatalog();
+  assert.equal(cards().length, 0);
+  assert.ok(app.nodes(tree).some((node) => node.props?.title === messages.es.publicServices.noSearchResultsTitle));
+});
+
+
+test("description controls appear beside the title only for nonempty descriptions", () => {
+  const app = interactiveCatalog();
+  for (const description of ["", "   ", "\n"]) {
+    const tree = app.renderCard({ ...app.services[0], description, price: 123, durationMinutes: 30, capacity: 1 });
+    assert.equal(app.nodes(tree).some((node) => node.type === "button"), false);
+  }
+  const service = { ...app.services[0], price: 123, durationMinutes: 30, capacity: 1 };
+  let tree = app.renderCard(service);
+  let nodes = app.nodes(tree);
+  let toggle = nodes.find((node) => node.type === "button");
+  assert.equal(toggle.props["aria-expanded"], false);
+  assert.doesNotMatch(toggle.props.className, /absolute|md:hidden/);
+  assert.ok(nodes.some((node) => /flex items-(start|center) justify-between gap-3/.test(node.props?.className ?? "")));
+  const descriptionRegion = () => nodes.find((node) => node.props?.id === toggle.props["aria-controls"]);
+  assert.equal(descriptionRegion().props.inert, true);
+  toggle.props.onClick();
+  tree = app.renderCard(service);
+  nodes = app.nodes(tree);
+  toggle = nodes.find((node) => node.type === "button");
+  assert.equal(toggle.props["aria-expanded"], true);
+  assert.equal(descriptionRegion().props.inert, false);
+  assert.match(descriptionRegion().props.className, /duration-300/);
+  const other = app.renderCard({ ...app.services[1], price: 123, durationMinutes: 30, capacity: 1 });
+  assert.equal(app.nodes(other).find((node) => node.type === "button").props["aria-expanded"], false);
+  toggle.props.onClick();
+  assert.equal(app.nodes(app.renderCard(service)).find((node) => node.type === "button").props["aria-expanded"], false);
+  const professionals = nodes.find((node) => node.type?.name === "EmployeeFact");
+  assert.deepEqual(professionals.props.names, ["Alex"]);
+  const booking = nodes.find((node) => node.props?.["aria-label"] === "Sacar turno: Cut");
+  assert.ok(booking);
+  assert.match(booking.props.className, /!text-white/);
+  const catalog = readFileSync(new URL("./PublicServicesCatalog.tsx", import.meta.url), "utf8");
+  assert.match(catalog, /grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3/);
+});
+
+test("public business logo links to its catalog in booking and catalog headers", () => {
+  const html = renderToStaticMarkup(createElement(businessDetails.PublicBusinessDetails, {
+    businessName: "Clinic", logoUrl: "https://example.com/logo.webp", catalogHref: "/clinic"
+  }));
+  assert.match(html, /<a href="\/clinic"[^>]*>[\s\S]*<img/);
+  for (const [path, expected] of [["./PublicServicesCatalog.tsx", /catalogHref=\{`\/\$\{businessSlug\}`\}/], ["./BookingFlow/index.tsx", /catalogHref=\{businessKey \? `\/\$\{businessKey\}` : undefined\}/]]) {
+    assert.match(readFileSync(new URL(path, import.meta.url), "utf8"), expected);
+  }
+});
+
+
+test("expanded catalog description uses the shared formatted text renderer", () => {
+  const app = interactiveCatalog();
+  const tree = app.renderCard({ ...app.services[0], description: "**Welcome**\n- __Item__", price: 123, durationMinutes: 30, capacity: 1 });
+  const node = app.nodes(tree).find((node) => node.type === formattedText.FormattedText);
+  assert.ok(node);
+  const html = renderToStaticMarkup(createElement(node.type, node.props));
+  assert.match(html, /<strong>Welcome<\/strong>/);
+  assert.match(html, /<li><span class="underline">Item<\/span><\/li>/);
 });

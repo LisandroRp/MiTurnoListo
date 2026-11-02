@@ -80,8 +80,8 @@ test("public service views show assigned professionals", () => {
   assert.equal(publicServicesRoute.includes("employeeNamesByServiceId"), true);
   assert.equal(publicCatalog.includes("EmployeeFact"), true);
   assert.equal(serviceStep.includes("employees.map((employee) => employee.name)"), true);
-  assert.equal(publicCatalog.includes("visibleNames = names.slice(0, 2)"), true);
-  assert.equal(publicCatalog.includes("+{hiddenCount}"), true);
+  assert.equal(publicCatalog.includes('names.join(" · ")'), true);
+  assert.equal(publicCatalog.includes("showDetails"), false);
   assert.equal(serviceStep.includes("[grid-column:1/-1]"), true);
 });
 
@@ -95,12 +95,12 @@ test("public service catalog can be searched by service or professional", () => 
   assert.equal(messages.includes("Buscar por servicio y/o profesional..."), true);
 });
 
-test("public service catalog cards are clickable", () => {
+test("public service catalog exposes direct booking links and hover feedback", () => {
   const publicCatalog = readProjectFile("src/features/booking-flow/components/PublicServicesCatalog.tsx");
 
   assert.equal(publicCatalog.includes('href={`/${businessSlug}/${service.publicSlug || service.id}`}'), true);
-  assert.equal(publicCatalog.includes("group-hover:-translate-y-1"), true);
-  assert.equal(publicCatalog.includes("group-hover:border-brand"), true);
+  assert.equal(publicCatalog.includes("messages.publicServices.bookAction"), true);
+  assert.equal(publicCatalog.includes("hover:border-brand"), true);
 });
 
 test("services table shows accepted payment labels", () => {

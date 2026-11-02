@@ -146,7 +146,7 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
   const servicesRequest = Promise.resolve(scopeConfig.includeServices
     ? supabase
       .from("services")
-      .select("id, public_slug, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active, custom_fields")
+      .select("id, public_slug, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active, hide_price_publicly, custom_fields")
       .eq("business_id", businessId)
       .order("is_active", { ascending: false })
       .order("name", { ascending: true })
@@ -620,6 +620,7 @@ export function createNewServiceDraft() {
     name: "",
     description: "",
     price: 0,
+    hidePricePublicly: false,
     capacity: 1,
     deposit: 0,
     durationMinutes: 0,

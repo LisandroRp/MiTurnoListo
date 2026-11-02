@@ -61,6 +61,7 @@ type ServiceRow = {
   payment_mode: PaymentMethod;
   is_public: boolean;
   is_active: boolean;
+  hide_price_publicly?: boolean;
   custom_fields?: unknown;
 };
 
@@ -198,6 +199,7 @@ export function mapServices(
     name: service.name,
     description: service.description,
     price: service.price_amount,
+    hidePricePublicly: service.hide_price_publicly === true,
     capacity: service.capacity,
     deposit: service.deposit_amount,
     durationMinutes: service.duration_minutes,

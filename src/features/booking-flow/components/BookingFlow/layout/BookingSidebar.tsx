@@ -29,7 +29,7 @@ export function BookingSidebar({
       <h2 className="mt-2 text-2xl font-bold text-primary">{service.name}</h2>
       <div className="mt-5 grid gap-4 text-sm">
         <SidebarItem icon={<FiClock />} label={messages.services.duration} value={`${service.durationMinutes} ${messages.services.minutes}`} />
-        <SidebarItem icon={<FiShield />} label={messages.services.price} value={formatCurrency(total)} />
+        {!service.hidePricePublicly ? <SidebarItem icon={<FiShield />} label={messages.services.price} value={formatCurrency(total)} /> : null}
         <SidebarItem icon={<FiUser />} label={messages.bookingFlow.summary.employee} value={selectedEmployeeName ?? "-"} />
         <SidebarItem
           icon={<FiMapPin />}

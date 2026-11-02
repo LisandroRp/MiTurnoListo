@@ -85,6 +85,7 @@ export type TimeRange = {
 export type ServiceSchedule = Record<string, TimeRange[]>;
 
 export type Service = {
+  hidePricePublicly?: boolean;
   id: string;
   publicSlug: string;
   name: string;

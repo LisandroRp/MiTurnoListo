@@ -41,10 +41,10 @@ export function SummaryStep({
           label={messages.bookingFlow.summary.time}
           value={draft.selectedSlot ? `${draft.selectedSlot.startTime} - ${draft.selectedSlot.endTime}` : "-"}
         />
-        <SummaryRow label={messages.bookingFlow.basePrice} value={formatCurrency(service.price)} />
+        {!service.hidePricePublicly ? <SummaryRow label={messages.bookingFlow.basePrice} value={formatCurrency(service.price)} /> : null}
         {selectedAddons.length > 0 ? (
           selectedAddons.map((addon) => (
-            <SummaryRow key={addon.id} label={addon.name} value={`+ ${formatCurrency(addon.price)}`} />
+            <SummaryRow key={addon.id} label={addon.name} value={service.hidePricePublicly ? "-" : `+ ${formatCurrency(addon.price)}`} />
           ))
         ) : (
           <SummaryRow label={messages.bookingFlow.summary.addons} value="-" />
@@ -67,7 +67,7 @@ export function SummaryStep({
         {service.deposit > 0 ? (
           <SummaryRow label={messages.bookingFlow.summary.deposit} value={formatCurrency(service.deposit * draft.partySize)} />
         ) : null}
-        <SummaryRow label={messages.bookingFlow.summary.total} value={formatCurrency(total)} />
+        {!service.hidePricePublicly ? <SummaryRow label={messages.bookingFlow.summary.total} value={formatCurrency(total)} /> : null}
       </Card>
       <Card className="border-brand bg-brand-soft">
         <p className="text-sm font-semibold text-primary">

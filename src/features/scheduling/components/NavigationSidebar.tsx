@@ -50,10 +50,10 @@ export function NavigationSidebar({
   const businessName = account?.businessName?.trim() ?? "";
   const email = account?.email?.trim() ?? "";
   const isAccountActive = activeView === "profile";
-  const dailyItemIds: ViewId[] = ["home", "calendar", "customers"];
+  const dailyItemIds: ViewId[] = ["home", "calendar", "personnel", "services", "customers"];
   const bookingItem = items.find((item) => item.id === "newBooking");
   const groups = [
-    { label: messages.nav.businessGroup, ids: ["personnel", "services", "paymentMethods", "payments", "statistics"] },
+    { label: messages.nav.businessGroup, ids: ["paymentMethods", "payments", "statistics"] },
     { label: messages.nav.communicationGroup, ids: ["messages", "referrals", "suggestions"] }
   ];
 

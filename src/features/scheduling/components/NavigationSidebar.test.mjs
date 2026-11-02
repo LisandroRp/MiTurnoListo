@@ -112,7 +112,7 @@ test("account footer displays the business identity, a circular logo and a separ
 
 test("daily links stay outside collapsible groups and the booking action remains prominent in every layout", () => {
   const Icon = () => null;
-  const items = ["home", "calendar", "customers", "newBooking", "services", "messages"].map((id) => ({ id, label: id, href: `/${id}`, icon: Icon }));
+  const items = ["home", "calendar", "customers", "newBooking", "services", "personnel", "messages"].map((id) => ({ id, label: id, href: `/${id}`, icon: Icon }));
   for (const layout of [{ isCollapsed: false }, { isCollapsed: true }, { isCollapsed: false, mode: "mobile" }]) {
     const html = renderToStaticMarkup(createElement(loaded.exports.NavigationSidebar, {
       items, activeView: "calendar", messages: { nav: { businessGroup: "Business", communicationGroup: "Communication" }, actions: { logout: "Log out" } },
@@ -121,7 +121,10 @@ test("daily links stay outside collapsible groups and the booking action remains
     const booking = html.indexOf('href="/newBooking"');
     assert.ok(booking < html.indexOf('href="/home"'));
     const firstGroup = html.indexOf('aria-expanded="false"');
-    for (const id of ["home", "calendar", "customers"]) assert.ok(html.indexOf(`href="/${id}"`) < firstGroup);
+    for (const id of ["home", "calendar", "services", "personnel", "customers"]) assert.ok(html.indexOf(`href="/${id}"`) < firstGroup);
+    const dailyOrder = ["calendar", "personnel", "services", "customers"].map((id) => html.indexOf(`href="/${id}"`));
+    assert.deepEqual([...dailyOrder].sort((a, b) => a - b), dailyOrder);
+    for (const id of ["services", "personnel"]) assert.equal((html.match(new RegExp(`href="/${id}"`, "g")) ?? []).length, 1);
     assert.match(html, /href="\/newBooking"[^>]*class="[^"]*border-brand\/20 bg-brand-soft/);
     assert.match(html, /href="\/calendar"[^>]*aria-current="page"/);
     assert.equal((html.match(/aria-expanded=/g) ?? []).length, 2);

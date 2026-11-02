@@ -4,6 +4,7 @@ import { Locale, PaymentMethod, ThemeId } from "@/features/scheduling/types";
 import { getResponseErrorMessage } from "@/lib/networking/response-errors";
 
 export type PublicServiceSummary = {
+  hidePricePublicly?: boolean;
   capacity: number;
   deposit: number;
   description: string;

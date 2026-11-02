@@ -36,7 +36,7 @@ export function FormattingTextArea({ label, value, placeholder, labels, maxLengt
     <div className="grid gap-2">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <label htmlFor={id} className="text-sm font-medium text-primary">{label}</label>
-        <div role="group" aria-label={label} className="flex gap-0.5 rounded-lg border border-subtle bg-surface p-0.5">
+        <div role="group" aria-label={label} className="flex gap-0 rounded-md border border-subtle bg-surface p-0.5">
           {([
             ["bold", FiBold], ["underline", FiUnderline], ["list", FiList]
           ] as const).map(([format, Icon]) => (
@@ -44,14 +44,14 @@ export function FormattingTextArea({ label, value, placeholder, labels, maxLengt
               key={format}
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-sm text-brand-strong"
+              className="h-6! w-6! rounded-md text-xs! text-brand-strong"
               aria-label={labels[format]}
               title={labels[format]}
               aria-controls={id}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => formatText(format)}
             >
-              <Icon aria-hidden="true" />
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           ))}
         </div>

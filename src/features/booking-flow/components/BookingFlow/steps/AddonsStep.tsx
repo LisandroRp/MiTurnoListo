@@ -5,12 +5,14 @@ import { formatCurrency } from "@/features/scheduling/utils/format";
 
 export function AddonsStep({
   addons,
+  hidePricePublicly = false,
   messages,
   selectedAddonIds,
   total,
   onToggleAddon
 }: {
   addons: ServiceAddon[];
+  hidePricePublicly?: boolean;
   messages: Messages;
   selectedAddonIds: string[];
   total: number;
@@ -42,7 +44,7 @@ export function AddonsStep({
                   />
                   <span className="min-w-0">
                     <span className="block font-semibold text-primary">{addon.name}</span>
-                    <span className="block text-sm text-muted">+ {formatCurrency(addon.price)}</span>
+                    {!hidePricePublicly ? <span className="block text-sm text-muted">+ {formatCurrency(addon.price)}</span> : null}
                   </span>
                 </span>
               </label>
@@ -53,10 +55,10 @@ export function AddonsStep({
         <p className="rounded-xl border border-subtle bg-input p-4 text-sm text-muted">{messages.bookingFlow.noAddonsAvailable}</p>
       )}
 
-      <div className="flex items-center justify-between rounded-xl border border-brand bg-brand-soft p-4">
+      {!hidePricePublicly ? <div className="flex items-center justify-between rounded-xl border border-brand bg-brand-soft p-4">
         <span className="text-sm font-semibold text-muted">{messages.bookingFlow.summary.total}</span>
         <strong className="text-xl font-black text-primary">{formatCurrency(total)}</strong>
-      </div>
+      </div> : null}
     </Card>
   );
 }

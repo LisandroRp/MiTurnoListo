@@ -72,7 +72,9 @@ test("toolbar buttons format the selection and restore focus without submitting 
   });
   const tree = FormattingTextArea({ label: "Description", value: "Hello", labels: { bold: "Bold", underline: "Underline", list: "List" }, onChange: (value) => changes.push(value) });
   assert.equal(tree.props.children.length, 2, "the editor contains only its toolbar and textarea");
+  assert.match(tree.props.children[0].props.className, /justify-between/);
   const buttons = tree.props.children[0].props.children[1].props.children;
+  for (const button of buttons) assert.match(button.props.className, /h-6! w-6!/);
   const original = globalThis.requestAnimationFrame;
   globalThis.requestAnimationFrame = (callback) => frames.push(callback);
   try {

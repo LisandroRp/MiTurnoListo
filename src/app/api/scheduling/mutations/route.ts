@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { isValidServiceDescription } from "@/features/scheduling/service-description";
 import { isValidAppointmentPaymentAmount, isValidAppointmentPaymentNote } from "@/features/scheduling/appointment-payment";
 import { Appointment, BusinessDayBlock, Employee, Service } from "@/features/scheduling/types";
 import { canUseFreePlanSlot, freePlanLimits, getCurrentMonthRange, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
@@ -134,6 +135,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (payload.action === "saveService") {
+      if (!isValidServiceDescription(payload.service.description)) {
+        return NextResponse.json({ error: "La descripción admite hasta 333 caracteres." }, { status: 400 });
+      }
       await enforceVisibleServiceLimit(supabase, payload.businessId, payload.service, contextResult.context);
       await enforceServicePaymentConfiguration(supabase, payload.businessId, payload.service);
       enforceServiceBookingConfiguration(payload.service);
@@ -819,6 +823,7 @@ async function saveService(supabase: SupabaseClient, businessId: string, service
       name: service.name,
       description: service.description,
       price_amount: service.price,
+      hide_price_publicly: service.hidePricePublicly === true,
       deposit_amount: service.deposit,
       currency_code: "ARS",
       duration_minutes: service.durationMinutes,
@@ -1212,7 +1217,7 @@ async function rescheduleAppointment(
   ] = await Promise.all([
     supabase
       .from("services")
-      .select("id, public_slug, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active, custom_fields")
+      .select("id, public_slug, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active, hide_price_publicly, custom_fields")
       .eq("id", appointment.service_id)
       .eq("business_id", businessId)
       .limit(1)

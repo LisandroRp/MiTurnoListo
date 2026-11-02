@@ -4,14 +4,15 @@ import { cx } from "@/components/ui/utils";
 
 type CheckboxFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
   label: string;
+  variant?: "boxed" | "plain";
   helperText?: string;
 };
 
-export function CheckboxField({ label, helperText, className, id, ...props }: CheckboxFieldProps) {
+export function CheckboxField({ label, helperText, variant = "boxed", className, id, ...props }: CheckboxFieldProps) {
   const fieldId = id ?? props.name;
 
   return (
-    <label className={cx("flex cursor-pointer gap-3 rounded-lg border border-subtle bg-input p-3 text-sm text-primary", className)} htmlFor={fieldId}>
+    <label className={cx("flex cursor-pointer gap-3 text-sm text-primary", variant === "boxed" ? "rounded-lg border border-subtle bg-input p-3" : "py-1", className)} htmlFor={fieldId}>
       <input
         {...props}
         id={fieldId}

@@ -617,7 +617,7 @@ async function resolvePublicBookingService({
   serviceKey: string;
   supabase: ReturnType<typeof getSupabaseAdminClient>;
 }) {
-  const selectColumns = "id, public_slug, business_id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active, custom_fields";
+  const selectColumns = "id, public_slug, business_id, name, description, price_amount, deposit_amount, duration_minutes, capacity, reservation_lead_minutes, cancellation_lead_minutes, payment_mode, is_public, is_active, hide_price_publicly, custom_fields";
 
   if (businessKey) {
     const { data: business, error: businessError } = await supabase

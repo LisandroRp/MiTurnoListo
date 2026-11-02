@@ -99,3 +99,11 @@ test("adjusted appointment amounts and internal payment comments survive mapping
   assert.equal(appointments[0].paymentConfirmedAt, "2026-10-26T12:00:00Z");
   assert.equal(revenue.buildStatisticsRevenue(appointments).capturedRevenue, 12000.5);
 });
+
+test("service mapping retains price visibility independently of the internal amount", () => {
+  for (const hidden of [true, false, undefined]) {
+    const [service] = loaded.exports.mapServices([{ id: "service", name: "Service", price_amount: 1234, hide_price_publicly: hidden }], [], []);
+    assert.equal(service.price, 1234);
+    assert.equal(service.hidePricePublicly, hidden === true);
+  }
+});

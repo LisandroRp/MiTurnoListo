@@ -14,7 +14,9 @@ import { CheckboxField } from "@/components/ui/CheckboxField";
 import { FloatingInfoPopover } from "@/components/ui/FloatingInfoPopover";
 import { SelectField } from "@/components/ui/SelectField";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { TextAreaField } from "@/components/ui/TextAreaField";
+import { FormattingTextArea } from "@/components/ui/FormattingTextArea";
+import { FormattedText } from "@/components/ui/FormattedText";
+import { isValidServiceDescription, serviceDescriptionMaxLength } from "@/features/scheduling/service-description";
 import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
 import { AvailabilityEditor, dayKeys, getScheduleValidationMessage, maxRangesPerDay } from "@/features/scheduling/components/AvailabilityEditor";
@@ -533,7 +535,14 @@ export function ServicesView({
             <div className="grid items-start gap-4">
               <TextField label={messages.services.name} value={draft.name} required onChange={handleTextChange("name")} />
             </div>
-            <TextAreaField label={messages.services.descriptionLabel} value={draft.description} onChange={handleTextChange("description")} />
+            <FormattingTextArea
+              label={messages.services.descriptionLabel}
+              value={draft.description}
+              labels={messages.profile.descriptionFormatting}
+              maxLength={serviceDescriptionMaxLength}
+              helperText={`${draft.description.length}/${serviceDescriptionMaxLength}`}
+              onChange={(description) => setDraft((current) => ({ ...current, description }))}
+            />
             <CheckboxField
               label={messages.services.visible}
               checked={draft.isVisible}
@@ -547,80 +556,48 @@ export function ServicesView({
 
           {currentStep === "booking" ? (
             <FormSection title={messages.services.bookingSection} description={messages.services.bookingSectionHint}>
-            <div className="grid gap-4 lg:grid-cols-3">
-              <div className="contents lg:grid lg:content-start lg:gap-4">
-                <div className="order-1 lg:order-none">
-                  <TextField
-                    label={messages.services.price}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    prefix="$"
-                    value={formatNumericInputValue(draft.price, true)}
-                    required
-                    onChange={handleNumericTextChange("price")}
-                  />
-                </div>
-                <div className="order-4 lg:order-none">
-                  <TextField
-                    label={messages.services.deposit}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    prefix="$"
-                    value={formatNumericInputValue(draft.deposit, true)}
-                    onChange={handleNumericTextChange("deposit")}
-                  />
-                </div>
-                <div className="order-7 lg:order-none">
-                  <SelectField
-                    label={messages.services.paymentMethod}
-                    value={draft.paymentMethod}
-                    required
-                    onChange={handleTextChange("paymentMethod")}
-                    options={paymentMethods.map((method) => ({
-                      value: method,
-                      label: messages.paymentMethods[method],
-                      disabled: isPaymentMethodDisabled(method, isMercadoPagoConfigured, isTransferConfigured)
-                    }))}
-                  />
-                </div>
+            <div className="grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:max-w-2xl">
+              <div>
+                <TextField
+                  label={messages.services.price}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  prefix="$"
+                  value={formatNumericInputValue(draft.price, true)}
+                  required
+                  onChange={handleNumericTextChange("price")}
+                />
               </div>
-              <div className="contents lg:grid lg:content-start lg:gap-4">
-                <div className="order-2 lg:order-none">
-                  <TextField
-                    label={messages.services.durationMinutesLabel}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    suffix={<span className="text-xs font-bold text-muted">{messages.services.minutesShort}</span>}
-                    value={formatNumericInputValue(draft.durationMinutes)}
-                    required
-                    onChange={handleNumericTextChange("durationMinutes")}
-                  />
-                </div>
-                <div className="order-5 lg:order-none">
-                  <TextField
-                    label={messages.services.leadTime}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    suffix={<span className="text-xs font-bold text-muted">{messages.services.minutesShort}</span>}
-                    value={formatNumericInputValue(draft.reservationLeadMinutes)}
-                    onChange={handleNumericTextChange("reservationLeadMinutes")}
-                  />
-                </div>
+              <CheckboxField
+                variant="plain"
+                className="min-h-11 items-center"
+                label={messages.services.hidePricePublicly}
+                checked={draft.hidePricePublicly === true}
+                onChange={(event) => setDraft((current) => ({ ...current, hidePricePublicly: event.target.checked }))}
+              />
+            </div>
+            <div className="grid items-start gap-4 lg:grid-cols-3">
+              <div>
+                <TextField
+                  label={messages.services.deposit}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  prefix="$"
+                  value={formatNumericInputValue(draft.deposit, true)}
+                  onChange={handleNumericTextChange("deposit")}
+                />
               </div>
-              <div className="contents lg:grid lg:content-start lg:gap-4">
-                <div className="order-3 lg:order-none">
-                  <TextField
-                    label={messages.services.capacity}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    suffix={<span className="text-xs font-bold text-muted">{messages.services.peopleShort}</span>}
-                    value={formatNumericInputValue(draft.capacity)}
-                    required
-                    onChange={handleNumericTextChange("capacity")}
-                    onBlur={handleCapacityBlur}
-                  />
-                </div>
-                <div className="order-6 grid gap-2 lg:order-none">
+              <div>
+                <TextField
+                  label={messages.services.leadTime}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  suffix={<span className="text-xs font-bold text-muted">{messages.services.minutesShort}</span>}
+                  value={formatNumericInputValue(draft.reservationLeadMinutes)}
+                  onChange={handleNumericTextChange("reservationLeadMinutes")}
+                />
+              </div>
+              <div className="grid gap-2">
                   <div className="relative min-w-0">
                     <TextField
                       id="service-cancellation-lead"
@@ -645,13 +622,46 @@ export function ServicesView({
                     </div>
                   </div>
                   <p className="text-xs text-muted">{messages.services.cancellationLeadZeroHint}</p>
-                </div>
               </div>
-              {!isMercadoPagoConfigured || !isTransferConfigured ? (
-                <p className="order-8 rounded-lg border border-warning bg-warning-soft p-3 text-sm leading-6 text-warning lg:order-none lg:col-span-3">
-                  {messages.services.paymentMethodDisabledHint}
-                </p>
-              ) : null}
+              <div className="grid gap-2">
+                  <SelectField
+                    label={messages.services.paymentMethod}
+                    value={draft.paymentMethod}
+                    required
+                    onChange={handleTextChange("paymentMethod")}
+                    options={paymentMethods.map((method) => ({
+                      value: method,
+                      label: messages.paymentMethods[method],
+                      disabled: isPaymentMethodDisabled(method, isMercadoPagoConfigured, isTransferConfigured)
+                    }))}
+                  />
+                {!isMercadoPagoConfigured || !isTransferConfigured ? (
+                  <p className="text-xs text-warning">{messages.services.paymentMethodDisabledHint}</p>
+                ) : null}
+              </div>
+              <div>
+                <TextField
+                  label={messages.services.durationMinutesLabel}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  suffix={<span className="text-xs font-bold text-muted">{messages.services.minutesShort}</span>}
+                  value={formatNumericInputValue(draft.durationMinutes)}
+                  required
+                  onChange={handleNumericTextChange("durationMinutes")}
+                />
+              </div>
+              <div>
+                <TextField
+                  label={messages.services.capacity}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  suffix={<span className="text-xs font-bold text-muted">{messages.services.peopleShort}</span>}
+                  value={formatNumericInputValue(draft.capacity)}
+                  required
+                  onChange={handleNumericTextChange("capacity")}
+                  onBlur={handleCapacityBlur}
+                />
+              </div>
             </div>
             <ServiceAddonsEditor
               addons={draft.addons}
@@ -810,7 +820,7 @@ export function ServicesView({
                           <div className="min-w-0">
                             <h2 className="truncate text-sm font-bold text-primary">{service.name}</h2>
                             {service.description ? (
-                              <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">{service.description}</p>
+                              <FormattedText className="mt-1 line-clamp-2 text-xs leading-5 text-muted" value={service.description} />
                             ) : null}
                           </div>
                         </div>
@@ -1349,7 +1359,7 @@ function ServiceReview({ messages, service, employees }: { messages: Messages; s
               {service.isVisible ? messages.services.visible : messages.services.hidden}
             </Badge>
             <h2 className="mt-3 text-2xl font-bold text-primary">{service.name || messages.services.untitledService}</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">{service.description || messages.services.emptyDescription}</p>
+            <FormattedText className="mt-2 text-sm leading-6 text-muted" value={service.description || messages.services.emptyDescription} />
           </div>
 
           <dl className="grid grid-cols-2 gap-3 text-sm">
@@ -1581,6 +1591,10 @@ function getServiceStepValidationMessage(
   isMercadoPagoConfigured: boolean,
   isTransferConfigured: boolean
 ) {
+  if (step === "details" && !isValidServiceDescription(service.description)) {
+    return messages.services.validation.descriptionLength;
+  }
+
   if (step === "details" && !service.name.trim()) {
     return messages.services.validation.details;
   }

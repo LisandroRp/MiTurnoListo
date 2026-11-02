@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { FiUsers } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
+import { FormattedText } from "@/components/ui/FormattedText";
 import { Card } from "@/components/ui/Card";
 import { SelectField } from "@/components/ui/SelectField";
 import { MetricPill } from "@/features/booking-flow/components/BookingFlow/shared/bookingFlowPrimitives";
@@ -31,12 +32,14 @@ export function ServiceStep({
       <div>
         <Badge tone={service.isVisible ? "brand" : "warning"}>{messages.bookingFlow.steps.service}</Badge>
         <h2 className="mt-3 text-3xl font-bold text-primary">{service.name}</h2>
-        <p className="mt-3 text-sm leading-6 text-muted">{service.description}</p>
+        <FormattedText className="mt-3 text-sm leading-6 text-muted" value={service.description} />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <EmployeeFact label={getProfessionalLabel(employees.length, messages)} names={employees.map((employee) => employee.name)} />
-        <MetricPill label={messages.services.duration} value={`${service.durationMinutes} ${messages.services.minutes}`} />
-        <MetricPill label={messages.services.price} value={formatCurrency(service.price)} />
+        <div className={service.hidePricePublicly ? "sm:col-span-2" : undefined}>
+          <MetricPill label={messages.services.duration} value={`${service.durationMinutes} ${messages.services.minutes}`} />
+        </div>
+        {!service.hidePricePublicly ? <MetricPill label={messages.services.price} value={formatCurrency(service.price)} /> : null}
         {service.deposit > 0 ? (
           <MetricPill label={messages.bookingFlow.summary.deposit} value={formatCurrency(service.deposit)} />
         ) : null}

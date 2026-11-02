@@ -461,6 +461,7 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
           <header className="grid gap-8">
             {!isPreview ? (
               <PublicBusinessHeader
+                catalogHref={businessKey ? `/${businessKey}` : undefined}
                 address={publicHeader.address}
                 businessName={publicHeader.businessName}
                 description={publicHeader.publicDescription}
@@ -506,6 +507,7 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
               {currentStep === "addons" ? (
                 <AddonsStep
                   addons={activeAddons}
+                  hidePricePublicly={service.hidePricePublicly}
                   messages={messages}
                   selectedAddonIds={draft.selectedAddonIds}
                   total={bookingTotal}

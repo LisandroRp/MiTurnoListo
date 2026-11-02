@@ -39,7 +39,7 @@ export async function GET(_: Request, context: RouteContext) {
       .maybeSingle(),
     supabase
       .from("services")
-      .select("id, public_slug, name, description, price_amount, deposit_amount, duration_minutes, capacity, payment_mode")
+      .select("id, public_slug, name, description, price_amount, deposit_amount, duration_minutes, capacity, payment_mode, hide_price_publicly")
       .eq("business_id", businessId)
       .eq("is_active", true)
       .eq("is_public", true)
@@ -146,6 +146,7 @@ export async function GET(_: Request, context: RouteContext) {
       name: service.name,
       paymentMethod: service.payment_mode as PaymentMethod,
       price: service.price_amount,
+      hidePricePublicly: service.hide_price_publicly === true,
       publicSlug: service.public_slug ?? ""
     })),
     theme: (membershipResult.data?.theme ?? "coral") as ThemeId

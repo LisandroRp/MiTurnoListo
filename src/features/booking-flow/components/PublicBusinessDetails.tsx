@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { FiClock, FiMapPin } from "react-icons/fi";
 
 import { FormattedText } from "@/components/ui/FormattedText";
 
 type PublicBusinessDetailsProps = {
   businessName: string;
+  catalogHref?: string;
   address?: string;
   description?: string;
   logoUrl?: string;
@@ -12,14 +14,14 @@ type PublicBusinessDetailsProps = {
 
 export function PublicBusinessDetails({
   businessName,
+  catalogHref,
   address,
   description,
   logoUrl,
   openingHours
 }: PublicBusinessDetailsProps) {
-  return (
-    <div className="mx-auto w-full max-w-3xl text-center">
-      {logoUrl ? (
+  const identity = (
+    logoUrl ? (
         // Native dimensions preserve the aspect ratio of arbitrary public business logos.
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -29,7 +31,15 @@ export function PublicBusinessDetails({
         />
       ) : (
         <h1 className="text-4xl font-bold text-primary">{businessName}</h1>
-      )}
+      )
+  );
+  return (
+    <div className="mx-auto w-full max-w-3xl text-center">
+      {catalogHref ? (
+        <Link href={catalogHref} className="mx-auto block w-fit max-w-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus" aria-label={businessName}>
+          {identity}
+        </Link>
+      ) : identity}
       {description?.trim() ? (
         <FormattedText className="mx-auto mt-3 w-full max-w-3xl text-sm leading-6 text-muted" value={description} align="center" />
       ) : null}

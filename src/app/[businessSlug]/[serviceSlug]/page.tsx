@@ -1,3 +1,4 @@
+import { getPublicPageMetadata } from "@/lib/networking/public-page-metadata";
 import { notFound } from "next/navigation";
 
 import { BookingFlow } from "@/features/booking-flow/components/BookingFlow";
@@ -9,6 +10,11 @@ type BusinessServiceBookingPageProps = {
     serviceSlug: string;
   }>;
 };
+
+export async function generateMetadata({ params }: BusinessServiceBookingPageProps) {
+  const { businessSlug, serviceSlug } = await params;
+  return getPublicPageMetadata(businessSlug, serviceSlug);
+}
 
 export default async function BusinessServiceBookingPage({ params }: BusinessServiceBookingPageProps) {
   const { businessSlug, serviceSlug } = await params;

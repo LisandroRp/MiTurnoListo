@@ -36,3 +36,12 @@ test("service booking starts with price and its plain control before the six gri
   assert.doesNotMatch(section, /bg-warning|border-warning|order-/);
   assert.match(section, /variant="plain"/);
 });
+
+
+test("service price uses the same three-column width as other booking fields", () => {
+  const source = readFileSync(new URL("../../features/scheduling/components/ServicesView.tsx", import.meta.url), "utf8");
+  const section = source.slice(source.indexOf('{currentStep === "booking"'), source.indexOf("<ServiceAddonsEditor"));
+  assert.match(section, /grid items-end gap-4 lg:grid-cols-3/);
+  assert.match(section, /min-h-11 items-center lg:col-span-2/);
+  assert.doesNotMatch(section, /lg:max-w-2xl|sm:grid-cols-\[minmax/);
+});

@@ -556,7 +556,7 @@ export function ServicesView({
 
           {currentStep === "booking" ? (
             <FormSection title={messages.services.bookingSection} description={messages.services.bookingSectionHint}>
-            <div className="grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:max-w-2xl">
+            <div className="grid items-end gap-4 lg:grid-cols-3">
               <div>
                 <TextField
                   label={messages.services.price}
@@ -570,7 +570,7 @@ export function ServicesView({
               </div>
               <CheckboxField
                 variant="plain"
-                className="min-h-11 items-center"
+                className="min-h-11 items-center lg:col-span-2"
                 label={messages.services.hidePricePublicly}
                 checked={draft.hidePricePublicly === true}
                 onChange={(event) => setDraft((current) => ({ ...current, hidePricePublicly: event.target.checked }))}

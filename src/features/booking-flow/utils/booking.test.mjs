@@ -222,3 +222,51 @@ test("public day blocks keep availability data without exposing absence reasons"
   assert.deepEqual(sanitizePublicDayBlocks(blocks), [{ ...blocks[0], reason: "" }]);
   assert.equal(blocks[0].reason, "Private absence details");
 });
+
+function exceptionalService(overrides = {}) {
+  return createService({
+    specialAvailability: [{ id: "opening", serviceId: "service-1", date: "2026-08-07", start: "10:00", end: "11:00", employeeIds: ["employee-1"] }],
+    ...overrides
+  });
+}
+const exceptionalMonth = new Date("2026-08-01T12:00:00");
+const exceptionalNow = new Date("2026-08-01T08:00:00");
+const exceptionalSlots = (service = exceptionalService(), employee = createEmployee(), appointments = [], blocks = [], partySize = 1) => getAvailableSlotsForEmployee(service, employee, appointments, exceptionalMonth, partySize, exceptionalNow, blocks);
+
+test("exceptional availability opens both service and employee for one date without modifying weekly schedules", () => {
+  const service = exceptionalService();
+  const employee = createEmployee();
+  const original = JSON.stringify([service.schedule, employee.schedule]);
+  const slots = exceptionalSlots(service, employee);
+  assert.deepEqual(slots.filter((slot) => slot.date === "2026-08-07").map((slot) => slot.startTime), ["10:00", "10:30"]);
+  assert.equal(slots.some((slot) => slot.date === "2026-08-14"), false);
+  assert.deepEqual(slots.filter((slot) => slot.date === "2026-08-03").map((slot) => slot.startTime), ["09:00", "09:30"]);
+  assert.equal(JSON.stringify([service.schedule, employee.schedule]), original);
+  assert.equal(exceptionalSlots(service, { ...employee, id: "employee-2" }).some((slot) => slot.date === "2026-08-07"), false);
+  assert.equal(exceptionalSlots(exceptionalService({ employeeIds: [] })).some((slot) => slot.date === "2026-08-07"), false);
+});
+
+test("business and selected professional closures take priority over exceptional openings", () => {
+  for (const employeeId of [null, "employee-1"]) {
+    const blocks = [{ id: "closed", startsOn: "2026-08-07", endsOn: "2026-08-07", employeeId }];
+    assert.equal(exceptionalSlots(undefined, undefined, [], blocks).some((slot) => slot.date === "2026-08-07"), false);
+  }
+  assert.equal(exceptionalSlots(undefined, undefined, [], [{ startsOn: "2026-08-07", endsOn: "2026-08-07", employeeId: "other" }]).filter((slot) => slot.date === "2026-08-07").length, 2);
+});
+
+test("exceptional openings respect conflicts, capacity and cancelled appointments", () => {
+  const appointment = { id: "existing", serviceId: "other-service", employeeId: "employee-1", date: "2026-08-07", startTime: "10:00", endTime: "10:30", partySize: 1, appointmentStatus: "scheduled" };
+  assert.deepEqual(exceptionalSlots(undefined, undefined, [appointment]).filter((slot) => slot.date === appointment.date).map((slot) => slot.startTime), ["10:30"]);
+  assert.equal(exceptionalSlots(undefined, undefined, [{ ...appointment, appointmentStatus: "cancelled" }]).filter((slot) => slot.date === appointment.date).length, 2);
+  const groupService = exceptionalService({ capacity: 2 });
+  const booked = { ...appointment, serviceId: groupService.id };
+  assert.equal(exceptionalSlots(groupService, undefined, [booked], [], 2).filter((slot) => slot.date === appointment.date).length, 1);
+});
+
+test("overlapping exceptional and weekly hours do not duplicate slots", () => {
+  const service = exceptionalService({ schedule: createSchedule({ friday: [{ id: "weekly", start: "09:00", end: "10:30" }] }) });
+  const employee = { ...createEmployee(), schedule: createSchedule({ friday: [{ id: "employee-weekly", start: "09:00", end: "10:30" }] }) };
+  service.specialAvailability.push({ ...service.specialAvailability[0], id: "second", start: "10:30", end: "11:30" });
+  const slots = exceptionalSlots(service, employee).filter((slot) => slot.date === "2026-08-07");
+  assert.deepEqual(slots.map((slot) => slot.startTime), ["09:00", "09:30", "10:00", "10:30", "11:00"]);
+});

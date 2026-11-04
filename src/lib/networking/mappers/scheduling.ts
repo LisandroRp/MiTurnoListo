@@ -191,13 +191,15 @@ export function mapServices(
   serviceRows: ServiceRow[],
   serviceEmployeeRows: ServiceEmployeeRow[],
   availabilityRows: AvailabilityRow[],
-  addonRows: ServiceAddonRow[] = []
+  addonRows: ServiceAddonRow[] = [],
+  specialAvailability: import("@/features/scheduling/types").SpecialAvailability[] = []
 ): Service[] {
   return serviceRows.map((service) => ({
     id: service.id,
     publicSlug: service.public_slug ?? "",
     name: service.name,
     description: service.description,
+    specialAvailability: specialAvailability.filter((opening) => opening.serviceId === service.id),
     price: service.price_amount,
     hidePricePublicly: service.hide_price_publicly === true,
     capacity: service.capacity,

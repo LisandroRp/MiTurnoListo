@@ -22,6 +22,9 @@ function harness() {
       if (!(index in states)) states[index] = value;
       return [states[index], (update) => { states[index] = typeof update === "function" ? update(states[index]) : update; }];
     }, useRef: () => ({ current: null }) },
+    "@/features/scheduling/components/employeeColors": { employeeToneClasses: {} },
+    "@/features/scheduling/components/CalendarView/CalendarExceptionsMenu": { CalendarExceptionsMenu: "CalendarExceptionsMenu" },
+    "@/features/scheduling/components/CalendarView/SpecialAvailabilityModal": { SpecialAvailabilityModal: "SpecialAvailabilityModal" },
     "@/features/scheduling/components/AppointmentPaymentModal": { AppointmentPaymentModal: "AppointmentPaymentModal" },
     "@/components/composed/CollapsibleRow": { CollapsibleRow: "CollapsibleRow" },
     "@/components/composed/SectionHeader": { SectionHeader: "SectionHeader" },
@@ -116,3 +119,37 @@ for (const variant of ["calendar", "dashboardRow", "action"]) {
     assert.equal(app.nodes().some((node) => node.type === "AppointmentPaymentModal"), false);
   });
 }
+
+
+test("calendar opens exceptional availability with the selected date and mutation callbacks", () => {
+  const app = harness();
+  app.props.onSaveSpecialAvailability = async () => true;
+  app.props.onDeleteSpecialAvailability = async () => true;
+  app.render();
+  app.nodes().find((node) => node.type === "CalendarExceptionsMenu").props.onSpecialHours();
+  app.render();
+  const modal = app.nodes().find((node) => node.type === "SpecialAvailabilityModal");
+  assert.ok(modal);
+  assert.equal(modal.props.initialDate, app.props.focusedDate);
+  assert.equal(modal.props.onSave, app.props.onSaveSpecialAvailability);
+  assert.equal(modal.props.onDelete, app.props.onDeleteSpecialAvailability);
+  modal.props.onClose();
+  app.render();
+  assert.equal(app.nodes().some((node) => node.type === "SpecialAvailabilityModal"), false);
+});
+
+
+
+test("calendar keeps exceptions separate from the period selector and explains its actions", () => {
+  const app = harness();
+  app.render();
+  const header = app.nodes().find((node) => node.type === "SectionHeader");
+  const [exceptions, periods] = header.props.actions.props.children;
+  assert.equal(exceptions.type, "CalendarExceptionsMenu");
+  assert.deepEqual(periods.props.children.map((node) => node.props.children), [messages.calendar.day, messages.calendar.week, messages.calendar.month]);
+  assert.match(periods.props.className, /shrink-0/);
+  assert.match(header.props.description, /Excepciones/);
+  exceptions.props.onBlockedDays();
+  app.render();
+  assert.equal(app.nodes().find((node) => node.type === "BusinessDayBlocksModal").props.isOpen, true);
+});

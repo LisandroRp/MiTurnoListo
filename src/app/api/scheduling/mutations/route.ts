@@ -1,9 +1,11 @@
+import { loadSpecialAvailability } from "@/lib/networking/special-availability";
+import { saveSpecialAvailability } from "@/lib/special-availability";
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { isValidServiceDescription } from "@/features/scheduling/service-description";
 import { isValidAppointmentPaymentAmount, isValidAppointmentPaymentNote } from "@/features/scheduling/appointment-payment";
-import { Appointment, BusinessDayBlock, Employee, Service } from "@/features/scheduling/types";
+import { Appointment, BusinessDayBlock, Employee, Service, SpecialAvailability } from "@/features/scheduling/types";
 import { canUseFreePlanSlot, freePlanLimits, getCurrentMonthRange, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
 import {
   buildCustomFieldResponses,
@@ -31,6 +33,8 @@ import { isUuid, normalizeSlug } from "@/lib/slugs";
 import { reconcileExpiredReferralTierForBusiness } from "@/lib/referrals";
 
 type SchedulingMutationPayload =
+  | { action: "saveSpecialAvailability"; businessId: string; opening: SpecialAvailability }
+  | { action: "deleteSpecialAvailability"; businessId: string; openingId: string }
   | {
       action: "saveEmployee";
       businessId: string;
@@ -157,6 +161,15 @@ export async function POST(request: NextRequest) {
       await deleteArchivedService(supabase, payload.businessId, payload.serviceId);
     }
 
+    if (payload.action === "saveSpecialAvailability") {
+      await saveSpecialAvailability(supabase, payload.businessId, payload.opening, contextResult.context.timeZone);
+    }
+    if (payload.action === "deleteSpecialAvailability") {
+      if (!isUuid(payload.openingId)) return NextResponse.json({ error: "Invalid opening." }, { status: 400 });
+      const { error } = await supabase.from("service_special_availability").delete().eq("business_id", payload.businessId).eq("id", payload.openingId);
+      if (error) throw new Error("Unable to delete exceptional availability.");
+    }
+
     if (payload.action === "saveBusinessDayBlock") {
       await saveBusinessDayBlock(supabase, payload.businessId, payload.dayBlock, contextResult.context);
     }
@@ -247,9 +260,9 @@ export async function POST(request: NextRequest) {
     }
 
     const message = getSafeErrorMessage(error, "Unable to save changes.");
-    const status = message.startsWith("PLAN_LIMIT:") ? 402 : message.startsWith("PAYMENT_CONFIG:") || message.startsWith("ARCHIVE_RULE:") || message.startsWith("DAY_BLOCK_CONFIG:") ? 409 : 500;
+    const status = message.startsWith("PLAN_LIMIT:") ? 402 : message.startsWith("PAYMENT_CONFIG:") || message.startsWith("ARCHIVE_RULE:") || message.startsWith("DAY_BLOCK_CONFIG:") || message.startsWith("SPECIAL_AVAILABILITY:") ? 409 : 500;
 
-    return createApiErrorResponse(message.replace(/^(PLAN_LIMIT|PAYMENT_CONFIG|ARCHIVE_RULE|DAY_BLOCK_CONFIG):/, ""), {
+    return createApiErrorResponse(message.replace(/^(PLAN_LIMIT|PAYMENT_CONFIG|ARCHIVE_RULE|DAY_BLOCK_CONFIG|SPECIAL_AVAILABILITY):/, ""), {
       code: "SCHEDULING_MUTATION_FAILED",
       fallbackMessage: "Unable to save changes.",
       status
@@ -1264,7 +1277,9 @@ async function rescheduleAppointment(
   const service = mapServices(
     [serviceResult.data],
     serviceEmployeesResult.data ?? [],
-    serviceAvailabilityResult.data ?? []
+    serviceAvailabilityResult.data ?? [],
+    [],
+    await loadSpecialAvailability(supabase, businessId, appointment.service_id)
   )[0];
   const employee = mapEmployees(
     [employeeResult.data],

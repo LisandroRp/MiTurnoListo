@@ -171,7 +171,7 @@ export function NavigationSidebar({
             className={cx("flex min-w-0 items-center gap-2 rounded-lg p-2 transition-colors hover:bg-surface-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus", shouldCollapse ? "justify-center" : "flex-1")}
           >
             <span className="relative grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-surface-strong text-lg text-brand-strong">
-              {logoUrl && failedLogoUrl !== logoUrl ? <Image src={logoUrl} alt="" fill sizes="32px" unoptimized className="object-cover" onError={() => setFailedLogoUrl(logoUrl)} /> : <FiUser aria-hidden="true" />}
+              {logoUrl && failedLogoUrl !== logoUrl ? <Image src={logoUrl} alt="" fill sizes="32px" unoptimized className="object-contain" onError={() => setFailedLogoUrl(logoUrl)} /> : <FiUser aria-hidden="true" />}
             </span>
             {!shouldCollapse ? <span className="min-w-0">
               <span className="flex items-center gap-1.5">

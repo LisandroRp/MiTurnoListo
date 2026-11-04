@@ -17,6 +17,9 @@ import {
   FiX
 } from "react-icons/fi";
 
+import { CalendarExceptionsMenu } from "@/features/scheduling/components/CalendarView/CalendarExceptionsMenu";
+import { employeeToneClasses as appointmentToneClasses } from "@/features/scheduling/components/employeeColors";
+import { SpecialAvailabilityModal } from "@/features/scheduling/components/CalendarView/SpecialAvailabilityModal";
 import { AppointmentPaymentModal } from "@/features/scheduling/components/AppointmentPaymentModal";
 import { CollapsibleRow } from "@/components/composed/CollapsibleRow";
 import { Badge } from "@/components/ui/Badge";
@@ -34,24 +37,9 @@ import { getDayKeyForDate } from "@/features/scheduling/components/dashboardTeam
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { freePlanLimits, getMonthlyAppointmentUsage, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
 import { getCancellationDeadline } from "@/features/scheduling/service-cancellation-policy";
-import { Appointment, BusinessDayBlock, CalendarMode, Employee, Service } from "@/features/scheduling/types";
+import { Appointment, BusinessDayBlock, CalendarMode, Employee, Service, SpecialAvailability } from "@/features/scheduling/types";
 import { getDateLabel } from "@/features/scheduling/utils/format";
 
-const appointmentToneClasses: Record<string, string> = {
-  "employee-coral": "border-employee-coral/35 bg-employee-coral/12 hover:bg-employee-coral/18",
-  "employee-amber": "border-employee-amber/35 bg-employee-amber/12 hover:bg-employee-amber/18",
-  "employee-blue": "border-employee-blue/35 bg-employee-blue/12 hover:bg-employee-blue/18",
-  "employee-indigo": "border-employee-indigo/35 bg-employee-indigo/12 hover:bg-employee-indigo/18",
-  "employee-green": "border-employee-green/35 bg-employee-green/12 hover:bg-employee-green/18",
-  "employee-teal": "border-employee-teal/35 bg-employee-teal/12 hover:bg-employee-teal/18",
-  "employee-violet": "border-employee-violet/35 bg-employee-violet/12 hover:bg-employee-violet/18",
-  "employee-rose": "border-employee-rose/35 bg-employee-rose/12 hover:bg-employee-rose/18",
-  "employee-cyan": "border-employee-cyan/35 bg-employee-cyan/12 hover:bg-employee-cyan/18",
-  "employee-olive": "border-employee-olive/35 bg-employee-olive/12 hover:bg-employee-olive/18",
-  "employee-magenta": "border-employee-magenta/35 bg-employee-magenta/12 hover:bg-employee-magenta/18",
-  "employee-orange": "border-employee-orange/35 bg-employee-orange/12 hover:bg-employee-orange/18",
-  "employee-slate": "border-employee-orange/35 bg-employee-orange/12 hover:bg-employee-orange/18"
-};
 
 const employeeDotClasses: Record<string, string> = {
   "employee-coral": "bg-employee-coral",
@@ -89,6 +77,8 @@ type CalendarViewProps = {
   onMarkAppointmentNoShow: (appointmentId: string) => Promise<boolean> | void;
   onMarkAppointmentPaid: (appointmentId: string, amount?: number, paymentNote?: string) => Promise<boolean> | void;
   onRescheduleAppointment: (appointmentId: string, date: string, employeeId: string, startTime: string, endTime: string) => Promise<boolean> | void;
+  onSaveSpecialAvailability: (opening: SpecialAvailability) => Promise<boolean> | void;
+  onDeleteSpecialAvailability: (id: string) => Promise<boolean> | void;
   onSaveBusinessDayBlock: (dayBlock: BusinessDayBlock) => Promise<boolean> | void;
 };
 
@@ -117,9 +107,12 @@ export function CalendarView({
   onMarkAppointmentNoShow,
   onMarkAppointmentPaid,
   onRescheduleAppointment,
-  onSaveBusinessDayBlock
+  onSaveBusinessDayBlock,
+  onSaveSpecialAvailability,
+  onDeleteSpecialAvailability
 }: CalendarViewProps) {
   const calendarControlsRef = useRef<HTMLDivElement>(null);
+  const [isSpecialAvailabilityOpen, setIsSpecialAvailabilityOpen] = useState(false);
   const [isDayBlocksModalOpen, setIsDayBlocksModalOpen] = useState(false);
   const selectableEmployees = employees.filter((employee) => !employee.isArchived);
   const selectableEmployeeIds = new Set(selectableEmployees.map((employee) => employee.id));
@@ -179,15 +172,13 @@ export function CalendarView({
         title={messages.calendar.title}
         description={messages.calendar.description}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="secondary"
-              icon={<FiCalendar />}
-              onClick={() => setIsDayBlocksModalOpen(true)}
-            >
-              {messages.calendar.blockedDays}
-            </Button>
-            <div className="flex rounded-lg border border-subtle bg-surface p-1">
+          <div className="flex flex-wrap items-end justify-end gap-3">
+            <CalendarExceptionsMenu
+              messages={messages}
+              onBlockedDays={() => setIsDayBlocksModalOpen(true)}
+              onSpecialHours={() => setIsSpecialAvailabilityOpen(true)}
+            />
+            <div className="flex shrink-0 rounded-lg border border-subtle bg-surface p-1">
               {modes.map((item) => (
                 <Button
                   key={item}
@@ -202,6 +193,14 @@ export function CalendarView({
           </div>
         }
       />
+
+      {isSpecialAvailabilityOpen ? (
+        <SpecialAvailabilityModal
+          services={services} employees={employees} dayBlocks={businessDayBlocks} messages={messages}
+          initialDate={safeFocusedDate} isOpen onClose={() => setIsSpecialAvailabilityOpen(false)}
+          onSave={onSaveSpecialAvailability} onDelete={onDeleteSpecialAvailability}
+        />
+      ) : null}
 
       <BusinessDayBlocksModal
         dayBlocks={businessDayBlocks}

@@ -224,9 +224,26 @@ export const messages = {
       lockedStatus: "Fuera del cupo"
     },
     calendar: {
+      exceptions: "Excepciones",
+      exceptional: {
+        title: "Horarios especiales",
+        description: "Agregá una franja para una fecha puntual, aunque el servicio y los profesionales no atiendan habitualmente ese día.",
+        date: "Fecha", service: "Servicio", chooseService: "Elegí un servicio", start: "Desde", end: "Hasta", employees: "Profesionales",
+        chooseServiceHint: "Elegí un servicio para ver sus profesionales asignados.",
+        noEmployees: "Este servicio no tiene profesionales activos asignados. Asignalos desde Servicios.",
+        blockedHint: "Se suma al horario habitual solo para esta fecha. Los cierres del negocio o del profesional tienen prioridad.",
+        add: "Agregar horario especial", upcoming: "Horarios programados", empty: "Todavía no hay horarios especiales programados.",
+        invalid: "Revisá la fecha, el horario y seleccioná al menos un profesional.",
+        blocked: "La fecha coincide con un cierre del negocio o de un profesional. Revisá los días bloqueados.",
+        shortRange: "La franja debe permitir al menos un turno completo del servicio.",
+        saveError: "No pudimos guardar la apertura. Revisá el aviso y volvé a intentar.", deleteError: "No pudimos eliminar la apertura. Volvé a intentar.",
+        saved: "Horarios especiales guardados", deleted: "Apertura eliminada", unknownEmployee: "Profesional no disponible",
+        deleteHint: "Eliminar una apertura no cancela los turnos ya reservados."
+      },
+
       eyebrow: "Agenda",
       title: "Calendario de turnos",
-      description: "Mirá la agenda por día, semana o mes, y filtrá por uno o más integrantes del personal.",
+      description: "Mirá la agenda por día, semana o mes y filtrá por profesional. Desde Excepciones, bloqueá días o agregá horarios especiales para una fecha puntual.",
       day: "Día",
       week: "Semana",
       month: "Mes",
@@ -1244,9 +1261,26 @@ export const messages = {
       lockedStatus: "Outside plan limit"
     },
     calendar: {
+      exceptions: "Exceptions",
+      exceptional: {
+        title: "Special hours",
+        description: "Add hours for a specific date, even when the service and professionals do not normally work that day.",
+        date: "Date", service: "Service", chooseService: "Choose a service", start: "From", end: "Until", employees: "Professionals",
+        chooseServiceHint: "Choose a service to see its assigned professionals.",
+        noEmployees: "This service has no active assigned professionals. Assign them in Services.",
+        blockedHint: "Adds hours for this date only. Business and professional closures take priority.",
+        add: "Add special hours", upcoming: "Scheduled hours", empty: "No special hours scheduled yet.",
+        invalid: "Check the date and hours, and select at least one professional.",
+        blocked: "This date overlaps a business or professional closure. Review blocked days.",
+        shortRange: "The hours must allow at least one full appointment.",
+        saveError: "Unable to save this opening. Check the notice and try again.", deleteError: "Unable to delete this opening. Try again.",
+        saved: "Special hours saved", deleted: "Opening deleted", unknownEmployee: "Unavailable professional",
+        deleteHint: "Deleting an opening does not cancel existing appointments."
+      },
+
       eyebrow: "Schedule",
       title: "Appointment calendar",
-      description: "See the calendar by day, week or month, and filter one or more employees.",
+      description: "View your calendar by day, week or month and filter by professional. Use Exceptions to block days or add special hours for a specific date.",
       day: "Day",
       week: "Week",
       month: "Month",

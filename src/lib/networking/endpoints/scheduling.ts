@@ -1,6 +1,7 @@
 "use client";
 
-import { BusinessDayBlock, BusinessPaymentSettings, BusinessProfile, Locale, ThemeId } from "@/features/scheduling/types";
+import { loadSpecialAvailability } from "@/lib/networking/special-availability";
+import { SpecialAvailability, BusinessDayBlock, BusinessPaymentSettings, BusinessProfile, Locale, ThemeId } from "@/features/scheduling/types";
 import { defaultCancellationLeadMinutes } from "@/features/scheduling/service-cancellation-policy";
 import { getNextEmployeeColor } from "@/features/scheduling/employee-colors";
 import { getSupabaseBrowserClient } from "@/lib/networking/clients/supabase-browser";
@@ -164,7 +165,8 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
     appointmentResult,
     businessDayBlockResult,
     paymentSettings,
-    referralSummary
+    referralSummary,
+    specialAvailability
   ] = await Promise.all([
     supabase
       .from("user_profiles")
@@ -247,7 +249,8 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
       : Promise.resolve(emptyPaymentSettings),
     shouldLoadReferralSummary(scope)
       ? getReferralSummary().catch(() => null)
-      : Promise.resolve(null)
+      : Promise.resolve(null),
+    scopeConfig.includeServices ? loadSpecialAvailability(supabase, businessId) : Promise.resolve([])
   ]);
 
   if (isMissingSingleRowError(userProfileResult.error)) {
@@ -283,7 +286,8 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
     ),
     (serviceAddonResult.data ?? []).filter((row) =>
       (serviceResult.data ?? []).some((service) => service.id === row.service_id)
-    )
+    ),
+    specialAvailability
   );
   const appointments = mapAppointments(appointmentResult.data ?? [], timeZone);
   const businessDayBlocks = mapBusinessDayBlocks(businessDayBlockResult.data ?? []);
@@ -420,6 +424,14 @@ export async function deleteService(businessId: string, serviceId: string) {
     businessId,
     serviceId
   });
+}
+
+export async function saveSpecialAvailability(businessId: string, opening: SpecialAvailability) {
+  return runSchedulingMutation({ action: "saveSpecialAvailability", businessId, opening });
+}
+
+export async function deleteSpecialAvailability(businessId: string, openingId: string) {
+  return runSchedulingMutation({ action: "deleteSpecialAvailability", businessId, openingId });
 }
 
 export async function saveBusinessDayBlock(businessId: string, dayBlock: BusinessDayBlockInput) {

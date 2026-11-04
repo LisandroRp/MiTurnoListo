@@ -46,6 +46,8 @@ test("the palette separates neighboring hues and the calendar exposes full-color
     assert.ok(next - hues[index] >= 25);
   }
   const calendar = readFileSync(new URL("./CalendarView.tsx", import.meta.url), "utf8");
+  const sharedColors = readFileSync(new URL("./employeeColors.ts", import.meta.url), "utf8");
+  assert.match(calendar, /employeeToneClasses as appointmentToneClasses/);
   assert.match(calendar, /mr-2 inline-block h-2\.5 w-2\.5 rounded-full align-middle/);
 });
 
@@ -59,6 +61,8 @@ test("service and calendar screens use stored colors and preserve fixed circular
     assert.match(source.slice(marker.index + marker[0].length, marker.index + marker[0].length + 180), /min-w-0/);
   }
   const calendar = readFileSync(new URL("./CalendarView.tsx", import.meta.url), "utf8");
+  const sharedColors = readFileSync(new URL("./employeeColors.ts", import.meta.url), "utf8");
+  assert.match(calendar, /employeeToneClasses as appointmentToneClasses/);
   assert.doesNotMatch(calendar, /calendarEmployeeColorKeys|color:.*index/);
   const repair = readFileSync(new URL("../../../../docs/employee-colors.sql", import.meta.url), "utf8");
   const globals = readFileSync(new URL("../../../app/globals.css", import.meta.url), "utf8");
@@ -66,7 +70,7 @@ test("service and calendar screens use stored colors and preserve fixed circular
     assert.ok(repair.includes(`'${color}'`));
     assert.ok(globals.includes(`--color-${color}: var(--${color});`));
     assert.ok(globals.includes(`--${color}: oklch(`));
-    assert.ok(calendar.includes(`border-${color}/35 bg-${color}/12 hover:bg-${color}/18`));
+    assert.ok(sharedColors.includes(`border-${color}/35 bg-${color}/12 hover:bg-${color}/18`));
     assert.ok(calendar.includes(`"${color}": "bg-${color}"`));
   }
 });

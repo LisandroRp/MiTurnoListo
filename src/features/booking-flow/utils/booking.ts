@@ -78,17 +78,17 @@ export function getAvailableSlotsForEmployee(
     const serviceRanges = service.schedule[dayKey];
     const employeeRanges = employee.schedule[dayKey];
 
-    if (!serviceRanges.length || !employeeRanges.length) {
-      continue;
-    }
-
     const dateKey = toDateKey(date);
 
     if (isDateBlocked(dateKey, dayBlocks, employee.id)) {
       continue;
     }
 
-    const overlappingRanges = getOverlappingRanges(serviceRanges, employeeRanges);
+    const exceptionalRanges = (service.specialAvailability ?? [])
+      .filter((opening) => opening.serviceId === service.id && opening.date === dateKey && opening.employeeIds.includes(employee.id) && service.employeeIds.includes(employee.id))
+      .map((opening) => ({ id: opening.id, start: opening.start, end: opening.end }));
+    const weeklyRanges = getOverlappingRanges(serviceRanges, employeeRanges);
+    const overlappingRanges = exceptionalRanges.length ? mergeAvailabilityRanges([...weeklyRanges, ...exceptionalRanges]) : weeklyRanges;
 
     overlappingRanges.forEach((range) => {
       const slotTimes = buildSlotTimes(range.start, range.end, service.durationMinutes);
@@ -319,4 +319,18 @@ function dedupeSlots(slots: BookingSlot[]) {
 
 function rangesOverlap(startA: string, endA: string, startB: string, endB: string) {
   return toMinutes(startA) < toMinutes(endB) && toMinutes(startB) < toMinutes(endA);
+}
+
+
+function mergeAvailabilityRanges(ranges: TimeRange[]): TimeRange[] {
+  const merged: TimeRange[] = [];
+  for (const range of [...ranges].sort((a, b) => a.start.localeCompare(b.start))) {
+    const previous = merged[merged.length - 1];
+    if (previous && range.start <= previous.end) {
+      previous.end = previous.end > range.end ? previous.end : range.end;
+    } else {
+      merged.push({ ...range });
+    }
+  }
+  return merged;
 }

@@ -19,6 +19,8 @@ export default function CalendarSectionPage() {
     setFocusedDate,
     setEmployeeQuery,
     toggleEmployee,
+    saveSpecialAvailability,
+    deleteSpecialAvailability,
     saveBusinessDayBlock,
     deleteBusinessDayBlock,
     deleteAppointment,
@@ -43,6 +45,8 @@ export default function CalendarSectionPage() {
       onFocusedDateChange={setFocusedDate}
       onEmployeeQueryChange={setEmployeeQuery}
       onToggleEmployee={toggleEmployee}
+      onSaveSpecialAvailability={saveSpecialAvailability}
+      onDeleteSpecialAvailability={deleteSpecialAvailability}
       onSaveBusinessDayBlock={saveBusinessDayBlock}
       onDeleteBusinessDayBlock={deleteBusinessDayBlock}
       onDeleteAppointment={deleteAppointment}

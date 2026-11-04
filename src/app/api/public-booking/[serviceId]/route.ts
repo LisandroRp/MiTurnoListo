@@ -1,3 +1,4 @@
+import { loadSpecialAvailability } from "@/lib/networking/special-availability";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
@@ -175,7 +176,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     [service],
     (serviceEmployeesResult.data ?? []).filter((row) => availableEmployeeIds.has(row.employee_id)),
     serviceAvailabilityResult.data ?? [],
-    serviceAddonsResult.data ?? []
+    serviceAddonsResult.data ?? [],
+    (await loadSpecialAvailability(supabase, businessId, service.id))
+      .map((opening) => ({ ...opening, employeeIds: opening.employeeIds.filter((id) => availableEmployeeIds.has(id)) }))
+      .filter((opening) => opening.employeeIds.length > 0)
   )[0];
   const appointments = mapAppointments(
     (appointmentsResult.data ?? []).filter((appointment) => availableEmployeeIds.has(appointment.employee_id)),
@@ -417,7 +421,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       [service],
       serviceEmployeesResult.data ?? [],
       serviceAvailabilityResult.data ?? [],
-      serviceAddonsResult.data ?? []
+      serviceAddonsResult.data ?? [],
+      await loadSpecialAvailability(supabase, service.business_id, service.id)
     )[0];
 
     if (!employee || !serviceModel) {

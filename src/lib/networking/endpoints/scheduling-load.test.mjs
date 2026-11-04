@@ -33,12 +33,16 @@ function createSnapshotLoader(tables, failedTable) {
       return query;
     }
   };
+  const availabilityUrl = new URL("../special-availability.ts", import.meta.url);
+  const availabilityModule = new Module(availabilityUrl.pathname);
+  availabilityModule._compile(ts.transpileModule(readFileSync(availabilityUrl, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, availabilityUrl.pathname);
   const identity = (rows) => rows;
   const modules = {
+    "@/lib/networking/special-availability": availabilityModule.exports,
     "@/lib/networking/clients/supabase-browser": { getSupabaseBrowserClient: () => database },
     "@/lib/networking/mappers/scheduling": {
       mapEmployees: (employees, availability) => ({ employees, availability }),
-      mapServices: (services, employees, availability, addons) => ({ services, employees, availability, addons }),
+      mapServices: (services, employees, availability, addons, specialAvailability) => ({ services, employees, availability, addons, specialAvailability }),
       mapAppointments: identity,
       mapBusinessDayBlocks: identity,
       mapProfile: () => ({}),
@@ -101,4 +105,18 @@ test("profile loads skip scheduling tables", async () => {
   const { load, queries } = createSnapshotLoader(workspace);
   await load({ scope: "profile" });
   assert.deepEqual(queries.map((query) => query.table).sort(), ["business_memberships", "businesses", "user_profiles"]);
+});
+
+
+test("exceptional availability is loaded only for the current business and mapped into services", async () => {
+  const app = createSnapshotLoader({
+    ...workspace,
+    service_special_availability: [
+      { id: "opening", business_id: "business", service_id: "service", date: "2030-08-09", start_time: "09:00:00", end_time: "12:00:00", employee_ids: ["employee"] },
+      { id: "private", business_id: "other", service_id: "other-service", date: "2030-08-09", start_time: "09:00:00", end_time: "12:00:00", employee_ids: ["other"] }
+    ]
+  });
+  const snapshot = await app.load({ scope: "calendar" });
+  assert.deepEqual(snapshot.services.specialAvailability, [{ id: "opening", serviceId: "service", date: "2030-08-09", start: "09:00", end: "12:00", employeeIds: ["employee"] }]);
+  assert.ok(app.queries.some((query) => query.table === "service_special_availability" && query.filters.some(([column, values]) => column === "business_id" && values[0] === "business")));
 });

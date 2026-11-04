@@ -1,5 +1,8 @@
 "use client";
 
+import { saveSpecialAvailability as saveSpecialAvailabilityRequest, deleteSpecialAvailability as deleteSpecialAvailabilityRequest } from "@/lib/networking/endpoints/scheduling";
+import type { SpecialAvailability } from "@/features/scheduling/types";
+
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
@@ -83,6 +86,8 @@ type SchedulingContextValue = {
   saveProfileAvatar: (avatarUrl: string) => Promise<boolean>;
   savePaymentSettings: (settings: BusinessPaymentSettings) => Promise<boolean>;
   saveService: (service: Service) => Promise<boolean>;
+  saveSpecialAvailability: (opening: SpecialAvailability) => Promise<boolean>;
+  deleteSpecialAvailability: (openingId: string) => Promise<boolean>;
   saveBusinessDayBlock: (dayBlock: BusinessDayBlock) => Promise<boolean>;
   selectedEmployeeIds: string[];
   setCalendarMode: (mode: CalendarMode) => void;
@@ -471,6 +476,16 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       copy.toast.appointmentDeleted,
       "Unable to delete the appointment."
     );
+  }
+
+  async function saveSpecialAvailability(opening: SpecialAvailability) {
+    if (!businessId) return false;
+    return runMutation(() => saveSpecialAvailabilityRequest(businessId, opening), copy.calendar.exceptional.saved, "Unable to save exceptional availability.");
+  }
+
+  async function deleteSpecialAvailability(openingId: string) {
+    if (!businessId) return false;
+    return runMutation(() => deleteSpecialAvailabilityRequest(businessId, openingId), copy.calendar.exceptional.deleted, "Unable to delete exceptional availability.");
   }
 
   async function saveBusinessDayBlock(dayBlock: BusinessDayBlock) {
@@ -980,6 +995,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         employeeQuery,
         locale,
         saveBusinessProfile,
+        saveSpecialAvailability,
+        deleteSpecialAvailability,
         saveBusinessDayBlock,
         saveProfileAvatar,
         saveEmployee,

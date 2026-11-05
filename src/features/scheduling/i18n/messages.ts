@@ -534,6 +534,11 @@ export const messages = {
       totalSpent: "Total estimado",
       lastService: "Último servicio",
       lastBooking: "Última reserva",
+      history: {
+        title: "Reservas de {name}", open: "Ver reservas de {name}", upcoming: "Próximas reservas", past: "Reservas anteriores",
+        empty: "Este cliente todavía no tiene reservas.", loading: "Cargando reservas", error: "No pudimos cargar las reservas.", retry: "Reintentar", close: "Cerrar",
+        summary: "{from}–{to} de {total} reservas"
+      },
       tag: "Etiqueta",
       recurrent: "Recurrente",
       loading: "Cargando clientes",
@@ -1571,6 +1576,11 @@ export const messages = {
       totalSpent: "Estimated total",
       lastService: "Last service",
       lastBooking: "Last booking",
+      history: {
+        title: "Bookings for {name}", open: "View bookings for {name}", upcoming: "Upcoming bookings", past: "Previous bookings",
+        empty: "This customer has no bookings yet.", loading: "Loading bookings", error: "Unable to load bookings.", retry: "Retry", close: "Close",
+        summary: "{from}–{to} of {total} bookings"
+      },
       tag: "Tag",
       recurrent: "Recurring",
       loading: "Loading customers",

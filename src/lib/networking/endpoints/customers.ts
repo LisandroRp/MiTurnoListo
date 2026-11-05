@@ -1,6 +1,6 @@
 "use client";
 
-import { Customer } from "@/features/scheduling/types";
+import { Customer, CustomerBookingsResponse } from "@/features/scheduling/types";
 import { CustomerSort, CustomerTagFilter } from "@/features/scheduling/utils/customer-list";
 import { getAccessToken } from "@/lib/networking/endpoints/auth";
 import { getResponseErrorMessage } from "@/lib/networking/response-errors";
@@ -77,4 +77,14 @@ export async function getCustomers(businessId: string, options: GetCustomersOpti
       totalRevenue: payload.meta?.totalRevenue ?? 0
     }
   };
+}
+
+export async function getCustomerBookings(businessId: string, customerId: string, page: number, signal?: AbortSignal): Promise<CustomerBookingsResponse> {
+  const accessToken = await getAccessToken();
+  const params = new URLSearchParams({ businessId, customerId, page: String(page) });
+  const response = await fetch(`/api/customers/bookings?${params}`, {
+    headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store", signal
+  });
+  if (!response.ok) throw new Error(await getResponseErrorMessage(response, "Unable to load bookings."));
+  return response.json();
 }

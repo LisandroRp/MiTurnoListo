@@ -235,3 +235,19 @@ export type ToastMessage = {
   title: string;
   description?: string;
 };
+
+export type CustomerBooking = {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  serviceName: string;
+  employeeName: string;
+  appointmentStatus: AppointmentLifecycleStatus;
+  paymentStatus: AppointmentPaymentStatus;
+  isUpcoming: boolean;
+};
+
+export type CustomerBookingsResponse = {
+  data: CustomerBooking[];
+  meta: { currentPage: number; perPage: number; total: number; timeZone: string };
+};

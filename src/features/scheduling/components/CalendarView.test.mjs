@@ -14,10 +14,11 @@ const messages = messagesModule.exports.messages.es;
 
 function harness() {
   const states = [];
+  const effects = [];
   let stateCursor = 0;
   const paidCalls = [];
   const modules = {
-    react: { useEffect: () => {}, useState: (value) => {
+    react: { useEffect: (callback) => effects.push(callback), useState: (value) => {
       const index = stateCursor++;
       if (!(index in states)) states[index] = value;
       return [states[index], (update) => { states[index] = typeof update === "function" ? update(states[index]) : update; }];
@@ -60,13 +61,13 @@ function harness() {
     messages, appointment: { id: "one", customerName: "Example", customerEmail: "", customerPhone: "", serviceId: "service", employeeId: "a", date: "2099-10-26", startTime: "12:00", endTime: "12:30", status: "pending", appointmentStatus: "scheduled", paymentStatus: "pending", source: "dashboard", revenue: 1, paymentMethod: "cash", partySize: 1 },
     employees: [], appointments: [], onMarkAppointmentPaid: async (...args) => { paidCalls.push(args); return true; }
   };
-  function renderCard(overrides = {}) { cardProps = { ...cardProps, ...overrides }; stateCursor = 0; tree = loaded.exports.AppointmentCard(cardProps); }
+  function renderCard(overrides = {}) { cardProps = { ...cardProps, ...overrides }; stateCursor = 0; effects.length = 0; tree = loaded.exports.AppointmentCard(cardProps); }
   const visible = () => nodes().find((node) => node.type === "CollapsibleRow").props.children.filter(Boolean);
   const navigate = (direction) => {
     nodes().find((node) => node.type === "Button" && node.props["aria-label"] === messages.calendar[direction]).props.onClick();
     render();
   };
-  return { props, render, renderCard, paidCalls, visible, nodes, navigate, toggled };
+  return { notifyModalState: () => effects[0](), props, render, renderCard, paidCalls, visible, nodes, navigate, toggled };
 }
 
 for (const mode of ["day", "week", "month"]) {
@@ -152,4 +153,24 @@ test("calendar keeps exceptions separate from the period selector and explains i
   exceptions.props.onBlockedDays();
   app.render();
   assert.equal(app.nodes().find((node) => node.type === "BusinessDayBlocksModal").props.isOpen, true);
+});
+
+
+test("history trigger uses the calendar detail and payment modals without treating their transitions as closing", () => {
+  const app = harness();
+  const events = [];
+  app.renderCard({ defaultOpen: true, renderTrigger: (open) => ({ type: "history-trigger", props: { onClick: open } }), onModalStateChange: (open) => events.push(open) });
+  app.notifyModalState();
+  assert.equal(events.at(-1), true);
+  assert.ok(app.nodes().some((node) => node.type === "history-trigger"));
+  assert.ok(app.nodes().some((node) => node.type === "Modal" && node.props.isOpen));
+  app.nodes().find((node) => node.type === "Button" && node.props.children === messages.calendar.markAsPaid).props.onClick();
+  app.renderCard(); app.notifyModalState();
+  assert.equal(events.at(-1), true);
+  app.nodes().find((node) => node.type === "AppointmentPaymentModal").props.onClose();
+  app.renderCard(); app.notifyModalState();
+  assert.equal(events.at(-1), true);
+  app.nodes().find((node) => node.type === "Button" && node.props["aria-label"] === messages.actions.cancel).props.onClick();
+  app.renderCard(); app.notifyModalState();
+  assert.equal(events.at(-1), false);
 });

@@ -636,6 +636,9 @@ function DateGroupedCalendar({
 }
 
 type AppointmentCardProps = {
+  defaultOpen?: boolean;
+  renderTrigger?: (open: () => void) => ReactNode;
+  onModalStateChange?: (isOpen: boolean) => void;
   messages: Messages;
   appointment: Appointment;
   employee?: Employee;
@@ -653,6 +656,9 @@ type AppointmentCardProps = {
 };
 
 export function AppointmentCard({
+  defaultOpen = false,
+  renderTrigger,
+  onModalStateChange,
   messages,
   appointment,
   employee,
@@ -668,10 +674,12 @@ export function AppointmentCard({
   onMarkAppointmentPaid,
   onRescheduleAppointment
 }: AppointmentCardProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [isCancellationOpen, setIsCancellationOpen] = useState(false);
+  const hasOpenModal = isOpen || isPaymentOpen || isRescheduling || isCancellationOpen;
+  useEffect(() => { onModalStateChange?.(hasOpenModal); }, [hasOpenModal, onModalStateChange]);
   const [cancellationReason, setCancellationReason] = useState("");
   const [cancellationError, setCancellationError] = useState("");
   const [rescheduleDate, setRescheduleDate] = useState(appointment.date);
@@ -882,7 +890,7 @@ export function AppointmentCard({
     setRescheduleEmployeeId(nextEmployeeId);
   }
 
-  const trigger = variant === "action" ? (
+  const trigger = renderTrigger ? renderTrigger(() => setIsOpen(true)) : variant === "action" ? (
     <Button size="icon" variant="ghost" aria-label={`${messages.calendar.appointmentDetails}: ${appointment.customerName}`} title={messages.calendar.appointmentDetails} className="text-brand-strong" onClick={() => setIsOpen(true)}><FiEye aria-hidden="true" /></Button>
   ) : variant === "dashboardRow" ? (
     <button

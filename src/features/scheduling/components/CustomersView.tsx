@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { FiSearch, FiUserCheck } from "react-icons/fi";
 
+import { CustomerBookingHistory, CustomerBookingHistoryButton } from "@/features/scheduling/components/CustomerBookingHistory";
 import { CustomerTagBadge } from "@/features/scheduling/components/CustomerTagBadge";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { Card } from "@/components/ui/Card";
@@ -39,6 +40,7 @@ type CustomersViewProps = {
 };
 
 export function CustomersView({ businessId, messages }: CustomersViewProps) {
+  const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
@@ -229,7 +231,7 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
                       <td className="px-4 py-4 font-semibold text-primary">{customer.bookingCount}</td>
                       <td className="px-4 py-4 font-semibold text-primary">{formatCurrency(customer.totalRevenue)}</td>
                       <td className="px-4 py-4 text-muted">{customer.lastServiceName || "-"}</td>
-                      <td className="whitespace-nowrap px-4 py-4 text-muted">{formatLastBookingLabel(customer.lastBookedAt, messages)}</td>
+                      <td className="whitespace-nowrap px-4 py-4 text-muted"><span className="inline-flex items-center gap-1.5">{formatLastBookingLabel(customer.lastBookedAt, messages)}<CustomerBookingHistoryButton customer={customer} messages={messages} onClick={() => setHistoryCustomer(customer)} /></span></td>
                       <td className="min-w-28 px-4 py-4">
                         <CustomerTagBadge tag={getCustomerTagKey(customer)} messages={messages} />
                       </td>
@@ -242,7 +244,7 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
 
             <div className="grid gap-3 p-4 lg:hidden">
               {customers.map((customer) => (
-                <CustomerMobileCard key={customer.id} customer={customer} messages={messages} />
+                <CustomerMobileCard key={customer.id} customer={customer} messages={messages} onHistory={() => setHistoryCustomer(customer)} />
               ))}
             </div>
 
@@ -257,6 +259,7 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
           </>
         )}
       </section>
+      {businessId && historyCustomer ? <CustomerBookingHistory key={`${businessId}:${historyCustomer.id}`} businessId={businessId} customer={historyCustomer} messages={messages} onClose={() => setHistoryCustomer(null)} /> : null}
     </div>
   );
 }
@@ -299,7 +302,7 @@ function CustomersPagination({
   );
 }
 
-function CustomerMobileCard({ customer, messages }: { customer: Customer; messages: Messages }) {
+function CustomerMobileCard({ customer, messages, onHistory }: { customer: Customer; messages: Messages; onHistory: () => void }) {
 
   return (
     <div className="rounded-xl border border-subtle bg-input p-4">
@@ -313,7 +316,7 @@ function CustomerMobileCard({ customer, messages }: { customer: Customer; messag
         <CustomerDetail label={messages.customers.bookings} value={String(customer.bookingCount)} />
         <CustomerDetail label={messages.customers.totalSpent} value={formatCurrency(customer.totalRevenue)} />
         <CustomerDetail label={messages.customers.lastService} value={customer.lastServiceName || "-"} />
-        <CustomerDetail label={messages.customers.lastBooking} value={formatLastBookingLabel(customer.lastBookedAt, messages)} />
+        <CustomerDetail label={messages.customers.lastBooking} value={<span className="inline-flex items-center gap-1.5">{formatLastBookingLabel(customer.lastBookedAt, messages)}<CustomerBookingHistoryButton customer={customer} messages={messages} onClick={onHistory} /></span>} />
       </div>
     </div>
   );
@@ -330,7 +333,7 @@ function CustomerIdentity({ customer }: { customer: Customer }) {
   );
 }
 
-function CustomerDetail({ label, value }: { label: string; value: string }) {
+function CustomerDetail({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex justify-between gap-3">
       <span>{label}</span>

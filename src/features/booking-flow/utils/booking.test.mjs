@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getAvailableSlotsForEmployee, getAvailableSlotsForEmployees, isDateBlocked, sanitizePublicDayBlocks } from "./booking.ts";
+import { getAvailableSlotsForEmployee, getAvailableSlotsForEmployees, isDateBlocked, isTimeRangeBlocked, sanitizePublicDayBlocks } from "./booking.ts";
 
 function createService(overrides = {}) {
   return {
@@ -269,4 +269,32 @@ test("overlapping exceptional and weekly hours do not duplicate slots", () => {
   service.specialAvailability.push({ ...service.specialAvailability[0], id: "second", start: "10:30", end: "11:30" });
   const slots = exceptionalSlots(service, employee).filter((slot) => slot.date === "2026-08-07");
   assert.deepEqual(slots.map((slot) => slot.startTime), ["09:00", "09:30", "10:00", "10:30", "11:00"]);
+});
+
+
+const hourlyBlock = { id: "hours", startsOn: "2026-08-03", endsOn: "2026-08-03", employeeId: "employee-1", startTime: "09:20", endTime: "09:40", reason: "Private" };
+
+test("hour blocks remove partially overlapping slots for only the selected professional and date", () => {
+  const service = createService({ employeeIds: ["employee-1", "employee-2"] });
+  const first = createEmployee();
+  const second = { ...first, id: "employee-2" };
+  const slots = getAvailableSlotsForEmployees(service, [first, second], [], new Date("2026-08-01T12:00:00"), 1, new Date("2026-08-01T08:00:00"), [hourlyBlock]);
+  assert.deepEqual(slots.filter((slot) => slot.date === "2026-08-03").map((slot) => slot.employeeAvailability.map((availability) => availability.employeeId)), [["employee-2"], ["employee-2"]]);
+  assert.ok(slots.filter((slot) => slot.date === "2026-08-10").every((slot) => slot.employeeAvailability.length === 2));
+  assert.equal(isDateBlocked(hourlyBlock.startsOn, [hourlyBlock], first.id), false);
+});
+
+test("hourly overlap checks preserve adjacent slots and enforce business and full-day blocks", () => {
+  const date = hourlyBlock.startsOn;
+  for (const [start, end, expected] of [["09:00", "09:20", false], ["09:40", "10:00", false], ["09:00", "09:30", true], ["09:30", "10:00", true], ["09:20", "09:40", true], ["09:00", "10:00", true]]) assert.equal(isTimeRangeBlocked(date, start, end, [hourlyBlock], "employee-1"), expected);
+  assert.equal(isTimeRangeBlocked(date, "09:00", "10:00", [hourlyBlock], "employee-2"), false);
+  assert.equal(isTimeRangeBlocked(date, "09:00", "10:00", [{ ...hourlyBlock, startTime: null, endTime: null }], "employee-1"), true);
+  assert.equal(isTimeRangeBlocked(date, "09:00", "10:00", [{ ...hourlyBlock, employeeId: null, startTime: null, endTime: null }], "employee-2"), true);
+  assert.equal(sanitizePublicDayBlocks([hourlyBlock])[0].reason, "");
+  assert.equal(sanitizePublicDayBlocks([hourlyBlock])[0].startTime, "09:20");
+});
+
+test("hour blocks also filter exceptional openings", () => {
+  const slots = exceptionalSlots(exceptionalService(), createEmployee(), [], [{ ...hourlyBlock, startsOn: "2026-08-07", endsOn: "2026-08-07", startTime: "10:00", endTime: "10:30" }]);
+  assert.deepEqual(slots.filter((slot) => slot.date === "2026-08-07").map((slot) => slot.startTime), ["10:30"]);
 });

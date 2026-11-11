@@ -22,8 +22,8 @@ export function CustomerBookingHistoryButton({ customer, messages, onClick }: { 
   );
 }
 
-export function CustomerBookingHistory({ businessId, customer, messages, onClose }: {
-  businessId: string; customer: Customer; messages: Messages; onClose: () => void;
+export function CustomerBookingHistory({ businessId, customer, messages, onClose, isOpen = true }: {
+  businessId: string; customer: Customer; messages: Messages; onClose: () => void; isOpen?: boolean;
 }) {
   const copy = messages.customers.history;
   const [page, setPage] = useState(1);
@@ -36,6 +36,7 @@ export function CustomerBookingHistory({ businessId, customer, messages, onClose
   const nestedModalOpen = useRef(false);
 
   useEffect(() => {
+    if (!isOpen) return;
     const controller = new AbortController();
     void getCustomerBookings(businessId, customer.id, page, controller.signal).then((response) => {
       if (!controller.signal.aborted) { setResult(response); setFailed(false); }
@@ -45,9 +46,10 @@ export function CustomerBookingHistory({ businessId, customer, messages, onClose
       if (!controller.signal.aborted) setLoading(false);
     });
     return () => controller.abort();
-  }, [businessId, customer.id, page, attempt]);
+  }, [businessId, customer.id, page, attempt, isOpen]);
 
   useEffect(() => {
+    if (!isOpen) return;
     const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const dialog = root.current?.closest('[role="dialog"]');
     dialog?.setAttribute("aria-labelledby", titleId);
@@ -64,10 +66,10 @@ export function CustomerBookingHistory({ businessId, customer, messages, onClose
     }
     document.addEventListener("keydown", handleKey);
     return () => { document.removeEventListener("keydown", handleKey); if (!nestedModalOpen.current) trigger?.focus(); };
-  }, [onClose, titleId]);
+  }, [onClose, titleId, isOpen]);
 
   return (
-    <Modal isOpen className="max-w-2xl">
+    <Modal isOpen={isOpen} className="max-w-2xl">
       <div ref={root} className="grid gap-5">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">

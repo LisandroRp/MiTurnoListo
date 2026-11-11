@@ -9,13 +9,14 @@ import { appointmentPaymentNoteMaxLength, isValidAppointmentPaymentAmount } from
 import type { Messages } from "@/features/scheduling/i18n/messages";
 
 type AppointmentPaymentModalProps = {
+  isOpen?: boolean;
   amount: number;
   messages: Messages;
   onClose: () => void;
   onConfirm: (amount: number, paymentNote?: string) => Promise<boolean | void>;
 };
 
-export function AppointmentPaymentModal({ amount, messages, onClose, onConfirm }: AppointmentPaymentModalProps) {
+export function AppointmentPaymentModal({ amount, messages, onClose, onConfirm, isOpen = true }: AppointmentPaymentModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draftAmount, setDraftAmount] = useState(String(amount));
   const [note, setNote] = useState("");
@@ -42,7 +43,7 @@ export function AppointmentPaymentModal({ amount, messages, onClose, onConfirm }
   }
 
   return (
-    <Modal isOpen>
+    <Modal isOpen={isOpen}>
       <div className="flex items-start justify-between gap-4">
         <h2 className="text-xl font-bold text-primary">{messages.calendar.confirmPaymentTitle}</h2>
         <Button size="icon" variant="ghost" aria-label={messages.actions.cancel} disabled={isSaving} onClick={onClose}><FiX /></Button>

@@ -1,4 +1,5 @@
-import { ChangeEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { ModalPresence } from "@/components/ui/Modal";
+import { ChangeEvent, ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FiArrowLeft, FiArrowRight, FiCheck, FiCopy, FiEdit2, FiGrid, FiInfo, FiMoreHorizontal, FiPlus, FiSearch, FiShare2, FiTrash2 } from "react-icons/fi";
 
@@ -19,6 +20,7 @@ import { FormattedText } from "@/components/ui/FormattedText";
 import { isValidServiceDescription, serviceDescriptionMaxLength } from "@/features/scheduling/service-description";
 import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
+import { useDropdownMotion } from "@/components/ui/useDropdownMotion";
 import { AvailabilityEditor, dayKeys, getScheduleValidationMessage, maxRangesPerDay } from "@/features/scheduling/components/AvailabilityEditor";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { ShareCatalogModal, ShareServiceModal } from "@/features/scheduling/components/ServicesView/ShareResourceModal";
@@ -895,7 +897,7 @@ export function ServicesView({
         )}
       </section>
 
-      {sharingService ? (
+      <ModalPresence>{sharingService ? (
         <ShareServiceModal
           key={sharingService.id}
           messages={messages}
@@ -904,16 +906,16 @@ export function ServicesView({
           onClose={() => setSharingService(null)}
           onCopy={() => void copyServiceLink(sharingService)}
         />
-      ) : null}
+      ) : null}</ModalPresence>
 
-      {isSharingCatalog && businessId ? (
+      <ModalPresence>{isSharingCatalog && businessId ? (
         <ShareCatalogModal
           messages={messages}
           catalogUrl={getPublicCatalogUrl(businessSlug || businessId)}
           onClose={() => setIsSharingCatalog(false)}
           onCopy={() => void copyCatalogLink()}
         />
-      ) : null}
+      ) : null}</ModalPresence>
 
       <PlanLimitModal
         isOpen={Boolean(lockedService)}
@@ -1063,7 +1065,7 @@ function ServiceActionsMenu({
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState({ left: 0, top: 0 });
+  const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null);
   const hasLoadingAction = loadingAction !== null;
 
   const updateMenuPosition = useCallback(() => {
@@ -1091,7 +1093,7 @@ function ServiceActionsMenu({
     });
   }, [service.isArchived]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isOpen) {
       return;
     }
@@ -1137,6 +1139,8 @@ function ServiceActionsMenu({
     setIsOpen(false);
   }
 
+  const { isPresent } = useDropdownMotion({ isOpen, triggerRef: buttonRef, contentRef: menuRef, variant: "diagonal", ready: menuPosition !== null });
+
   return (
     <div className="relative inline-block">
       <button
@@ -1147,17 +1151,19 @@ function ServiceActionsMenu({
         aria-label={messages.actions.openMenu}
         aria-expanded={isOpen}
         onClick={() => {
-          updateMenuPosition();
+          if (!isOpen) setMenuPosition(null);
           setIsOpen((current) => !current);
         }}
       >
         <FiMoreHorizontal aria-hidden="true" />
       </button>
-      {isOpen && typeof document !== "undefined" ? createPortal(
+      {isPresent && typeof document !== "undefined" ? createPortal(
         <div
           ref={menuRef}
-          className="fixed z-50 grid min-w-40 overflow-hidden rounded-xl border border-subtle bg-surface p-1 text-sm shadow-lg"
-          style={{ left: menuPosition.left, top: menuPosition.top }}
+          inert={!isOpen}
+          aria-hidden={!isOpen || undefined}
+          className={cx("fixed z-50 grid min-w-40 overflow-hidden rounded-xl border border-subtle bg-surface p-1 text-sm shadow-lg", !menuPosition && "invisible")}
+          style={{ left: menuPosition?.left ?? 0, top: menuPosition?.top ?? 0 }}
         >
         {!service.isArchived ? (
           <>

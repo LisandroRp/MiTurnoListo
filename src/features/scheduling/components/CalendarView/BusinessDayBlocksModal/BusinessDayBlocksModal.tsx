@@ -3,15 +3,17 @@ import { FiCalendar, FiTrash2, FiX } from "react-icons/fi";
 
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SelectField } from "@/components/ui/SelectField";
 import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { BusinessDayBlock, Employee } from "@/features/scheduling/types";
-import { DayBlockTab, getVisibleDayBlocksForTab } from "@/features/scheduling/utils/day-blocks";
+import { DayBlockTab, getVisibleDayBlocksForTab, getTimedBlockEnd } from "@/features/scheduling/utils/day-blocks";
 import { getDateLabel } from "@/features/scheduling/utils/format";
 
 type BusinessDayBlocksModalProps = {
+  target: DayBlockTab;
   dayBlocks: BusinessDayBlock[];
   employees: Employee[];
   isOpen: boolean;
@@ -26,7 +28,10 @@ type Draft = {
   employeeId: string;
   reason: string;
   startsOn: string;
-  target: "business" | "employee";
+  mode: "day" | "hours";
+  startTime: string;
+  hours: string;
+  minutes: string;
 };
 
 const defaultDraft: Draft = {
@@ -34,10 +39,14 @@ const defaultDraft: Draft = {
   employeeId: "",
   reason: "",
   startsOn: "",
-  target: "business"
+  mode: "day",
+  startTime: "",
+  hours: "0",
+  minutes: "0"
 };
 
 export function BusinessDayBlocksModal({
+  target,
   dayBlocks,
   employees,
   isOpen,
@@ -47,11 +56,10 @@ export function BusinessDayBlocksModal({
   onSave
 }: BusinessDayBlocksModalProps) {
   const [draft, setDraft] = useState(defaultDraft);
-  const [activeTab, setActiveTab] = useState<DayBlockTab>("business");
   const [error, setError] = useState("");
   const [loadingAction, setLoadingAction] = useState<"save" | string | null>(null);
   const minimumBlockDate = getTomorrowDateValue();
-  const sortedDayBlocks = getVisibleDayBlocksForTab(dayBlocks, activeTab, minimumBlockDate);
+  const sortedDayBlocks = getVisibleDayBlocksForTab(dayBlocks, target, minimumBlockDate);
   const availableEmployees = employees.filter((employee) => !employee.isArchived);
   const employeeNames = new Map(employees.map((employee) => [employee.id, employee.name]));
 
@@ -60,10 +68,28 @@ export function BusinessDayBlocksModal({
     setError("");
   }
 
+  const isHourly = target === "employee" && draft.mode === "hours";
+  const startsOn = draft.startsOn.trim();
+  const endsOn = isHourly ? startsOn : draft.endsOn.trim();
+  const endTime = isHourly ? getTimedBlockEnd(draft.startTime, draft.hours, draft.minutes) : null;
+  const hasValidEmployee = target === "business" || availableEmployees.some((employee) => employee.id === draft.employeeId);
+  const canSave = isOpen && loadingAction === null && hasValidEmployee &&
+    isValidDateRange(startsOn, endsOn) && startsOn >= minimumBlockDate && endsOn >= minimumBlockDate &&
+    (!isHourly || endTime !== null);
+
+  function closeModal() {
+    setDraft(defaultDraft);
+    setError("");
+    onClose();
+  }
+
   async function saveDayBlock() {
-    const startsOn = draft.startsOn.trim();
-    const endsOn = (draft.endsOn.trim() || startsOn);
-    const reason = draft.reason.trim() || (draft.target === "employee"
+    if (!isOpen || loadingAction !== null) return;
+    if (isHourly && !endTime) {
+      setError(messages.calendar.blockedHoursInvalid);
+      return;
+    }
+    const reason = draft.reason.trim() || (target === "employee"
       ? messages.calendar.blockedEmployeeDefaultReason
       : messages.calendar.blockedDayDefaultReason);
 
@@ -77,7 +103,7 @@ export function BusinessDayBlocksModal({
       return;
     }
 
-    if (draft.target === "employee" && !availableEmployees.some((employee) => employee.id === draft.employeeId)) {
+    if (!hasValidEmployee) {
       setError(messages.calendar.blockedEmployeeInvalid);
       return;
     }
@@ -89,14 +115,20 @@ export function BusinessDayBlocksModal({
         id: crypto.randomUUID(),
         startsOn,
         endsOn,
+        startTime: isHourly ? draft.startTime : null,
+        endTime,
         reason,
-        employeeId: draft.target === "employee" ? draft.employeeId : null
+        employeeId: target === "employee" ? draft.employeeId : null
       });
 
       if (didSave !== false) {
-        setActiveTab(draft.target);
-        setDraft((current) => ({ ...current, startsOn: "", endsOn: "", reason: "" }));
+        setDraft(defaultDraft);
+        setError("");
+      } else {
+        setError(messages.calendar.blockedSaveFailed);
       }
+    } catch {
+      setError(messages.calendar.blockedSaveFailed);
     } finally {
       setLoadingAction(null);
     }
@@ -113,37 +145,27 @@ export function BusinessDayBlocksModal({
   }
 
   return (
-    <Modal isOpen={isOpen} className="max-h-[calc(100vh-2rem)] max-w-3xl overflow-y-auto">
+    <Modal isOpen={isOpen} className="max-h-[calc(100vh-2rem)] max-w-lg overflow-y-auto">
       <div className="grid gap-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">{messages.calendar.blockedDaysEyebrow}</p>
-            <h2 className="mt-2 text-2xl font-bold text-primary">{messages.calendar.blockedDays}</h2>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-muted">{messages.calendar.blockedDaysDescription}</p>
+            <h2 className="mt-2 text-2xl font-bold text-primary">{target === "employee" ? messages.calendar.blockedEmployeeTitle : messages.calendar.blockedBusinessTitle}</h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-muted">{target === "employee" ? messages.calendar.blockedEmployeeDescription : messages.calendar.blockedBusinessDescription}</p>
           </div>
           <Button
             size="icon"
             variant="ghost"
             aria-label={messages.actions.closeMenu}
             disabled={loadingAction !== null}
-            onClick={onClose}
+            onClick={closeModal}
           >
             <FiX />
           </Button>
         </div>
 
-        <div className="grid gap-4 rounded-xl border border-subtle bg-input p-4">
-          <SelectField
-            label={messages.calendar.blockedTarget}
-            name="blocked-day-target"
-            value={draft.target}
-            options={[
-              { value: "business", label: messages.calendar.blockedBusinessTarget },
-              { value: "employee", label: messages.calendar.blockedEmployeeTarget, disabled: availableEmployees.length === 0 }
-            ]}
-            onChange={(event) => updateDraft("target", event.target.value as Draft["target"])}
-          />
-          {draft.target === "employee" ? (
+        <fieldset disabled={loadingAction !== null} className="grid min-w-0 gap-4 rounded-xl border border-subtle bg-input p-4">
+          {target === "employee" ? (
             <SelectField
               label={messages.calendar.blockedEmployeeLabel}
               name="blocked-day-employee"
@@ -156,9 +178,22 @@ export function BusinessDayBlocksModal({
               onChange={(event) => updateDraft("employeeId", event.target.value)}
             />
           ) : null}
-          <div className="grid gap-4 sm:grid-cols-2">
+          {target === "employee" ? (
+            <SegmentedControl
+              label={messages.calendar.blockedMode}
+              variant="tabs"
+              size="md"
+              value={draft.mode}
+              options={[
+                { value: "day", label: messages.calendar.blockedFullDay },
+                { value: "hours", label: messages.calendar.blockedHours }
+              ]}
+              onChange={(value) => updateDraft("mode", value)}
+            />
+          ) : null}
+          <div className={isHourly ? "grid gap-4" : "grid gap-4 sm:grid-cols-2"}>
             <TextField
-              label={messages.calendar.blockedFrom}
+              label={isHourly ? messages.calendar.blockedDate : messages.calendar.blockedFrom}
               name="blocked-day-start"
               type="date"
               min={minimumBlockDate}
@@ -166,7 +201,7 @@ export function BusinessDayBlocksModal({
               required
               onChange={(event) => updateDraft("startsOn", event.target.value)}
             />
-            <TextField
+            {!isHourly ? <TextField
               label={messages.calendar.blockedUntil}
               name="blocked-day-end"
               type="date"
@@ -174,8 +209,17 @@ export function BusinessDayBlocksModal({
               value={draft.endsOn}
               required
               onChange={(event) => updateDraft("endsOn", event.target.value)}
-            />
+            /> : null}
           </div>
+          {isHourly ? (
+            <div className="grid gap-4">
+              <TextField label={messages.calendar.blockedStartsAt} name="blocked-start-time" type="time" value={draft.startTime} required onChange={(event) => updateDraft("startTime", event.target.value)} />
+              <div className="grid grid-cols-2 gap-4">
+                <TextField label={messages.calendar.blockedDurationHours} name="blocked-duration-hours" type="number" min="0" max="24" step="1" value={draft.hours} required onChange={(event) => updateDraft("hours", event.target.value)} />
+                <TextField label={messages.calendar.blockedDurationMinutes} name="blocked-duration-minutes" type="number" min="0" max="59" step="1" value={draft.minutes} required onChange={(event) => updateDraft("minutes", event.target.value)} />
+              </div>
+            </div>
+          ) : null}
           <TextAreaField
             label={messages.calendar.blockedReason}
             name="blocked-day-reason"
@@ -185,7 +229,7 @@ export function BusinessDayBlocksModal({
           />
 
           {error ? (
-            <p className="rounded-lg border border-danger bg-danger-soft p-3 text-sm font-semibold text-danger">
+            <p role="alert" className="rounded-lg border border-danger bg-danger-soft p-3 text-sm font-semibold text-danger">
               {error}
             </p>
           ) : null}
@@ -193,40 +237,22 @@ export function BusinessDayBlocksModal({
           <Button
             icon={<FiCalendar />}
             isLoading={loadingAction === "save"}
-            disabled={loadingAction !== null}
+            disabled={!canSave}
             className="w-full sm:w-fit"
             onClick={() => void saveDayBlock()}
           >
-            {messages.calendar.blockDay}
+            {isHourly ? messages.calendar.blockHours : messages.calendar.blockDay}
           </Button>
-        </div>
+        </fieldset>
 
         <div className="grid gap-3">
-          <div role="group" aria-label={messages.calendar.blockedDays} className="flex gap-2 border-b border-subtle pb-2">
-            <Button
-              aria-pressed={activeTab === "business"}
-              size="sm"
-              variant={activeTab === "business" ? "primary" : "ghost"}
-              onClick={() => setActiveTab("business")}
-            >
-              {messages.calendar.blockedBusinessTab}
-            </Button>
-            <Button
-              aria-pressed={activeTab === "employee"}
-              size="sm"
-              variant={activeTab === "employee" ? "primary" : "ghost"}
-              onClick={() => setActiveTab("employee")}
-            >
-              {messages.calendar.blockedEmployeeTab}
-            </Button>
-          </div>
           {sortedDayBlocks.length > 0 ? sortedDayBlocks.map((dayBlock) => (
             <div
               key={dayBlock.id}
               className="flex flex-col gap-3 rounded-xl border border-subtle bg-surface p-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="min-w-0">
-                <p className="text-sm font-bold text-primary">{formatDayBlockRange(dayBlock)}</p>
+                <p className="text-sm font-bold text-primary">{formatDayBlockRange(dayBlock)}{dayBlock.startTime && dayBlock.endTime ? ` · ${dayBlock.startTime}–${dayBlock.endTime}` : ` · ${messages.calendar.blockedFullDay}`}</p>
                 {dayBlock.employeeId ? (
                   <p className="mt-1 text-sm font-semibold text-primary">
                     {employeeNames.get(dayBlock.employeeId) ?? messages.calendar.blockedEmployeeUnknown}
@@ -265,7 +291,13 @@ function formatDayBlockRange(dayBlock: BusinessDayBlock) {
 }
 
 function isValidDateRange(startsOn: string, endsOn: string) {
-  return Boolean(startsOn && endsOn && /^\d{4}-\d{2}-\d{2}$/.test(startsOn) && /^\d{4}-\d{2}-\d{2}$/.test(endsOn) && startsOn <= endsOn);
+  return isValidDate(startsOn) && isValidDate(endsOn) && startsOn <= endsOn;
+}
+
+function isValidDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
 function getTomorrowDateValue() {

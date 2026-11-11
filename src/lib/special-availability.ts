@@ -13,7 +13,7 @@ export async function saveSpecialAvailability(supabase: SupabaseClient, business
     supabase.from("services").select("id, duration_minutes").eq("id", opening.serviceId).eq("business_id", businessId).eq("is_active", true).maybeSingle(),
     supabase.from("service_employees").select("employee_id").eq("service_id", opening.serviceId),
     supabase.from("employees").select("id").eq("business_id", businessId).eq("is_active", true).in("id", opening.employeeIds),
-    supabase.from("business_day_blocks").select("employee_id").eq("business_id", businessId).lte("starts_on", opening.date).gte("ends_on", opening.date),
+    supabase.from("business_day_blocks").select("employee_id, start_time").eq("business_id", businessId).lte("starts_on", opening.date).gte("ends_on", opening.date),
     supabase.from("service_special_availability").select("business_id").eq("id", opening.id).maybeSingle()
   ]);
   if ([serviceResult, linksResult, employeesResult, blocksResult, existingResult].some((result) => result.error)) {
@@ -27,7 +27,7 @@ export async function saveSpecialAvailability(supabase: SupabaseClient, business
   if (opening.employeeIds.some((id) => !assignedIds.has(id) || !activeIds.has(id))) {
     throw new Error("SPECIAL_AVAILABILITY:Seleccioná profesionales activos asignados al servicio.");
   }
-  if ((blocksResult.data ?? []).some((block) => !block.employee_id || opening.employeeIds.includes(block.employee_id))) {
+  if ((blocksResult.data ?? []).some((block) => !block.start_time && (!block.employee_id || opening.employeeIds.includes(block.employee_id)))) {
     throw new Error("SPECIAL_AVAILABILITY:La fecha coincide con un cierre del negocio o de un profesional. Revisá los días bloqueados.");
   }
   const minutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));

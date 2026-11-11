@@ -1,6 +1,7 @@
-import { ReactNode, useRef } from "react";
+import { ReactNode, useEffect, useId, useRef, useState } from "react";
 import { FiEdit2, FiMoreHorizontal, FiTrash2 } from "react-icons/fi";
 
+import { useDropdownMotion } from "@/components/ui/useDropdownMotion";
 import { cx } from "@/components/ui/utils";
 import { EmployeeMenuAction } from "@/features/scheduling/components/PersonnelView/types";
 import { Messages } from "@/features/scheduling/i18n/messages";
@@ -25,24 +26,48 @@ export function EmployeeActionsMenu({
   onUnarchive,
   onDelete
 }: EmployeeActionsMenuProps) {
-  const detailsRef = useRef<HTMLDetailsElement | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const menuId = useId();
+  const { isPresent } = useDropdownMotion({ isOpen, triggerRef, contentRef: menuRef, variant: "diagonal" });
   const hasLoadingAction = loadingAction !== null;
 
+  useEffect(() => {
+    if (!isOpen) return;
+    function outsidePointer(event: PointerEvent) {
+      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setIsOpen(false);
+    }
+    function escape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault(); setIsOpen(false); triggerRef.current?.focus();
+    }
+    document.addEventListener("pointerdown", outsidePointer);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", outsidePointer); document.removeEventListener("keydown", escape); };
+  }, [isOpen]);
+
   async function runAction(action: () => Promise<void>) {
-    if (hasLoadingAction) {
+    if (!isOpen || disabled || hasLoadingAction) {
       return;
     }
 
     await action();
 
-    if (detailsRef.current) {
-      detailsRef.current.open = false;
-    }
+    setIsOpen(false);
+    triggerRef.current?.focus();
   }
 
   return (
-    <details ref={detailsRef} className="group relative">
-      <summary
+    <div ref={rootRef} className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        disabled={disabled && !hasLoadingAction}
+        aria-expanded={isOpen}
+        aria-controls={menuId}
+        onClick={() => setIsOpen((current) => !current)}
         className={cx(
           "grid h-8 w-8 cursor-pointer list-none place-items-center rounded-full text-muted transition hover:bg-surface-strong hover:text-primary [&::-webkit-details-marker]:hidden",
           disabled && "pointer-events-none opacity-50"
@@ -50,8 +75,8 @@ export function EmployeeActionsMenu({
         aria-label={messages.actions.openMenu}
       >
         <FiMoreHorizontal aria-hidden="true" />
-      </summary>
-      <div className="absolute right-0 top-9 z-20 grid min-w-36 overflow-hidden rounded-xl border border-subtle bg-surface p-1 text-sm shadow-lg">
+      </button>
+      {isPresent ? <div ref={menuRef} id={menuId} inert={!isOpen} aria-hidden={!isOpen || undefined} className="absolute right-0 top-9 z-20 grid min-w-36 overflow-hidden rounded-xl border border-subtle bg-surface p-1 text-sm shadow-lg">
         {!employee.isArchived ? (
           <button
             type="button"
@@ -84,8 +109,8 @@ export function EmployeeActionsMenu({
             </button>
           </>
         )}
-      </div>
-    </details>
+      </div> : null}
+    </div>
   );
 }
 

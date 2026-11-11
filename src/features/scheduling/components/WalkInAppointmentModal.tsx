@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { FiClock, FiMail, FiPhone, FiPlusCircle, FiUser, FiX } from "react-icons/fi";
 
 import { Button } from "@/components/ui/Button";
@@ -8,6 +8,7 @@ import { CheckboxField } from "@/components/ui/CheckboxField";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/SelectField";
 import { TextField } from "@/components/ui/TextField";
+import { CustomerLookupField } from "@/features/booking-flow/components/CustomerLookupField";
 import { BookingCustomerSuggestion } from "@/features/booking-flow/types";
 import { Appointment, Employee, PaymentMethod, Service } from "@/features/scheduling/types";
 import { Messages } from "@/features/scheduling/i18n/messages";
@@ -39,6 +40,7 @@ export function WalkInAppointmentModal({
   onClose,
   onCreateAppointment
 }: WalkInAppointmentModalProps) {
+  const phoneFieldId = useId();
   const freeEmployeeIds = isFreePlan(subscriptionTier)
     ? getFreePlanIncludedIds(employees.filter((employee) => !employee.isArchived), freePlanLimits.activeEmployees)
     : null;
@@ -233,6 +235,7 @@ export function WalkInAppointmentModal({
             {shouldAddCustomerDetails ? (
               <div className="grid gap-4 rounded-lg border border-subtle bg-input p-3 lg:grid-cols-2">
                 <CustomerLookupField
+                  disableNativeAutocomplete
                   isOpen={activeLookupField === "fullName" && (customer.fullName.trim().length > 0) && (customerSuggestions.length > 0 || isLoadingCustomerSuggestions)}
                   isLoading={isLoadingCustomerSuggestions}
                   label={messages.bookingFlow.customerName}
@@ -252,9 +255,12 @@ export function WalkInAppointmentModal({
                   onSelect={selectCustomerSuggestion}
                 />
                 <TextField
+                  id={`entry-${phoneFieldId}`}
+                  name={`entry-${phoneFieldId}`}
                   label={messages.bookingFlow.customerPhone}
                   value={customer.phone}
                   type="tel"
+                  autoComplete="off"
                   inputMode="numeric"
                   pattern="[0-9]*"
                   prefix={<FiPhone />}
@@ -263,6 +269,7 @@ export function WalkInAppointmentModal({
                 />
                 <div className="lg:col-span-2">
                   <CustomerLookupField
+                    disableNativeAutocomplete
                     isOpen={activeLookupField === "email" && (customer.email.trim().length > 0) && (customerSuggestions.length > 0 || isLoadingCustomerSuggestions)}
                     isLoading={isLoadingCustomerSuggestions}
                     label={messages.bookingFlow.customerEmail}
@@ -342,74 +349,6 @@ export function WalkInAppointmentModal({
     setCustomerSuggestions([]);
     setActiveLookupField(null);
   }
-}
-
-function CustomerLookupField({
-  isOpen,
-  isLoading,
-  label,
-  messages,
-  prefix,
-  suggestions,
-  type = "text",
-  value,
-  onBlur,
-  onChange,
-  onFocus,
-  onSelect
-}: {
-  isOpen: boolean;
-  isLoading: boolean;
-  label: string;
-  messages: Messages;
-  prefix: ReactNode;
-  suggestions: BookingCustomerSuggestion[];
-  type?: "email" | "text";
-  value: string;
-  onBlur: () => void;
-  onChange: (value: string) => void;
-  onFocus: () => void;
-  onSelect: (customerSuggestion: BookingCustomerSuggestion) => void;
-}) {
-  return (
-    <div className="relative">
-      <TextField
-        label={label}
-        type={type}
-        value={value}
-        prefix={prefix}
-        required
-        onBlur={onBlur}
-        onFocus={onFocus}
-        onChange={(event) => onChange(event.target.value)}
-      />
-
-      {isOpen ? (
-        <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-lg border border-subtle bg-surface shadow-lg">
-          {isLoading ? (
-            <p className="px-3 py-2 text-sm font-semibold text-muted">{messages.bookingFlow.customerLookupLoading}</p>
-          ) : (
-            <div className="max-h-60 overflow-y-auto py-1">
-              {suggestions.map((suggestion) => (
-                <button
-                  key={suggestion.id}
-                  type="button"
-                  className="grid w-full cursor-pointer gap-1 px-3 py-2 text-left transition-colors hover:bg-brand-soft focus:bg-brand-soft focus:outline-none"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => onSelect(suggestion)}
-                >
-                  <span className="text-sm font-bold text-primary">{suggestion.fullName}</span>
-                  <span className="text-xs text-muted">
-                    {[suggestion.email, suggestion.phone].filter(Boolean).join(" - ")}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : null}
-    </div>
-  );
 }
 
 function isReservableEmployee(employee: Employee) {

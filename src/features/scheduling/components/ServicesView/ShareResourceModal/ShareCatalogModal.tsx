@@ -2,6 +2,7 @@ import { Messages } from "@/features/scheduling/i18n/messages";
 import { ShareResourceModal } from "@/features/scheduling/components/ServicesView/ShareResourceModal/ShareResourceModal";
 
 type ShareCatalogModalProps = {
+  isOpen?: boolean;
   messages: Messages;
   catalogUrl: string;
   onClose: () => void;
@@ -9,6 +10,7 @@ type ShareCatalogModalProps = {
 };
 
 export function ShareCatalogModal({
+  isOpen = true,
   messages,
   catalogUrl,
   onClose,
@@ -16,6 +18,7 @@ export function ShareCatalogModal({
 }: ShareCatalogModalProps) {
   return (
     <ShareResourceModal
+      isOpen={isOpen}
       messages={messages}
       title={messages.services.shareCatalogTitle}
       description={messages.services.shareCatalogDescription}

@@ -4,11 +4,12 @@ import QRCode from "qrcode";
 import { FiCopy, FiLink, FiMaximize2, FiMinimize2, FiX } from "react-icons/fi";
 
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { Modal } from "@/components/ui/Modal";
 import { cx } from "@/components/ui/utils";
 import { Messages } from "@/features/scheduling/i18n/messages";
 
 type ShareResourceModalProps = {
+  isOpen?: boolean;
   messages: Messages;
   title: string;
   description: string;
@@ -19,6 +20,7 @@ type ShareResourceModalProps = {
 };
 
 export function ShareResourceModal({
+  isOpen = true,
   messages,
   title,
   description,
@@ -50,12 +52,11 @@ export function ShareResourceModal({
   const qrSizeClass = isQrExpanded ? "h-64 w-64 sm:h-72 sm:w-72" : "h-36 w-36 sm:h-44 sm:w-44";
 
   return (
-    <div className="p-safe fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-primary/35 px-3 py-4 sm:px-6">
-      <Card
-        role="dialog"
-        aria-modal="true"
-        className="grid max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-hidden p-0 shadow-xl"
-      >
+    <Modal
+      isOpen={isOpen}
+      overlayClassName="px-3 py-4 sm:px-6"
+      className="grid max-h-[calc(100vh-2rem)] max-w-xl overflow-hidden !p-0"
+    >
         <div className="flex items-start justify-between gap-4 border-b border-subtle px-4 py-4 sm:px-5">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">{messages.actions.share}</p>
@@ -106,7 +107,6 @@ export function ShareResourceModal({
             {messages.services.copyPublicLink}
           </Button>
         </div>
-      </Card>
-    </div>
+    </Modal>
   );
 }

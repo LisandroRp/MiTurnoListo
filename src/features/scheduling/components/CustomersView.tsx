@@ -1,5 +1,7 @@
 "use client";
 
+import { ModalPresence } from "@/components/ui/Modal";
+
 import { ReactNode, useEffect, useState } from "react";
 import { FiSearch, FiUserCheck } from "react-icons/fi";
 
@@ -259,7 +261,7 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
           </>
         )}
       </section>
-      {businessId && historyCustomer ? <CustomerBookingHistory key={`${businessId}:${historyCustomer.id}`} businessId={businessId} customer={historyCustomer} messages={messages} onClose={() => setHistoryCustomer(null)} /> : null}
+      <ModalPresence>{businessId && historyCustomer ? <CustomerBookingHistory key={`${businessId}:${historyCustomer.id}`} businessId={businessId} customer={historyCustomer} messages={messages} onClose={() => setHistoryCustomer(null)} /> : null}</ModalPresence>
     </div>
   );
 }

@@ -1,6 +1,7 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { useDropdownMotion } from "@/components/ui/useDropdownMotion";
 import { cx } from "@/components/ui/utils";
 
 type FloatingInfoPopoverProps = {
@@ -26,7 +27,7 @@ export function FloatingInfoPopover({ ariaLabel, children, className, content }:
   const [position, setPosition] = useState<PopoverPosition | null>(null);
   const [themeClass, setThemeClass] = useState("");
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isOpen) {
       return;
     }
@@ -69,6 +70,8 @@ export function FloatingInfoPopover({ ariaLabel, children, className, content }:
     };
   }, [isOpen]);
 
+  const { isPresent } = useDropdownMotion({ isOpen, triggerRef, contentRef: popoverRef, variant: "diagonal", ready: position !== null });
+
   return (
     <>
       <button
@@ -85,10 +88,11 @@ export function FloatingInfoPopover({ ariaLabel, children, className, content }:
       >
         {children}
       </button>
-      {isOpen && typeof document !== "undefined"
+      {isPresent && typeof document !== "undefined"
         ? createPortal(
             <div
               ref={popoverRef}
+              aria-hidden={!isOpen || undefined}
               role="tooltip"
               className={cx(
                 "pointer-events-none fixed z-50 w-fit max-w-64 break-words rounded-lg border border-subtle bg-surface p-3 text-left text-xs leading-5 text-muted shadow-lg",

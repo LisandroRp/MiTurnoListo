@@ -3,19 +3,23 @@ import { FiCalendar, FiChevronDown, FiClock } from "react-icons/fi";
 
 import { Button } from "@/components/ui/Button";
 import { cx } from "@/components/ui/utils";
+import { useDropdownMotion } from "@/components/ui/useDropdownMotion";
 import { Messages } from "@/features/scheduling/i18n/messages";
 
 type Props = {
   messages: Messages;
-  onBlockedDays: () => void;
+  onBusinessBlockedDays: () => void;
+  onEmployeeBlockedDays: () => void;
   onSpecialHours: () => void;
 };
 
-export function CalendarExceptionsMenu({ messages, onBlockedDays, onSpecialHours }: Props) {
+export function CalendarExceptionsMenu({ messages, onBusinessBlockedDays, onEmployeeBlockedDays, onSpecialHours }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const contentId = useId();
+  const { isPresent } = useDropdownMotion({ isOpen, triggerRef: trigger, contentRef: content, variant: "diagonal" });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -49,6 +53,7 @@ export function CalendarExceptionsMenu({ messages, onBlockedDays, onSpecialHours
       if (!event.currentTarget.contains(event.relatedTarget)) setIsOpen(false);
     }}>
       <Button
+        ref={trigger}
         variant="secondary"
         icon={<FiCalendar />}
         aria-expanded={isOpen}
@@ -61,9 +66,10 @@ export function CalendarExceptionsMenu({ messages, onBlockedDays, onSpecialHours
         {messages.calendar.exceptions}
         <FiChevronDown className={cx("transition-transform duration-200 motion-reduce:transition-none", isOpen ? "rotate-180" : "")} aria-hidden="true" />
       </Button>
-      {isOpen ? (
-        <div ref={content} id={contentId} className="absolute right-0 z-30 mt-2 grid w-64 max-w-[calc(100vw-2rem)] gap-1 rounded-lg border border-subtle bg-surface p-1.5 shadow-lg">
-          <Button variant="ghost" className="justify-start text-primary" icon={<FiCalendar className="text-brand-strong" />} onClick={() => select(onBlockedDays)}>{messages.calendar.blockedDays}</Button>
+      {isPresent ? (
+        <div ref={content} id={contentId} inert={!isOpen} aria-hidden={!isOpen || undefined} className="absolute right-0 z-30 mt-2 grid w-80 max-w-[calc(100vw-2rem)] gap-1 rounded-lg border border-subtle bg-surface p-1.5 shadow-lg">
+          <Button variant="ghost" className="justify-start text-primary" icon={<FiCalendar className="text-brand-strong" />} onClick={() => select(onBusinessBlockedDays)}>{messages.calendar.blockedBusinessTitle}</Button>
+          <Button variant="ghost" className="justify-start text-primary" icon={<FiCalendar className="text-brand-strong" />} onClick={() => select(onEmployeeBlockedDays)}>{messages.calendar.blockedEmployeeTitle}</Button>
           <Button variant="ghost" className="justify-start text-primary" icon={<FiClock className="text-brand-strong" />} onClick={() => select(onSpecialHours)}>{messages.calendar.exceptional.title}</Button>
         </div>
       ) : null}

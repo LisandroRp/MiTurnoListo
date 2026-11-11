@@ -129,6 +129,8 @@ type PaymentSettingsRow = {
 };
 
 type BusinessDayBlockRow = {
+  start_time?: string | null;
+  end_time?: string | null;
   id: string;
   starts_on: string;
   ends_on: string;
@@ -437,6 +439,8 @@ export function mapBusinessDayBlocks(rows: BusinessDayBlockRow[]): BusinessDayBl
     .map((row) => ({
       id: row.id,
       startsOn: row.starts_on,
+      startTime: row.start_time?.slice(0, 5) ?? null,
+      endTime: row.end_time?.slice(0, 5) ?? null,
       endsOn: row.ends_on,
       reason: row.reason ?? "",
       employeeId: row.employee_id

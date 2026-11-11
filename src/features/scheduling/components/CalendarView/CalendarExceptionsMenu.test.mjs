@@ -16,8 +16,9 @@ function harness() {
   const modules = {
     react: {
       useState: () => [isOpen, (next) => { isOpen = typeof next === "function" ? next(isOpen) : next; }],
-      useEffect: (callback) => { effect = callback; }, useRef: () => refs[refIndex++], useId: () => "exceptions"
+      useEffect: (callback) => { effect = callback; }, useRef: () => refs[refIndex++] ?? { current: null }, useId: () => "exceptions"
     },
+    "@/components/ui/useDropdownMotion": { useDropdownMotion: ({ isOpen, variant }) => { calls.push(["motion", variant]); return { isPresent: isOpen }; } },
     "@/components/ui/Button": { Button: "button" },
     "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") }
   };
@@ -25,26 +26,27 @@ function harness() {
   const loaded = new Module(url.pathname);
   loaded.require = (name) => modules[name] ?? require(name);
   loaded._compile(ts.transpileModule(readFileSync(url, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText, url.pathname);
-  const render = () => { refIndex = 0; tree = loaded.exports.CalendarExceptionsMenu({ messages: messages.es, onBlockedDays: () => calls.push("blocked"), onSpecialHours: () => calls.push("special") }); };
+  const render = () => { refIndex = 0; tree = loaded.exports.CalendarExceptionsMenu({ messages: messages.es, onBusinessBlockedDays: () => calls.push("business"), onEmployeeBlockedDays: () => calls.push("employee"), onSpecialHours: () => calls.push("special") }); };
   const trigger = () => tree.props.children[0];
   const options = () => tree.props.children[1]?.props.children ?? [];
   render();
   return { render, trigger, options, calls, runEffect: () => effect(), root: () => tree };
 }
 
-test("one exceptions button reveals only the two actions and closes after selecting either", () => {
-  for (const index of [0, 1]) {
+test("one exceptions button reveals the three actions and closes after selecting each", () => {
+  for (const index of [0, 1, 2]) {
     const app = harness();
+    assert.ok(app.calls.some((call) => Array.isArray(call) && call[0] === "motion" && call[1] === "diagonal"));
     assert.equal(app.options().length, 0);
     assert.equal(app.trigger().props["aria-expanded"], false);
     app.trigger().props.onClick();
     app.render();
     assert.equal(app.trigger().props["aria-expanded"], true);
-    assert.deepEqual(app.options().map((node) => node.props.children), ["Días bloqueados", "Horarios especiales"]);
+    assert.deepEqual(app.options().map((node) => node.props.children), ["Bloqueos por día", "Bloqueos por profesional", "Horarios especiales"]);
     app.options()[index].props.onClick();
     app.render();
     assert.equal(app.options().length, 0);
-    assert.ok(app.calls.includes(index === 0 ? "blocked" : "special"));
+    assert.ok(app.calls.includes(["business", "employee", "special"][index]));
     assert.ok(app.calls.includes("trigger-focus"));
   }
 });

@@ -16,13 +16,14 @@ function harness() {
   const states = [];
   const effects = [];
   let stateCursor = 0;
-  const paidCalls = [];
+  const paidCalls = [], motionCalls = [];
   const modules = {
     react: { useEffect: (callback) => effects.push(callback), useState: (value) => {
       const index = stateCursor++;
       if (!(index in states)) states[index] = value;
       return [states[index], (update) => { states[index] = typeof update === "function" ? update(states[index]) : update; }];
-    }, useRef: () => ({ current: null }) },
+    }, useRef: () => ({ current: null }), useId: () => "employees" },
+    "@/components/ui/useDropdownMotion": { useDropdownMotion: (options) => { motionCalls.push(options); return { isPresent: options.isOpen }; } },
     "@/features/scheduling/components/employeeColors": { employeeToneClasses: {} },
     "@/features/scheduling/components/CalendarView/CalendarExceptionsMenu": { CalendarExceptionsMenu: "CalendarExceptionsMenu" },
     "@/features/scheduling/components/CalendarView/SpecialAvailabilityModal": { SpecialAvailabilityModal: "SpecialAvailabilityModal" },
@@ -35,12 +36,13 @@ function harness() {
       hasReachedFreeMonthlyAppointmentLimit: () => false
     },
     "@/features/scheduling/utils/format": { getDateLabel: (value) => value },
+    "@/components/ui/Modal": { Modal: "Modal", ModalPresence: "ModalPresence", getModalFadeDuration: () => 150 },
     "@/features/booking-flow/utils/booking": {},
     "@/features/scheduling/components/dashboardTeamUtils": {},
     "@/features/scheduling/service-cancellation-policy": {},
     "@/features/scheduling/components/CalendarView/BusinessDayBlocksModal": { BusinessDayBlocksModal: "BusinessDayBlocksModal" }
   };
-  for (const name of ["Badge", "Button", "Card", "Modal", "SelectField", "TextAreaField", "TextField"]) modules[`@/components/ui/${name}`] = { [name]: name };
+  for (const name of ["Badge", "Button", "Card", "SelectField", "TextAreaField", "TextField"]) modules[`@/components/ui/${name}`] = { [name]: name };
   const loaded = new Module(url.pathname);
   loaded.filename = url.pathname;
   loaded.require = (name) => modules[name] ?? require(name);
@@ -67,7 +69,12 @@ function harness() {
     nodes().find((node) => node.type === "Button" && node.props["aria-label"] === messages.calendar[direction]).props.onClick();
     render();
   };
-  return { notifyModalState: () => effects[0](), props, render, renderCard, paidCalls, visible, nodes, navigate, toggled };
+  let employeeDropdown;
+  function renderEmployees() {
+    if (!employeeDropdown) { render(); employeeDropdown = nodes().find((node) => node.type?.name === "EmployeeDropdown"); states.length = 0; }
+    stateCursor = 0; tree = employeeDropdown.type(employeeDropdown.props);
+  }
+  return { renderEmployees, motionCalls, notifyModalState: () => effects[0](), props, render, renderCard, paidCalls, visible, nodes, navigate, toggled };
 }
 
 for (const mode of ["day", "week", "month"]) {
@@ -150,13 +157,23 @@ test("calendar keeps exceptions separate from the period selector and explains i
   assert.deepEqual(periods.props.children.map((node) => node.props.children), [messages.calendar.day, messages.calendar.week, messages.calendar.month]);
   assert.match(periods.props.className, /shrink-0/);
   assert.match(header.props.description, /Excepciones/);
-  exceptions.props.onBlockedDays();
+  exceptions.props.onBusinessBlockedDays();
   app.render();
-  assert.equal(app.nodes().find((node) => node.type === "BusinessDayBlocksModal").props.isOpen, true);
+  let modal = app.nodes().find((node) => node.type === "BusinessDayBlocksModal");
+  assert.equal(modal.props.isOpen, true);
+  assert.equal(modal.props.target, "business");
+  modal.props.onClose();
+  app.render();
+  assert.equal(app.nodes().some((node) => node.type === "BusinessDayBlocksModal"), false);
+  exceptions.props.onEmployeeBlockedDays();
+  app.render();
+  modal = app.nodes().find((node) => node.type === "BusinessDayBlocksModal");
+  assert.equal(modal.props.target, "employee");
+  assert.equal(modal.props.initialDate, undefined);
 });
 
 
-test("history trigger uses the calendar detail and payment modals without treating their transitions as closing", () => {
+test("history trigger uses the calendar detail and payment modals without treating their transitions as closing", async () => {
   const app = harness();
   const events = [];
   app.renderCard({ defaultOpen: true, renderTrigger: (open) => ({ type: "history-trigger", props: { onClick: open } }), onModalStateChange: (open) => events.push(open) });
@@ -171,6 +188,33 @@ test("history trigger uses the calendar detail and payment modals without treati
   app.renderCard(); app.notifyModalState();
   assert.equal(events.at(-1), true);
   app.nodes().find((node) => node.type === "Button" && node.props["aria-label"] === messages.actions.cancel).props.onClick();
-  app.renderCard(); app.notifyModalState();
-  assert.equal(events.at(-1), false);
+  const previousWindow = globalThis.window;
+  let finishExit;
+  globalThis.window = { setTimeout: (callback, duration) => { assert.equal(duration, 150); finishExit = callback; return 1; }, clearTimeout: () => {} };
+  try {
+    app.renderCard(); app.notifyModalState();
+    assert.equal(events.at(-1), true);
+    finishExit();
+    assert.equal(events.at(-1), false);
+  } finally { globalThis.window = previousWindow; }
+});
+
+
+test("the staff dropdown uses shared vertical motion while retaining its search and selection actions", () => {
+  const app = harness();
+  const queries = [];
+  app.props.onEmployeeQueryChange = (query) => queries.push(query);
+  app.renderEmployees();
+  assert.equal(app.motionCalls.at(-1).variant, "vertical");
+  const toggle = () => app.nodes().find((node) => node.type === "Button" && node.props["aria-controls"] === "employees");
+  assert.equal(toggle().props["aria-expanded"], false);
+  toggle().props.onClick(); app.renderEmployees();
+  assert.equal(toggle().props["aria-expanded"], true);
+  assert.equal(app.nodes().find((node) => node.props?.id === "employees").props.inert, false);
+  app.nodes().find((node) => node.type === "TextField").props.onChange({ target: { value: "a" } });
+  assert.deepEqual(queries, ["a"]);
+  app.nodes().find((node) => node.type === "button" && node.key === "a").props.onClick();
+  assert.deepEqual(app.toggled, ["a"]);
+  toggle().props.onClick(); app.renderEmployees();
+  assert.equal(toggle().props["aria-expanded"], false);
 });

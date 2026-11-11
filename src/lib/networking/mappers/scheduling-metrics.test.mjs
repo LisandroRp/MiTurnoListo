@@ -107,3 +107,15 @@ test("service mapping retains price visibility independently of the internal amo
     assert.equal(service.hidePricePublicly, hidden === true);
   }
 });
+
+
+test("day block mapping preserves minute precision and midnight while keeping legacy rows full-day", () => {
+  const row = { id: "hourly", starts_on: "2030-08-09", ends_on: "2030-08-09", employee_id: "first", reason: "Private", start_time: "22:30:00", end_time: "24:00:00" };
+  const [block] = loaded.exports.mapBusinessDayBlocks([row]);
+  assert.equal(block.startTime, "22:30");
+  assert.equal(block.endTime, "24:00");
+  assert.equal(block.employeeId, "first");
+  const [legacy] = loaded.exports.mapBusinessDayBlocks([{ id: "legacy", starts_on: "2030-08-09", ends_on: "2030-08-09", reason: null, employee_id: null }]);
+  assert.equal(legacy.startTime, null);
+  assert.equal(legacy.endTime, null);
+});

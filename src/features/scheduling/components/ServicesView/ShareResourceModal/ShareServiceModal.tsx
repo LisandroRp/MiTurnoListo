@@ -3,6 +3,7 @@ import { Service } from "@/features/scheduling/types";
 import { ShareResourceModal } from "@/features/scheduling/components/ServicesView/ShareResourceModal/ShareResourceModal";
 
 type ShareServiceModalProps = {
+  isOpen?: boolean;
   messages: Messages;
   service: Service;
   serviceUrl: string;
@@ -11,6 +12,7 @@ type ShareServiceModalProps = {
 };
 
 export function ShareServiceModal({
+  isOpen = true,
   messages,
   service,
   serviceUrl,
@@ -19,6 +21,7 @@ export function ShareServiceModal({
 }: ShareServiceModalProps) {
   return (
     <ShareResourceModal
+      isOpen={isOpen}
       messages={messages}
       title={messages.services.shareTitle}
       description={messages.services.shareDescription.replace("{serviceName}", service.name)}

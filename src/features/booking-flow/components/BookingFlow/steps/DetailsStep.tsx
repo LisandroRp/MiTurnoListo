@@ -1,4 +1,5 @@
-import { ReactNode, useState } from "react";
+import { CustomerLookupField } from "@/features/booking-flow/components/CustomerLookupField";
+import { useId, useState } from "react";
 import { FiFileText, FiMail, FiPhone, FiUser } from "react-icons/fi";
 
 import { Card } from "@/components/ui/Card";
@@ -19,6 +20,7 @@ export function DetailsStep({
   customer,
   customerSuggestions,
   isLoadingCustomerSuggestions,
+  disableNativeAutocomplete = false,
   draft,
   customFields,
   customFieldResponses,
@@ -38,6 +40,7 @@ export function DetailsStep({
   customer: BookingDraft["customer"];
   customerSuggestions: BookingCustomerSuggestion[];
   isLoadingCustomerSuggestions: boolean;
+  disableNativeAutocomplete?: boolean;
   draft: BookingDraft;
   customFields: ServiceCustomField[];
   customFieldResponses: Record<string, string>;
@@ -49,6 +52,8 @@ export function DetailsStep({
   onCustomerLookupQueryChange: (query: string) => void;
   onCustomerSuggestionSelect: (customerSuggestion: BookingCustomerSuggestion) => void;
 }) {
+  const phoneFieldId = useId();
+  const nativePhoneIdentity = disableNativeAutocomplete ? `entry-${phoneFieldId}` : undefined;
   const [copiedField, setCopiedField] = useState<"cbu" | "alias" | null>(null);
   const [activeLookupField, setActiveLookupField] = useState<"fullName" | "email" | null>(null);
   const shouldShowCustomerSuggestions = activeLookupField !== null && (customerSuggestions.length > 0 || isLoadingCustomerSuggestions);
@@ -136,6 +141,7 @@ export function DetailsStep({
 
         <div className="grid gap-4 lg:grid-cols-2">
           <CustomerLookupField
+            disableNativeAutocomplete={disableNativeAutocomplete}
             isOpen={shouldShowCustomerSuggestions && activeLookupField === "fullName"}
             isLoading={isLoadingCustomerSuggestions}
             label={messages.bookingFlow.customerName}
@@ -152,9 +158,12 @@ export function DetailsStep({
             onSelect={onCustomerSuggestionSelect}
           />
           <TextField
+            id={nativePhoneIdentity}
+            name={nativePhoneIdentity}
             label={messages.bookingFlow.customerPhone}
             value={customer.phone}
             type="tel"
+            autoComplete={disableNativeAutocomplete ? "off" : undefined}
             inputMode="numeric"
             pattern="[0-9]*"
             prefix={<FiPhone />}
@@ -163,6 +172,7 @@ export function DetailsStep({
           />
           <div className="lg:col-span-2">
             <CustomerLookupField
+              disableNativeAutocomplete={disableNativeAutocomplete}
               isOpen={shouldShowCustomerSuggestions && activeLookupField === "email"}
               isLoading={isLoadingCustomerSuggestions}
               label={messages.bookingFlow.customerEmail}
@@ -203,74 +213,6 @@ export function DetailsStep({
           </div>
         ) : null}
       </Card>
-    </div>
-  );
-}
-
-function CustomerLookupField({
-  isOpen,
-  isLoading,
-  label,
-  messages,
-  prefix,
-  suggestions,
-  type = "text",
-  value,
-  onBlur,
-  onChange,
-  onFocus,
-  onSelect
-}: {
-  isOpen: boolean;
-  isLoading: boolean;
-  label: string;
-  messages: Messages;
-  prefix: ReactNode;
-  suggestions: BookingCustomerSuggestion[];
-  type?: "email" | "text";
-  value: string;
-  onBlur: () => void;
-  onChange: (value: string) => void;
-  onFocus: () => void;
-  onSelect: (customerSuggestion: BookingCustomerSuggestion) => void;
-}) {
-  return (
-    <div className="relative">
-      <TextField
-        label={label}
-        type={type}
-        value={value}
-        prefix={prefix}
-        required
-        onBlur={onBlur}
-        onFocus={onFocus}
-        onChange={(event) => onChange(event.target.value)}
-      />
-
-      {isOpen ? (
-        <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-lg border border-subtle bg-surface shadow-lg">
-          {isLoading ? (
-            <p className="px-3 py-2 text-sm font-semibold text-muted">{messages.bookingFlow.customerLookupLoading}</p>
-          ) : (
-            <div className="max-h-60 overflow-y-auto py-1">
-              {suggestions.map((suggestion) => (
-                <button
-                  key={suggestion.id}
-                  type="button"
-                  className="grid w-full cursor-pointer gap-1 px-3 py-2 text-left transition-colors hover:bg-brand-soft focus:bg-brand-soft focus:outline-none"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => onSelect(suggestion)}
-                >
-                  <span className="text-sm font-bold text-primary">{suggestion.fullName}</span>
-                  <span className="text-xs text-muted">
-                    {[suggestion.email, suggestion.phone].filter(Boolean).join(" - ")}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : null}
     </div>
   );
 }

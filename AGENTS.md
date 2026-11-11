@@ -167,6 +167,15 @@ Violation of any applicable rule is a framework breach even if the code compiles
 - Runtime validation tooling: Chrome DevTools MCP and Playwright when available.
 - MCP policy and setup templates are defined in `.agents/mcp/USAGE.md` (mandatory for `playwright` and `chrome-devtools` workflows).
 
+### 6.1 User-Controlled Browser Validation
+
+- The user performs manual UI testing by default. Implement the requested changes and hand them off for the user to test.
+- Do not open browser windows or tabs, launch Chrome, or run browser-based checks through Chrome DevTools, Playwright, computer use, or any other tool without explicit prior user permission for those checks.
+- Approval to implement a change does not authorize browser testing. A progress announcement alone is not permission; ask before starting and wait for an explicit answer.
+- Do not create temporary preview pages or browser fixtures to bypass this restriction.
+- When browser testing is not authorized, report UI verification as left to the user. Do not block delivery or repeatedly request permission merely to satisfy the runtime/UI validation requirements below.
+- This rule takes precedence over browser, interaction, runtime UI, and e2e validation requirements elsewhere in this file or in repository skills.
+
 ## 7. Standard Workflow
 
 - Intake ticket or requirement and define testable UI states.

@@ -563,6 +563,7 @@ export function BookingFlow({ businessKey, serviceId, mode = "public" }: Booking
 
               {currentStep === "details" ? (
                 <DetailsStep
+                  disableNativeAutocomplete={isPreview}
                   messages={messages}
                   locale={localeCode}
                   service={service}

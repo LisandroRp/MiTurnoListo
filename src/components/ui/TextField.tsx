@@ -11,6 +11,7 @@ type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "prefix"> & {
 
 export function TextField({ label, helperText, prefix, suffix, className, id, ...props }: TextFieldProps) {
   const fieldId = id ?? props.name;
+  const hasPicker = ["date", "time", "datetime-local", "month", "week"].includes(props.type ?? "text");
 
   return (
     <label className="grid gap-2 text-sm font-medium text-primary" htmlFor={fieldId}>
@@ -26,6 +27,8 @@ export function TextField({ label, helperText, prefix, suffix, className, id, ..
           className={cx(
             "block h-11 w-full rounded-lg border border-subtle bg-input px-3 text-sm text-primary outline-none transition-colors",
             "placeholder:text-placeholder focus:border-brand focus:ring-2 focus:ring-focus",
+            hasPicker ? "cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer disabled:[&::-webkit-calendar-picker-indicator]:cursor-not-allowed" : "",
+            "disabled:cursor-not-allowed",
             prefix ? "pl-9" : "",
             suffix ? "pr-11" : "",
             className

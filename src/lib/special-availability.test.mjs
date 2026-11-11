@@ -84,3 +84,10 @@ test("editing an owned opening uses a business-scoped update instead of an unres
   assert.equal(app.writes[0].action, "update");
   assert.deepEqual(app.writes[0].filters, [["id", ids.opening], ["business_id", "business"]]);
 });
+
+
+test("hourly blocks leave exceptional openings possible because slots enforce the blocked interval", async () => {
+  const app = setup({ blocked: [{ employee_id: ids.first, start_time: "09:30:00" }] });
+  await app.save();
+  assert.equal(app.writes.length, 1);
+});

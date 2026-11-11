@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useId, useRef, useState } from "react";
 import {
   FiCalendar,
   FiEye,
@@ -25,11 +25,12 @@ import { CollapsibleRow } from "@/components/composed/CollapsibleRow";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Modal } from "@/components/ui/Modal";
+import { getModalFadeDuration, Modal, ModalPresence } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/SelectField";
 import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
+import { useDropdownMotion } from "@/components/ui/useDropdownMotion";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { getAvailableSlotsForEmployees, isDateBlocked } from "@/features/booking-flow/utils/booking";
 import { BusinessDayBlocksModal } from "@/features/scheduling/components/CalendarView/BusinessDayBlocksModal";
@@ -113,7 +114,7 @@ export function CalendarView({
 }: CalendarViewProps) {
   const calendarControlsRef = useRef<HTMLDivElement>(null);
   const [isSpecialAvailabilityOpen, setIsSpecialAvailabilityOpen] = useState(false);
-  const [isDayBlocksModalOpen, setIsDayBlocksModalOpen] = useState(false);
+  const [dayBlocksTarget, setDayBlocksTarget] = useState<"business" | "employee" | null>(null);
   const selectableEmployees = employees.filter((employee) => !employee.isArchived);
   const selectableEmployeeIds = new Set(selectableEmployees.map((employee) => employee.id));
   const visibleEmployees = selectableEmployees.filter((employee) => selectedEmployeeIds.includes(employee.id));
@@ -175,7 +176,8 @@ export function CalendarView({
           <div className="flex flex-wrap items-end justify-end gap-3">
             <CalendarExceptionsMenu
               messages={messages}
-              onBlockedDays={() => setIsDayBlocksModalOpen(true)}
+              onBusinessBlockedDays={() => setDayBlocksTarget("business")}
+              onEmployeeBlockedDays={() => setDayBlocksTarget("employee")}
               onSpecialHours={() => setIsSpecialAvailabilityOpen(true)}
             />
             <div className="flex shrink-0 rounded-lg border border-subtle bg-surface p-1">
@@ -194,23 +196,25 @@ export function CalendarView({
         }
       />
 
-      {isSpecialAvailabilityOpen ? (
+      <ModalPresence>{isSpecialAvailabilityOpen ? (
         <SpecialAvailabilityModal
           services={services} employees={employees} dayBlocks={businessDayBlocks} messages={messages}
           initialDate={safeFocusedDate} isOpen onClose={() => setIsSpecialAvailabilityOpen(false)}
           onSave={onSaveSpecialAvailability} onDelete={onDeleteSpecialAvailability}
         />
-      ) : null}
+      ) : null}</ModalPresence>
 
-      <BusinessDayBlocksModal
+      <ModalPresence>{dayBlocksTarget ? <BusinessDayBlocksModal
+        key={dayBlocksTarget}
+        target={dayBlocksTarget}
         dayBlocks={businessDayBlocks}
         employees={employees}
-        isOpen={isDayBlocksModalOpen}
+        isOpen
         messages={messages}
-        onClose={() => setIsDayBlocksModalOpen(false)}
+        onClose={() => setDayBlocksTarget(null)}
         onDelete={onDeleteBusinessDayBlock}
         onSave={onSaveBusinessDayBlock}
-      />
+      /> : null}</ModalPresence>
 
       {shouldShowFreeLimit ? (
         <Card className={cx("border-brand bg-brand-soft", hasReachedFreeLimit ? "ring-2 ring-brand/20" : "")}>
@@ -376,10 +380,17 @@ function EmployeeDropdown({
   onToggleEmployee
 }: EmployeeDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const contentId = useId();
+  const { isPresent } = useDropdownMotion({ isOpen, triggerRef: trigger, contentRef: content, variant: "vertical" });
 
   return (
     <div className="relative">
       <Button
+        ref={trigger}
+        aria-expanded={isOpen}
+        aria-controls={contentId}
         variant="secondary"
         className="h-[50px] w-full min-w-48 justify-between px-5"
         onClick={() => setIsOpen((current) => !current)}
@@ -391,8 +402,8 @@ function EmployeeDropdown({
         <FiChevronDown className={cx("transition-transform", isOpen ? "rotate-180" : "")} aria-hidden="true" />
       </Button>
 
-      {isOpen ? (
-        <div className="absolute z-20 mt-2 grid w-fit min-w-80 max-w-[min(26rem,calc(100vw-2rem))] gap-3 rounded-lg border border-subtle bg-surface p-3 shadow-lg lg:left-auto lg:right-0">
+      {isPresent ? (
+        <div ref={content} id={contentId} inert={!isOpen} aria-hidden={!isOpen || undefined} className="absolute z-20 mt-2 grid w-fit min-w-80 max-w-[min(26rem,calc(100vw-2rem))] gap-3 rounded-lg border border-subtle bg-surface p-3 shadow-lg lg:left-auto lg:right-0">
           <TextField
             label={messages.calendar.searchEmployee}
             value={employeeQuery}
@@ -679,7 +690,12 @@ export function AppointmentCard({
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [isCancellationOpen, setIsCancellationOpen] = useState(false);
   const hasOpenModal = isOpen || isPaymentOpen || isRescheduling || isCancellationOpen;
-  useEffect(() => { onModalStateChange?.(hasOpenModal); }, [hasOpenModal, onModalStateChange]);
+  useEffect(() => {
+    if (!onModalStateChange) return;
+    if (hasOpenModal) { onModalStateChange(true); return; }
+    const timeout = window.setTimeout(() => onModalStateChange(false), getModalFadeDuration());
+    return () => window.clearTimeout(timeout);
+  }, [hasOpenModal, onModalStateChange]);
   const [cancellationReason, setCancellationReason] = useState("");
   const [cancellationError, setCancellationError] = useState("");
   const [rescheduleDate, setRescheduleDate] = useState(appointment.date);
@@ -1110,7 +1126,7 @@ export function AppointmentCard({
         </div>
       </Modal>
 
-      {isPaymentOpen ? <AppointmentPaymentModal amount={appointment.revenue} messages={messages} onClose={() => { setIsPaymentOpen(false); setIsOpen(true); }} onConfirm={markAppointmentPaid} /> : null}
+      <ModalPresence>{isPaymentOpen ? <AppointmentPaymentModal amount={appointment.revenue} messages={messages} onClose={() => { setIsPaymentOpen(false); setIsOpen(true); }} onConfirm={markAppointmentPaid} /> : null}</ModalPresence>
 
       <Modal isOpen={isCancellationOpen}>
         <div className="grid gap-5">

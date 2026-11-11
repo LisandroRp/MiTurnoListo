@@ -21,10 +21,11 @@ function harness() {
   loaded.require = (name) => modules[name] ?? require(name);
   loaded._compile(ts.transpileModule(readFileSync(url, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText, url.pathname);
   const customer = { id: "customer", fullName: "Test Customer", email: "test@example.com" };
-  function render() { cursor = 0; effects.length = 0; tree = loaded.exports.CustomerBookingHistory({ businessId: "business", customer, messages: messages.es, onClose: () => calls.push("close") }); }
+  const props = { businessId: "business", customer, messages: messages.es, onClose: () => calls.push("close"), isOpen: true };
+  function render() { cursor = 0; effects.length = 0; tree = loaded.exports.CustomerBookingHistory(props); }
   function nodes(type) { const found = []; function walk(node) { if (!node || typeof node !== "object") return; if (node.type === type) found.push(node); const children = node.props?.children; (Array.isArray(children) ? children.flat(Infinity) : [children]).forEach(walk); } walk(tree); return found; }
   render();
-  return { render, nodes, effects, requests, calls, text: () => JSON.stringify(tree), trigger: () => loaded.exports.CustomerBookingHistoryButton({ customer, messages: messages.es, onClick: () => calls.push("open") }) };
+  return { props, render, nodes, effects, requests, calls, text: () => JSON.stringify(tree), trigger: () => loaded.exports.CustomerBookingHistoryButton({ customer, messages: messages.es, onClick: () => calls.push("open") }) };
 }
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -90,4 +91,19 @@ test("closing a booking keeps the history visible and successful edits refresh s
   app.requests[2].reject(new Error("offline")); await flush(); app.render();
   assert.equal(app.nodes("loading").length, 0); assert.equal(app.nodes("li").length, 1);
   assert.ok(app.text().includes("Pagado")); assert.ok(app.text().includes("Reintentar"));
+});
+
+
+test("closing customer history forwards the exit state without restarting requests or focus handlers", () => {
+  const app = harness();
+  const cancelRequest = app.effects[0]();
+  assert.equal(app.requests.length, 1);
+  cancelRequest();
+  assert.equal(app.requests[0].args[3].aborted, true);
+  app.props.isOpen = false;
+  app.render();
+  assert.equal(app.nodes("modal")[0].props.isOpen, false);
+  assert.equal(app.effects[0](), undefined);
+  assert.equal(app.effects[1](), undefined);
+  assert.equal(app.requests.length, 1);
 });

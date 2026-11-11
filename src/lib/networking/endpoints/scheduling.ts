@@ -240,7 +240,7 @@ export async function loadSchedulingSnapshot({ scope = "dashboard" }: LoadSchedu
     scopeConfig.includeBusinessDayBlocks
       ? supabase
         .from("business_day_blocks")
-        .select("id, starts_on, ends_on, reason, employee_id")
+        .select("id, starts_on, ends_on, reason, employee_id, start_time, end_time")
         .eq("business_id", businessId)
         .order("starts_on", { ascending: true })
       : createSkippedQueryResult([]),

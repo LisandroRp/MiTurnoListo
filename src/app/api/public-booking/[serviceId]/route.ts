@@ -103,7 +103,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[]),
     supabase
       .from("business_day_blocks")
-      .select("id, starts_on, ends_on, reason, employee_id")
+      .select("id, starts_on, ends_on, reason, employee_id, start_time, end_time")
       .eq("business_id", businessId)
       .order("starts_on", { ascending: true }),
     supabase
@@ -350,7 +350,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .in("status", ["pending", "confirmed"] satisfies AppointmentStatus[]),
       supabase
         .from("business_day_blocks")
-        .select("id, starts_on, ends_on, reason, employee_id")
+        .select("id, starts_on, ends_on, reason, employee_id, start_time, end_time")
         .eq("business_id", service.business_id),
       supabase
         .from("business_payment_settings")

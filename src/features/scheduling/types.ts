@@ -178,6 +178,8 @@ export type BusinessPaymentSettings = {
 };
 
 export type BusinessDayBlock = {
+  startTime?: string | null;
+  endTime?: string | null;
   id: string;
   startsOn: string;
   endsOn: string;

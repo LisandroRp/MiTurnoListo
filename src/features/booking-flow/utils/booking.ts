@@ -97,7 +97,7 @@ export function getAvailableSlotsForEmployee(
         const slotDateTime = new Date(`${dateKey}T${startTime}:00`);
         const limitDate = new Date(now.getTime() + service.reservationLeadMinutes * 60 * 1000);
 
-        if (slotDateTime < limitDate) {
+        if (slotDateTime < limitDate || isTimeRangeBlocked(dateKey, startTime, endTime, dayBlocks, employee.id)) {
           return;
         }
 
@@ -190,8 +190,15 @@ export function isDateBlocked(date: string, dayBlocks: BusinessDayBlock[], emplo
   return dayBlocks.some((block) => (
     date >= block.startsOn &&
     date <= block.endsOn &&
+    !block.startTime &&
     (!block.employeeId || block.employeeId === employeeId)
   ));
+}
+
+export function isTimeRangeBlocked(date: string, startTime: string, endTime: string, dayBlocks: BusinessDayBlock[], employeeId: string) {
+  return dayBlocks.some((block) => date >= block.startsOn && date <= block.endsOn &&
+    (!block.employeeId || block.employeeId === employeeId) &&
+    (!block.startTime || !block.endTime || rangesOverlap(startTime, endTime, block.startTime, block.endTime)));
 }
 
 export function sanitizePublicDayBlocks(dayBlocks: BusinessDayBlock[]): BusinessDayBlock[] {

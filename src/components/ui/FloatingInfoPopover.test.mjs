@@ -12,9 +12,10 @@ test("information popovers open on tap or keyboard focus and dismiss on Escape o
   const modules = {
     react: {
       useRef: () => ({ current: null }),
-      useEffect: () => {},
+      useLayoutEffect: () => {},
       useState: () => cursor++ === 0 ? [isOpen, (value) => { isOpen = value; }] : [null, () => {}]
     },
+    "@/components/ui/useDropdownMotion": { useDropdownMotion: ({ isOpen }) => ({ isPresent: isOpen }) },
     "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") }
   };
   const url = new URL("./FloatingInfoPopover.tsx", import.meta.url);
@@ -48,13 +49,14 @@ for (const theme of ["theme-coral", "theme-blue", "theme-sage"]) {
     const modules = {
       react: {
         useRef: (initial) => refs[refIndex++] ??= { current: initial },
-        useEffect: (effect) => { effects.push(effect); },
+        useLayoutEffect: (effect) => { effects.push(effect); },
         useState(initial) {
           const index = stateIndex++;
           if (!(index in states)) states[index] = initial;
           return [states[index], (value) => { states[index] = value; }];
         }
       },
+      "@/components/ui/useDropdownMotion": { useDropdownMotion: ({ isOpen }) => ({ isPresent: isOpen }) },
       "react-dom": { createPortal: (content) => content },
       "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") }
     };

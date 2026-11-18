@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { cx } from "@/components/ui/utils";
+import { usePointerTilt } from "@/components/ui/usePointerTilt";
 import { getDayKeyForDate } from "@/features/scheduling/components/dashboardTeamUtils";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
@@ -22,6 +23,7 @@ export function DashboardActiveTeam({ employees, appointments, referenceDate, me
   const [isExpanded, setIsExpanded] = useState(false);
   const id = useId();
   const day = getDayKeyForDate(referenceDate);
+  const cardTilt = usePointerTilt<HTMLButtonElement>(6);
 
   if (employees.length === 0) {
     return (
@@ -68,12 +70,18 @@ export function DashboardActiveTeam({ employees, appointments, referenceDate, me
         className={cx("grid transition-[grid-template-rows,opacity] duration-300 ease-in-out motion-reduce:transition-none", isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="mt-4 grid max-h-[34rem] gap-3 overflow-y-auto border-t border-subtle pt-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-4 grid max-h-[34rem] gap-3 overflow-y-auto border-t border-subtle px-3 pt-5 pb-3 sm:grid-cols-2 xl:grid-cols-3">
             {employees.map((employee) => {
               const schedule = employee.schedule[day] ?? [];
               const count = appointments.filter((appointment) => appointment.employeeId === employee.id).length;
               return (
-                <button key={employee.id} type="button" onClick={() => onEmployeeClick(employee)} className="grid min-w-0 cursor-pointer gap-3 rounded-lg border border-subtle bg-input p-3 text-left transition-colors hover:bg-brand-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+                <button
+                  key={employee.id}
+                  {...cardTilt}
+                  type="button"
+                  onClick={() => onEmployeeClick(employee)}
+                  className={cx("grid min-w-0 cursor-pointer gap-3 rounded-lg border border-subtle bg-input p-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus", cardTilt.className)}
+                >
                   <span className="flex min-w-0 items-center gap-3">
                     <span className={cx("grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold text-on-brand", employeeColorClasses[employee.color])}>{employee.initials}</span>
                     <span className="min-w-0 leading-tight">

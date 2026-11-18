@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import Module, { createRequire } from "node:module";
 import test from "node:test";
 import ts from "typescript";
+import { usePointerTilt } from "../../../components/ui/usePointerTilt.ts";
 import { messages } from "../i18n/messages.ts";
 import { employeeDisplayColorKeys } from "../employee-colors.ts";
 import { employeeColorClasses } from "./employeeColors.ts";
@@ -17,6 +18,7 @@ function setup(initialEmployees = []) {
   const modules = {
     react: { useId: () => "active-team", useState: () => [expanded, (update) => { expanded = typeof update === "function" ? update(expanded) : update; }] },
     "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") },
+    "@/components/ui/usePointerTilt": { usePointerTilt },
     "@/features/scheduling/components/dashboardTeamUtils": { getDayKeyForDate: () => "thursday" },
     "@/features/scheduling/components/employeeColors": { employeeColorClasses }
   };
@@ -90,4 +92,30 @@ test("an empty active team shows a compact message without an expansion control"
   assert.equal(app.region(), undefined);
   assert.ok(app.nodes().some((node) => node.props?.children === messages.es.home.noActiveTeam));
   assert.equal(app.nodes().some((node) => node.props?.className?.includes("h-[34rem]")), false);
+});
+
+test("team cards follow the pointer, reset their tilt and preserve professional navigation", () => {
+  const app = setup(employees);
+  app.toggle().props.onClick();
+  app.render();
+  const card = app.nodes().find((node) => node.type === "button").props;
+  const properties = new Map();
+  const currentTarget = {
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 300, height: 180 }),
+    style: {
+      setProperty: (key, value) => properties.set(key, value),
+      removeProperty: (key) => properties.delete(key)
+    }
+  };
+  card.onPointerMove({ pointerType: "mouse", currentTarget, clientX: 300, clientY: 180 });
+  assert.equal(properties.get("--tilt-rotate-x"), "6deg");
+  assert.equal(properties.get("--tilt-rotate-y"), "-6deg");
+  card.onPointerLeave({ currentTarget });
+  assert.equal(properties.size, 0);
+  card.onPointerMove({ pointerType: "touch", currentTarget, clientX: 300, clientY: 180 });
+  assert.equal(properties.size, 0);
+  assert.doesNotMatch(card.className, /hover:bg-brand-soft/);
+  assert.match(card.className, /motion-safe:\[transform:/);
+  card.onClick();
+  assert.deepEqual(app.clicked, ["employee-0"]);
 });

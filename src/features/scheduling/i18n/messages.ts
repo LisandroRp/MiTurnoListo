@@ -4,6 +4,23 @@ export const messages = {
   es: {
     appName: "MiTurnoListo",
     businessType: "Gestor de turnos",
+    setupGuide: {
+      title: "Empezá a recibir reservas",
+      progress: "{completed} de 2 pasos completados",
+      personnel: "Agregá a tu primer profesional",
+      personnelHint: "Si atendés por tu cuenta, agregate a vos y cargá tus horarios.",
+      enablePersonnel: "Hacé visible a un profesional",
+      enablePersonnelHint: "Necesitás un profesional visible para asignarle tu primer servicio.",
+      service: "Creá tu primer servicio",
+      serviceHint: "Elegí qué ofrecés, cuánto dura y quién lo atiende.",
+      createPersonnel: "Agregar profesional",
+      managePersonnel: "Ir a Personal",
+      createService: "Crear servicio",
+      completed: "Completado",
+      close: "Cerrar guía",
+      later: "Más tarde",
+      reopen: "Abrir guía para empezar"
+    },
     upgrade: {
       action: "Pasate a PRO",
       usageTitle: "Tu agenda está creciendo",
@@ -1060,6 +1077,23 @@ export const messages = {
   en: {
     appName: "MiTurnoListo",
     businessType: "Appointment manager",
+    setupGuide: {
+      title: "Start getting bookings",
+      progress: "{completed} of 2 steps completed",
+      personnel: "Add your first team member",
+      personnelHint: "If you work on your own, add yourself and set your hours.",
+      enablePersonnel: "Make a team member visible",
+      enablePersonnelHint: "You need a visible team member to assign to your first service.",
+      service: "Create your first service",
+      serviceHint: "Choose what you offer, how long it takes, and who provides it.",
+      createPersonnel: "Add team member",
+      managePersonnel: "Go to Team",
+      createService: "Create service",
+      completed: "Complete",
+      close: "Close setup guide",
+      later: "Maybe later",
+      reopen: "Open setup guide"
+    },
     upgrade: {
       action: "Upgrade to PRO",
       usageTitle: "Your schedule is growing",

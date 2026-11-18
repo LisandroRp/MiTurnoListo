@@ -37,6 +37,8 @@ type PersonnelViewProps = {
   businessId: string | null;
   referenceDate: string;
   subscriptionTier: SubscriptionTier;
+  startsInCreateMode?: boolean;
+  onLeaveSetupCreation?: () => void;
   onSaveEmployee: (employee: Employee) => Promise<boolean>;
   onArchiveEmployee: (employeeId: string) => Promise<boolean>;
   onDeleteEmployee: (employeeId: string) => Promise<boolean>;
@@ -56,6 +58,8 @@ export function PersonnelView({
   businessId,
   referenceDate,
   subscriptionTier,
+  startsInCreateMode = false,
+  onLeaveSetupCreation,
   onSaveEmployee,
   onArchiveEmployee,
   onDeleteEmployee,
@@ -67,7 +71,9 @@ export function PersonnelView({
   const searchParams = useSearchParams();
   const employeeSearchParam = searchParams.get("search") ?? "";
   const rangeIdCounter = useRef(1);
-  const [mode, setMode] = useState<PersonnelMode>("grid");
+  const canCreateEmployee = !isFreePlan(subscriptionTier) ||
+    employees.filter((employee) => !employee.isArchived).length < freePlanLimits.activeEmployees;
+  const [mode, setMode] = useState<PersonnelMode>(startsInCreateMode && canCreateEmployee ? "form" : "grid");
   const [draft, setDraft] = useState<Employee>(() => createNewEmployeeDraft(employees));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -78,7 +84,7 @@ export function PersonnelView({
   const [showArchivedPersonnel, setShowArchivedPersonnel] = useState(false);
   const [isSavingEmployee, setIsSavingEmployee] = useState(false);
   const [lockedEmployee, setLockedEmployee] = useState<Employee | null>(null);
-  const [isCreateLimitOpen, setIsCreateLimitOpen] = useState(false);
+  const [isCreateLimitOpen, setIsCreateLimitOpen] = useState(startsInCreateMode && !canCreateEmployee);
   const [pendingMenuAction, setPendingMenuAction] = useState<{ employeeId: string; action: EmployeeMenuAction } | null>(null);
 
   const currentStep = personnelWizardStepOrder[currentStepIndex] ?? "details";
@@ -108,7 +114,7 @@ export function PersonnelView({
   }).sort((left, right) => Number(left.isArchived) - Number(right.isArchived) || left.name.localeCompare(right.name));
 
   function startCreate() {
-    if (isFreePlan(subscriptionTier) && employees.filter((employee) => !employee.isArchived).length >= freePlanLimits.activeEmployees) {
+    if (!canCreateEmployee) {
       setIsCreateLimitOpen(true);
       return;
     }
@@ -135,11 +141,16 @@ export function PersonnelView({
       return;
     }
 
+    resetForm();
+  }
+
+  function resetForm() {
     setMode("grid");
     setEditingId(null);
     setCurrentStepIndex(0);
     setPendingEmployeeImageFile(null);
     setValidationMessage(null);
+    onLeaveSetupCreation?.();
   }
 
   function handleTextChange(field: keyof Employee) {
@@ -269,7 +280,7 @@ export function PersonnelView({
       const didSave = await onSaveEmployee({ ...employeeToSave, initials: getInitials(employeeToSave.name) });
 
       if (didSave) {
-        returnToGrid();
+        resetForm();
       }
     } catch (error) {
       onImageUploadError(error instanceof Error ? error.message : "No pudimos subir la foto del profesional.");
@@ -536,7 +547,10 @@ export function PersonnelView({
         title={messages.planLimits.employeeCreateTitle}
         description={messages.planLimits.employeeCreateDescription}
         actionLabel={messages.planLimits.lockedAction}
-        onClose={() => setIsCreateLimitOpen(false)}
+        onClose={() => {
+          setIsCreateLimitOpen(false);
+          onLeaveSetupCreation?.();
+        }}
       />
     </div>
   );

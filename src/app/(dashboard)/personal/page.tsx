@@ -2,12 +2,17 @@
 
 import { PersonnelView } from "@/features/scheduling/components/PersonnelView/index";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
+import { useSetupCreation } from "@/features/scheduling/components/useSetupCreation";
 
 export default function PersonnelSectionPage() {
+  const { startsInCreateMode, leaveSetupCreation } = useSetupCreation();
   const { appointments, archiveEmployee, businessId, employees, focusedDate, messages, profile, saveEmployee, deleteEmployee, services, showToast, unarchiveEmployee, updateEmployeeVisibility } = useScheduling();
 
   return (
     <PersonnelView
+      key={String(startsInCreateMode)}
+      startsInCreateMode={startsInCreateMode}
+      onLeaveSetupCreation={leaveSetupCreation}
       messages={messages}
       employees={employees}
       services={services}

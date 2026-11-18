@@ -70,6 +70,7 @@ type SchedulingContextValue = {
   focusedDate: string;
   isFetching: boolean;
   isLoading: boolean;
+  hasLoadedSetupResources: boolean;
   loadError: string | null;
   messages: Messages;
   paymentSettings: BusinessPaymentSettings;
@@ -214,6 +215,11 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     isLoading,
     isSnapshotScopePending
   });
+  const hasLoadedSetupResources = Boolean(authUserId && loadedSnapshotUserId === authUserId) &&
+    loadedSnapshotScopes.some((scope) => {
+      const config = getSchedulingSnapshotScopeConfig(scope);
+      return config.includeEmployees && config.includeServices;
+    });
 
   function clearWorkspace() {
     didAttemptWorkspaceRepair.current = false;
@@ -984,6 +990,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         focusedDate,
         isFetching,
         isLoading: isWorkspaceLoading,
+        hasLoadedSetupResources,
         loadError,
         messages: copy,
         paymentSettings,

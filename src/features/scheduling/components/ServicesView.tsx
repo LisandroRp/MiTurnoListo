@@ -48,6 +48,8 @@ type ServicesViewProps = {
   businessId: string | null;
   businessSlug: string;
   subscriptionTier: SubscriptionTier;
+  startsInCreateMode?: boolean;
+  onLeaveSetupCreation?: () => void;
   isMercadoPagoConfigured: boolean;
   isTransferConfigured: boolean;
   onSaveService: (service: Service) => Promise<boolean>;
@@ -76,6 +78,8 @@ export function ServicesView({
   businessId,
   businessSlug,
   subscriptionTier,
+  startsInCreateMode = false,
+  onLeaveSetupCreation,
   isMercadoPagoConfigured,
   isTransferConfigured,
   onSaveService,
@@ -87,8 +91,10 @@ export function ServicesView({
   onShareError
 }: ServicesViewProps) {
   const rangeIdCounter = useRef(1);
-  const [mode, setMode] = useState<ServicesMode>("grid");
-  const [draft, setDraft] = useState<Service>(() => createNewServiceDraft());
+  const hasFreeVisibleSlot = !isFreePlan(subscriptionTier) ||
+    services.filter((service) => !service.isArchived && service.isVisible).length < freePlanLimits.visibleServices;
+  const [mode, setMode] = useState<ServicesMode>(startsInCreateMode ? "form" : "grid");
+  const [draft, setDraft] = useState<Service>(() => ({ ...createNewServiceDraft(), isVisible: hasFreeVisibleSlot }));
   const [cancellationLeadUnit, setCancellationLeadUnit] = useState<CancellationLeadUnit>("days");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -102,8 +108,6 @@ export function ServicesView({
   const [serviceSearchTerm, setServiceSearchTerm] = useState("");
   const [serviceStatusFilter, setServiceStatusFilter] = useState<ServiceStatusFilter>("all");
   const [serviceEmployeeFilter, setServiceEmployeeFilter] = useState("all");
-  const hasFreeVisibleSlot = !isFreePlan(subscriptionTier) ||
-    services.filter((service) => !service.isArchived && service.isVisible).length < freePlanLimits.visibleServices;
   const unlockedVisibleServiceIds = isFreePlan(subscriptionTier)
     ? getFreePlanIncludedIds(services.filter((service) => !service.isArchived && service.isVisible), freePlanLimits.visibleServices)
     : new Set(services.filter((service) => !service.isArchived).map((service) => service.id));
@@ -193,6 +197,7 @@ export function ServicesView({
     setEditingId(null);
     setCurrentStepIndex(0);
     setValidationMessage(null);
+    onLeaveSetupCreation?.();
   }
 
   function handleTextChange(field: keyof Service) {
@@ -485,6 +490,7 @@ export function ServicesView({
         setMode("grid");
         setEditingId(null);
         setValidationMessage(null);
+        onLeaveSetupCreation?.();
       }
     } finally {
       setIsSavingService(false);

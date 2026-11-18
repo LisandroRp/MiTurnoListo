@@ -45,9 +45,11 @@ type ModalProps = {
   className?: string;
   overlayClassName?: string;
   isOpen: boolean;
+  "aria-labelledby"?: string;
+  "aria-describedby"?: string;
 };
 
-export function Modal({ children, className, overlayClassName, isOpen }: ModalProps) {
+export function Modal({ children, className, overlayClassName, isOpen, "aria-labelledby": labelledBy, "aria-describedby": describedBy }: ModalProps) {
   const isPresent = useModalPresence(isOpen);
   const [lastContent, setLastContent] = useState<ReactNode>(null);
   if (isOpen && lastContent !== children) setLastContent(children);
@@ -81,6 +83,8 @@ export function Modal({ children, className, overlayClassName, isOpen }: ModalPr
       <Card
         role="dialog"
         aria-modal="true"
+        aria-labelledby={labelledBy}
+        aria-describedby={describedBy}
         className={cx("pb-safe-6 max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto shadow-xl", className)}
       >
         {isOpen ? children : lastContent}

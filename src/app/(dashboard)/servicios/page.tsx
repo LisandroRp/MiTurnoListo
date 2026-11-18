@@ -2,8 +2,10 @@
 
 import { ServicesView } from "@/features/scheduling/components/ServicesView";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
+import { useSetupCreation } from "@/features/scheduling/components/useSetupCreation";
 
 export default function ServicesSectionPage() {
+  const { startsInCreateMode, leaveSetupCreation } = useSetupCreation();
   const { messages, appointments, archiveService, businessId, services, employees, paymentSettings, profile, saveService, deleteService, showToast, unarchiveService } = useScheduling();
   const isTransferConfigured = Boolean(
     paymentSettings.transfers.accountHolder.trim() &&
@@ -14,6 +16,9 @@ export default function ServicesSectionPage() {
 
   return (
     <ServicesView
+      key={String(startsInCreateMode)}
+      startsInCreateMode={startsInCreateMode}
+      onLeaveSetupCreation={leaveSetupCreation}
       messages={messages}
       services={services}
       employees={employees}

@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { FiBarChart2, FiCalendar, FiCreditCard, FiDollarSign, FiGift, FiGrid, FiHome, FiMenu, FiMessageSquare, FiPlusCircle, FiRefreshCw, FiUser, FiUserCheck, FiUsers } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
 
@@ -11,10 +11,12 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ToastViewport } from "@/components/ui/Toast";
 import { useAuth } from "@/features/auth/components/AuthProvider";
+import { DashboardSetupGuide } from "@/features/scheduling/components/DashboardSetupGuide";
 import { FreePlanUsagePrompt } from "@/features/scheduling/components/FreePlanUsagePrompt";
 import { NavigationItem, NavigationSidebar } from "@/features/scheduling/components/NavigationSidebar";
 import { freePlanLimits, getMonthlyAppointmentUsage, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
+import { setupCreationQuery, setupCreationValue } from "@/features/scheduling/components/useSetupCreation";
 
 type AppShellProps = {
   children: ReactNode;
@@ -26,8 +28,11 @@ export function AppShell({ children }: AppShellProps) {
   const didReconcileSubscription = useRef(false);
   const didShowFreeLimitToast = useRef(false);
   const { logout, userId } = useAuth();
-  const { appointments, businessId, dismissToast, isLoading, loadError, messages, profile, refreshWorkspaceSubscription, showToast, theme, toasts } = useScheduling();
+  const { appointments, businessId, dismissToast, employees, hasLoadedSetupResources, isLoading, loadError, messages, profile, refreshWorkspaceSubscription, services, showToast, theme, toasts } = useScheduling();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isSetupCreation = (pathname === "/personal" || pathname === "/servicios") &&
+    searchParams.get(setupCreationQuery) === setupCreationValue;
   const activeView = pathname.startsWith("/calendario")
     ? "calendar"
     : pathname.startsWith("/servicios")
@@ -238,6 +243,17 @@ export function AppShell({ children }: AppShellProps) {
         />
       ) : null}
       <ToastViewport toasts={toasts} onDismiss={dismissToast} />
+      {businessId && userId ? (
+        <DashboardSetupGuide
+          key={`${userId}:${businessId}`}
+          copy={messages.setupGuide}
+          employees={employees}
+          services={services}
+          subscriptionTier={profile.subscriptionTier}
+          isReady={hasLoadedSetupResources}
+          isCreating={isSetupCreation}
+        />
+      ) : null}
     </div>
   );
 }

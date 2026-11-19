@@ -20,7 +20,7 @@ componentModule.require = (specifier) => {
     return { Button: ({ children }) => createElement("button", null, children) };
   }
   if (specifier === "react-icons/fi") {
-    return { FiZap: () => createElement("span", null) };
+    return { FiStar: () => createElement("span", null) };
   }
   return require(specifier);
 };
@@ -29,13 +29,13 @@ componentModule._compile(output, fileUrl.pathname);
 const { ProfileReferralRewardCallout } = componentModule.exports;
 const messages = {
   profile: {
-    referralProActiveTitle: "Referral PRO active",
+    referralProActiveTitle: "Referral INFINITY active",
     referralProActivePrefix: "You have",
     referralProActiveSuffix: "days remaining",
-    referralRewardAvailableTitle: "Referral PRO available",
+    referralRewardAvailableTitle: "Referral INFINITY available",
     referralRewardAvailableSingular: "One reward is ready",
     referralRewardAvailablePlural: "{count} rewards are ready",
-    referralRewardActivateAction: "Activate PRO with referrals",
+    referralRewardActivateAction: "Activate INFINITY with referrals",
     referralRewardEmptyTitle: "No referral rewards yet",
     referralRewardEmptyDescription: "You have no rewards available yet",
     referralRewardSavedTitle: "You have saved referral rewards",
@@ -68,7 +68,7 @@ test("shows the referral skeleton independently of the plan label", () => {
   const html = render(profile("free", "free", 2), true);
 
   assert.match(html, /aria-hidden="true"/);
-  assert.doesNotMatch(html, /Activate PRO with referrals/);
+  assert.doesNotMatch(html, /Activate INFINITY with referrals/);
 });
 
 test("offers one reward activation only while the business is Free", () => {
@@ -77,11 +77,11 @@ test("offers one reward activation only while the business is Free", () => {
   const activeHtml = render(profile("pro", "referral", 1));
 
   assert.match(freeHtml, /2 rewards are ready/);
-  assert.match(freeHtml, /<button[^>]*>Activate PRO with referrals<\/button>/);
+  assert.match(freeHtml, /<button[^>]*>Activate INFINITY with referrals<\/button>/);
   assert.match(paidHtml, /You have saved referral rewards/);
-  assert.doesNotMatch(paidHtml, /Activate PRO with referrals/);
-  assert.match(activeHtml, /Referral PRO active/);
-  assert.doesNotMatch(activeHtml, /Activate PRO with referrals/);
+  assert.doesNotMatch(paidHtml, /Activate INFINITY with referrals/);
+  assert.match(activeHtml, /Referral INFINITY active/);
+  assert.doesNotMatch(activeHtml, /Activate INFINITY with referrals/);
 });
 
 test("shows an empty state after loading when there are no referral rewards", () => {
@@ -89,7 +89,7 @@ test("shows an empty state after loading when there are no referral rewards", ()
 
   assert.match(html, /No referral rewards yet/);
   assert.doesNotMatch(html, /animate-pulse/);
-  assert.doesNotMatch(html, /Activate PRO with referrals/);
+  assert.doesNotMatch(html, /Activate INFINITY with referrals/);
 });
 
 test("shows an error state instead of reporting no rewards when the summary fails", () => {

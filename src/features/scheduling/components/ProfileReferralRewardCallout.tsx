@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FiZap } from "react-icons/fi";
+import { FiStar } from "react-icons/fi";
 
 import { Button } from "@/components/ui/Button";
 import { Messages } from "@/features/scheduling/i18n/messages";
@@ -93,7 +93,7 @@ export function ProfileReferralRewardCallout({
       </p>
       <Button
         className="mt-4 w-full"
-        icon={<FiZap />}
+        icon={<FiStar />}
         isLoading={isActivating}
         onClick={() => void handleActivate()}
       >

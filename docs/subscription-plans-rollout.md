@@ -27,11 +27,11 @@ No additional replacement of existing policies, keys or tables is required by th
 | Pro | 25,000 | 3 | 10 active services, including private services | 150 |
 | Unlimited | 55,000 | Unlimited | Unlimited | Unlimited |
 
-Both paid plans retain online payments, public booking and statistics. Pro appointments are counted by their scheduled month in the business timezone. Canceled and rescheduled source records do not consume quota. A party-size booking is one appointment. Editing existing records, canceling and marking attendance remain available at the cap. Existing records are never deleted to satisfy a quota.
+Customer-facing plan names are FREE / PRO / INFINITY; the persisted IDs remain `free` / `pro` / `unlimited`. Both paid plans retain online payments, public booking and statistics. Pro appointments are counted by their scheduled month in the business timezone. Canceled and rescheduled source records do not consume quota. A party-size booking is one appointment. Editing existing records, canceling and marking attendance remain available at the cap. Existing records are never deleted to satisfy a quota.
 
 A paid plan change updates the same monthly authorization. Access changes when Mercado Pago confirms the change, and the new recurring amount applies to future billing; the application does not issue a separate immediate payment or create another authorization. Confirm the next billing date and amount in a test provider account before enabling this flow in production.
 
-Manual assignments do not create provider subscriptions, payment records or revenue. Active provider subscriptions must be managed before changing a manual grant. Referral rewards remain Pro benefits and must not replace manual or paid Unlimited access.
+Manual assignments do not create provider subscriptions, payment records or revenue. Active provider subscriptions must be managed before changing a manual grant. Referral rewards now grant 30 days of INFINITY (stored tier `unlimited`) and must not erase an independent manual or paid grant when they expire. See `referral-infinity-update.md` for the current reward and naming rules.
 
 ## Environment variables
 

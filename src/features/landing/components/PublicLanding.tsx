@@ -127,18 +127,18 @@ const structuredData = {
       offers: [
         {
           "@type": "Offer",
-          name: "Gratis",
+          name: "FREE",
           price: "0",
           priceCurrency: "ARS"
         },
         {
           "@type": "Offer",
-          name: "Pro",
+          name: "PRO",
           price: "25000",
           priceCurrency: "ARS"
         },
         ...(process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED === "true" ? [{
-          "@type": "Offer", name: "Ilimitado", price: "55000", priceCurrency: "ARS"
+          "@type": "Offer", name: "INFINITY", price: "55000", priceCurrency: "ARS"
         }] : [])
       ],
       publisher: {
@@ -346,15 +346,15 @@ export function PublicLanding() {
         <div className="grid gap-6 rounded-lg border border-subtle bg-sidebar p-5 md:grid-cols-[1fr_1.2fr] md:items-center">
           <div>
             <Badge tone="brand" className="w-fit">Referidos</Badge>
-            <h2 className="mt-3 text-2xl font-bold text-primary">Compartí MiTurnoListo y ganá meses PRO.</h2>
+            <h2 className="mt-3 text-2xl font-bold text-primary">Compartí MiTurnoListo y ganá meses INFINITY.</h2>
             <p className="mt-3 text-sm leading-6 text-muted">
-              Cuando una cuenta nueva se suscribe a PRO con tu código, sumás 30 días de PRO acumulables hasta un máximo de 3 meses.
+              Cuando una cuenta nueva hace su primer pago de PRO o INFINITY con tu código, sumás 30 días de INFINITY acumulables hasta un máximo de 3 meses.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <ReferralLandingStep icon={<FiGift />} title="Activá tu código" description="Generalo desde el panel de referidos." />
             <ReferralLandingStep icon={<FiShare2 />} title="Invitá" description="Tu link lleva directo al signup." />
-            <ReferralLandingStep icon={<FiCheckCircle />} title="Ganás PRO" description="La recompensa llega con el primer pago aprobado." />
+            <ReferralLandingStep icon={<FiCheckCircle />} title="Ganás INFINITY" description="La recompensa llega con el primer pago aprobado." />
           </div>
         </div>
       </section>

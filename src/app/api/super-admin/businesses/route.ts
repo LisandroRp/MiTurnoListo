@@ -280,7 +280,7 @@ async function loadSuperAdminBusinesses(supabase: ReturnType<typeof getSupabaseA
     const referralStats = owner?.userId ? referralStatsByUserId.get(owner.userId) : null;
     const rewardStats = owner?.userId ? rewardStatsByUserId.get(owner.userId) : null;
     const hasAuthorizedSubscription = subscription?.provider_status === "authorized";
-    const isReferralPro = business.subscription_tier === "pro" && !hasAuthorizedSubscription && Boolean(rewardStats?.activeDaysRemaining);
+    const isReferralPro = business.subscription_tier !== "free" && !hasAuthorizedSubscription && Boolean(rewardStats?.activeDaysRemaining);
 
     return {
       businessId: business.id,

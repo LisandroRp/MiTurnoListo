@@ -54,6 +54,14 @@ function createSupabase(overrides = {}, options = {}) {
 
   return {
     rows,
+    async rpc(name, { p_business_id }) {
+      assert.equal(name, "reconcile_business_subscription");
+      const business = rows.businesses.find((item) => item.id === p_business_id);
+      const tiers = [business.manual_subscription_tier, ...rows.business_subscriptions.filter((row) => row.business_id === p_business_id && row.provider_status === "authorized" && row.provider === "mercadopago").map((row) => row.subscription_tier)];
+      const tier = tiers.includes("unlimited") ? "unlimited" : tiers.includes("pro") ? "pro" : "free";
+      business.subscription_tier = tier;
+      return { data: tier, error: null };
+    },
     from(table) {
       const filters = [];
       let action = "select";
@@ -103,7 +111,7 @@ function createSupabase(overrides = {}, options = {}) {
           return this;
         },
         update(value) { action = "update"; payload = value; selected = false; return this; },
-        insert(value) { rows[table].push(value); return Promise.resolve({ error: null }); },
+        insert(value) { rows[table].push({ id: `generated-${rows[table].length}`, created_at: new Date().toISOString(), ...value }); return Promise.resolve({ error: null }); },
         maybeSingle() { return Promise.resolve(run(true)); },
         then(resolve, reject) { return Promise.resolve(run(false)).then(resolve, reject); }
       };
@@ -149,12 +157,13 @@ test("each available reward needs a separate activation after the previous one e
   const firstSummary = await activateReferralRewardForUser({ origin: "https://example.com", supabase, userId: "referrer" });
   assert.equal(firstSummary.subscriptionAccessSource, "referral");
   assert.equal(firstSummary.availableRewardCount, 1);
-  assert.equal(supabase.rows.businesses[0].subscription_tier, "pro");
+  assert.equal(supabase.rows.businesses[0].subscription_tier, "unlimited");
+  assert.equal(firstSummary.subscriptionTier, "unlimited");
   assert.deepEqual(supabase.rows.referral_rewards.map((item) => item.status), ["active", "available"]);
 
   await assert.rejects(
     activateReferralRewardForUser({ origin: "https://example.com", supabase, userId: "referrer" }),
-    /cuando tu plan es Free/
+    /cuando tu plan es FREE/
   );
   supabase.rows.referral_rewards[0].expires_at = "2020-01-01T00:00:00Z";
   await reconcileReferralAccessForUser({ supabase, userId: "referrer" });
@@ -172,7 +181,7 @@ test("paid or manually enabled PRO cannot consume a referral reward", async () =
 
   await assert.rejects(
     activateReferralRewardForUser({ origin: "https://example.com", supabase, userId: "referrer" }),
-    /cuando tu plan es Free/
+    /cuando tu plan es FREE/
   );
   supabase.rows.businesses[0].subscription_tier = "free";
   supabase.rows.business_subscriptions.push({
@@ -185,7 +194,7 @@ test("paid or manually enabled PRO cannot consume a referral reward", async () =
 
   await assert.rejects(
     activateReferralRewardForUser({ origin: "https://example.com", supabase, userId: "referrer" }),
-    /cuando tu plan es Free/
+    /cuando tu plan es FREE/
   );
   assert.equal(supabase.rows.referral_rewards[0].status, "available");
 });
@@ -298,4 +307,42 @@ test("manual Unlimited access is identified separately from provider billing and
   await reconcileReferralAccessForUser({ supabase, userId: "referrer" });
   assert.equal(supabase.rows.businesses[0].subscription_tier, "unlimited");
   assert.equal(supabase.rows.business_subscriptions.length, 0);
+});
+
+
+test("existing active Pro rewards become Infinity without resetting their remaining days or expiry", async () => {
+  const expiry = new Date(Date.now() + 12 * 86400000).toISOString();
+  const supabase = createSupabase({ referral_rewards: [reward("legacy", "active", 12, expiry), reward("saved")] });
+  supabase.rows.businesses[0].subscription_tier = "pro";
+  const summary = await getReferralSummary({ origin: "https://example.test", supabase, userId: "referrer" });
+  assert.equal(summary.subscriptionTier, "unlimited");
+  assert.equal(summary.subscriptionAccessSource, "referral");
+  assert.equal(supabase.rows.referral_rewards[0].days_remaining, 12);
+  assert.equal(supabase.rows.referral_rewards[0].expires_at, expiry);
+  assert.equal(supabase.rows.referral_rewards[1].status, "available");
+});
+
+test("Infinity referral expiry restores Free or the independent manual plan without consuming another reward", async () => {
+  for (const manualTier of [null, "pro", "unlimited"]) {
+    const supabase = createSupabase({ referral_rewards: [reward("expired", "active", 30, "2020-01-01T00:00:00Z"), reward("saved")] });
+    Object.assign(supabase.rows.businesses[0], { subscription_tier: "unlimited", manual_subscription_tier: manualTier });
+    const result = await reconcileExpiredReferralTierForBusiness({ businessId: "business-1", subscriptionTier: "unlimited", supabase });
+    assert.equal(result, manualTier ?? "free");
+    assert.deepEqual(supabase.rows.referral_rewards.map((row) => row.status), ["used", "available"]);
+  }
+});
+
+test("the first approved Pro or Infinity payment grants one saved thirty-day reward", async () => {
+  for (const plan of ["pro", "unlimited"]) {
+    const supabase = createSupabase();
+    supabase.rows.businesses[1].subscription_tier = plan;
+    const payment = { businessId: "business-2", paymentId: "payment-1", paymentStatus: "approved", supabase };
+    assert.equal(await rewardReferralForBusinessPayment(payment), true);
+    assert.equal(await rewardReferralForBusinessPayment(payment), false);
+    assert.equal(supabase.rows.referral_rewards.length, 1);
+    assert.equal(supabase.rows.referral_rewards[0].days_granted, 30);
+    assert.equal(supabase.rows.referral_rewards[0].status, "available");
+    const summary = await activateReferralRewardForUser({ origin: "https://example.test", supabase, userId: "referrer" });
+    assert.equal(summary.subscriptionTier, "unlimited");
+  }
 });

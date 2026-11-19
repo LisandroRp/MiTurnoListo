@@ -22,6 +22,7 @@ export type SubscriptionTier = "free" | "pro" | "unlimited";
 export type SubscriptionAccessSource = "free" | "paid" | "referral" | "manual";
 
 export type ReferralSummary = {
+  subscriptionTier?: SubscriptionTier;
   subscriptionAccessSource: SubscriptionAccessSource;
   referralCode: string;
   referralLink: string;

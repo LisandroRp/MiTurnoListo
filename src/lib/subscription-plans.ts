@@ -27,5 +27,5 @@ export function getPaidSubscriptionConfig(tier: PaidSubscriptionTier) {
   const configured = tier === "unlimited" ? process.env.MERCADO_PAGO_UNLIMITED_PRICE_ARS : process.env.MERCADO_PAGO_PRO_PRICE_ARS;
   const amount = Number(configured?.trim() || (tier === "unlimited" ? "55000" : "25000"));
   if (!Number.isFinite(amount) || amount <= 0) throw new Error(`Invalid monthly subscription price: ${variable}.`);
-  return { amount, planCode: paidPlanCodes[tier], reason: tier === "unlimited" ? "MiTurnoListo Ilimitado" : "MiTurnoListo PRO" };
+  return { amount, planCode: paidPlanCodes[tier], reason: tier === "unlimited" ? "MiTurnoListo INFINITY" : "MiTurnoListo PRO" };
 }

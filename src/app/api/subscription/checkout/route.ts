@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     const plan = body.plan ?? "pro";
     if (!isPaidSubscriptionTier(plan)) return NextResponse.json({ error: "Invalid subscription plan." }, { status: 400 });
-    if (plan === "unlimited" && !areNewSubscriptionPlansEnabled()) return NextResponse.json({ error: "El plan Ilimitado todavía no está disponible." }, { status: 409 });
+    if (plan === "unlimited" && !areNewSubscriptionPlansEnabled()) return NextResponse.json({ error: "El plan INFINITY todavía no está disponible." }, { status: 409 });
 
     const authResult = await authenticateBusinessRequest(request, body.businessId, ["owner", "admin"]);
 

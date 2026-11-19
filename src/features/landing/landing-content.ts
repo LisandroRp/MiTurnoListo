@@ -10,14 +10,14 @@ type LandingPlan = {
 export const landingPlans: readonly LandingPlan[] = [
   {
     id: "free",
-    name: "Gratis",
+    name: "FREE",
     price: "$0",
     description: "Para empezar a ordenar tus primeros turnos.",
     perks: ["Hasta 1 integrante del personal", "Hasta 2 servicios visibles", "Hasta 15 turnos por mes", "Calendario y reservas manuales", "Estadísticas y pagos avanzados bloqueados"]
   },
   {
     id: "pro",
-    name: "Pro",
+    name: "PRO",
     price: "$25.000",
     description: "Para empezar a automatizar la agenda de tu negocio.",
     perks: ["Hasta 3 integrantes del personal", "Hasta 10 servicios activos", "Hasta 150 turnos por mes", "Reservas por link y QR", "Pagos online y estadísticas avanzadas"],
@@ -25,7 +25,7 @@ export const landingPlans: readonly LandingPlan[] = [
   },
   {
     id: "unlimited",
-    name: "Ilimitado",
+    name: "INFINITY",
     price: "$55.000",
     description: "Para equipos y agendas que necesitan crecer sin límites.",
     perks: ["Personal ilimitado", "Servicios activos ilimitados", "Turnos ilimitados", "Reservas por link y QR", "Pagos online y estadísticas avanzadas"]

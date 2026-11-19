@@ -70,7 +70,7 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     return createApiErrorResponse(error, {
       code: "REFERRAL_REWARD_ACTIVATION_FAILED",
-      fallbackMessage: "No pudimos activar PRO con referidos.",
+      fallbackMessage: "No pudimos activar INFINITY con referidos.",
       status: error instanceof ReferralRewardNotAvailableError ? 409 : 500
     });
   }

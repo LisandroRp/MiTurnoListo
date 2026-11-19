@@ -5,6 +5,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { normalizeReferralCode } from "@/lib/referral-rules";
 
 export type ReferralSummary = {
+  subscriptionTier: "free" | "pro" | "unlimited";
   subscriptionAccessSource: "free" | "paid" | "referral" | "manual";
   referralCode: string;
   referralLink: string;
@@ -262,7 +263,7 @@ export async function activateReferralRewardForUser({
   ]);
 
   if (hasPaidSubscription || activeReward?.id || businessTier !== "free") {
-    throw new ReferralRewardNotAvailableError("Solo podés activar PRO con referidos cuando tu plan es Free.");
+    throw new ReferralRewardNotAvailableError("Solo podés activar INFINITY con referidos cuando tu plan es FREE.");
   }
 
   const { data: reward, error: lookupError } = await supabase
@@ -286,7 +287,7 @@ export async function activateReferralRewardForUser({
   const claimedBusinessId = await claimFreeBusinessTierForUser(supabase, userId);
 
   if (!claimedBusinessId) {
-    throw new ReferralRewardNotAvailableError("Solo podés activar PRO con referidos cuando tu plan es Free.");
+    throw new ReferralRewardNotAvailableError("Solo podés activar INFINITY con referidos cuando tu plan es FREE.");
   }
 
   const now = new Date().toISOString();
@@ -399,6 +400,7 @@ export async function getReferralSummary({
     referralLink: referralCode ? `${origin.replace(/\/+$/, "")}/login?mode=signup&ref=${encodeURIComponent(referralCode)}` : "",
     registeredCount: registeredResult.count ?? 0,
     subscriptionAccessSource,
+    subscriptionTier: businessSubscriptionTier,
     usedMonths: Math.floor(usedDays / referralRewardDays)
   };
 }
@@ -433,7 +435,7 @@ export async function reconcileReferralAccessForUser({
 
     const didUpgrade = await setUserBusinessTier({
       supabase,
-      subscriptionTier: "pro",
+      subscriptionTier: "unlimited",
       userId
     });
 
@@ -474,7 +476,7 @@ export async function reconcileExpiredReferralTierForBusiness({
   subscriptionTier: string;
   supabase: SupabaseClient;
 }) {
-  if (subscriptionTier !== "pro") {
+  if (subscriptionTier === "free") {
     return subscriptionTier;
   }
 
@@ -634,7 +636,7 @@ async function getUserBusinessSubscriptionTier(supabase: SupabaseClient, userId:
   }
 
   if (!membership?.business_id) {
-    throw new ReferralRewardNotAvailableError("Solo la cuenta propietaria puede activar PRO con referidos.");
+    throw new ReferralRewardNotAvailableError("Solo la cuenta propietaria puede activar INFINITY con referidos.");
   }
 
   const { data, error } = await supabase
@@ -707,7 +709,7 @@ async function setUserBusinessTier({
   userId
 }: {
   supabase: SupabaseClient;
-  subscriptionTier: "free" | "pro";
+  subscriptionTier: "free" | "unlimited";
   userId: string;
 }) {
   const { data: membership } = await supabase
@@ -722,11 +724,16 @@ async function setUserBusinessTier({
     return false;
   }
 
+  if (subscriptionTier === "free") {
+    // Restore paid/manual access atomically instead of erasing independent grants.
+    const { error } = await supabase.rpc("reconcile_business_subscription", { p_business_id: membership.business_id });
+    return !error;
+  }
+
   const { error } = await supabase
     .from("businesses")
     .update({ subscription_tier: subscriptionTier })
-    .eq("id", membership.business_id)
-    .neq("subscription_tier", "unlimited");
+    .eq("id", membership.business_id);
 
   return !error;
 }
@@ -745,19 +752,19 @@ async function claimFreeBusinessTierForUser(supabase: SupabaseClient, userId: st
   }
 
   if (!membership?.business_id) {
-    throw new ReferralRewardNotAvailableError("Solo la cuenta propietaria puede activar PRO con referidos.");
+    throw new ReferralRewardNotAvailableError("Solo la cuenta propietaria puede activar INFINITY con referidos.");
   }
 
   const { data: business, error } = await supabase
     .from("businesses")
-    .update({ subscription_tier: "pro" })
+    .update({ subscription_tier: "unlimited" })
     .eq("id", membership.business_id)
     .eq("subscription_tier", "free")
     .select("id")
     .maybeSingle<{ id: string }>();
 
   if (error) {
-    throw new Error("No pudimos activar PRO con referidos. Intentá nuevamente.");
+    throw new Error("No pudimos activar INFINITY con referidos. Intentá nuevamente.");
   }
 
   return business?.id ?? null;
@@ -773,11 +780,8 @@ async function restoreFreeBusinessTierIfEligible(supabase: SupabaseClient, userI
     return;
   }
 
-  await supabase
-    .from("businesses")
-    .update({ subscription_tier: "free" })
-    .eq("id", businessId)
-    .eq("subscription_tier", "pro");
+  const { error } = await supabase.rpc("reconcile_business_subscription", { p_business_id: businessId });
+  if (error) throw new Error("No pudimos restaurar el acceso después de activar el beneficio.");
 }
 
 async function getUserReferralProfile(supabase: SupabaseClient, userId: string) {

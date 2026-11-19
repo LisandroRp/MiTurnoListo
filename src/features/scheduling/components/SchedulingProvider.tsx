@@ -56,6 +56,7 @@ import {
   updateSchedulingPreferences,
 } from "@/lib/networking/endpoints/scheduling";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
+import { getEffectiveSubscriptionTier } from "@/lib/referral-rules";
 import { activateReferralProgram as activateReferralProgramRequest, activateReferralReward as activateReferralRewardRequest } from "@/lib/networking/endpoints/referrals";
 import type { ReferralSummary } from "@/features/scheduling/types";
 import { SubscriptionPurchase } from "@/lib/networking/endpoints/subscription";
@@ -761,7 +762,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       const summary = await activateReferralProgramRequest();
       setProfileState((current) => ({
         ...current,
-        referralSummary: summary
+        referralSummary: summary,
+        subscriptionAccessSource: summary.subscriptionAccessSource,
+        subscriptionTier: getEffectiveSubscriptionTier(summary.subscriptionAccessSource, current.subscriptionTier, summary.subscriptionTier)
       }));
       showToast({
         tone: "success",
@@ -785,7 +788,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         ...current,
         referralSummary: summary,
         subscriptionAccessSource: summary.subscriptionAccessSource,
-        subscriptionTier: summary.subscriptionAccessSource === "free" ? "free" : "pro"
+        subscriptionTier: getEffectiveSubscriptionTier(summary.subscriptionAccessSource, current.subscriptionTier, summary.subscriptionTier)
       }));
       showToast({
         tone: "success",
@@ -796,7 +799,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       showToast({
         tone: "error",
         title: copy.toast.error,
-        description: getErrorMessage(error, "No pudimos activar PRO con referidos.")
+        description: getErrorMessage(error, "No pudimos activar INFINITY con referidos.")
       });
       return null;
     }

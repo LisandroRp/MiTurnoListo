@@ -11,9 +11,18 @@ test("normalizeReferralCode keeps referral codes URL-safe and uppercase", () => 
   assert.equal(normalizeReferralCode("ana.lopez_2026"), "ANALOPEZ2026");
 });
 
-test("getEffectiveSubscriptionTier enables PRO for paid and referral access", () => {
+test("effective tier distinguishes paid Pro from Infinity referral rewards", () => {
   assert.equal(getEffectiveSubscriptionTier("paid", "free"), "pro");
-  assert.equal(getEffectiveSubscriptionTier("referral", "free"), "pro");
+  assert.equal(getEffectiveSubscriptionTier("referral", "free"), "unlimited");
   assert.equal(getEffectiveSubscriptionTier("free", "free"), "free");
   assert.equal(getEffectiveSubscriptionTier("free", "pro"), "pro");
+});
+
+
+test("an authoritative referral summary preserves Infinity and handles expiry while older summaries retain the current plan", () => {
+  assert.equal(getEffectiveSubscriptionTier("manual", "unlimited"), "unlimited");
+  assert.equal(getEffectiveSubscriptionTier("paid", "unlimited"), "unlimited");
+  assert.equal(getEffectiveSubscriptionTier("manual", "unlimited", "unlimited"), "unlimited");
+  assert.equal(getEffectiveSubscriptionTier("free", "unlimited", "free"), "free");
+  assert.equal(getEffectiveSubscriptionTier("manual", "unlimited", "pro"), "pro");
 });

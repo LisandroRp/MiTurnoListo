@@ -11,7 +11,7 @@ test("monthly prices come from server configuration for the selected plan", () =
     process.env.MERCADO_PAGO_PRO_PRICE_ARS = "25000";
     process.env.MERCADO_PAGO_UNLIMITED_PRICE_ARS = "55000";
     assert.deepEqual(getPaidSubscriptionConfig("pro"), { amount: 25000, planCode: "miturnolisto-pro", reason: "MiTurnoListo PRO" });
-    assert.deepEqual(getPaidSubscriptionConfig("unlimited"), { amount: 55000, planCode: "miturnolisto-unlimited", reason: "MiTurnoListo Ilimitado" });
+    assert.deepEqual(getPaidSubscriptionConfig("unlimited"), { amount: 55000, planCode: "miturnolisto-unlimited", reason: "MiTurnoListo INFINITY" });
     process.env.MERCADO_PAGO_UNLIMITED_PRICE_ARS = "NaN";
     assert.throws(() => getPaidSubscriptionConfig("unlimited"), /MERCADO_PAGO_UNLIMITED_PRICE_ARS/);
     process.env.MERCADO_PAGO_UNLIMITED_PRICE_ARS = "-1";

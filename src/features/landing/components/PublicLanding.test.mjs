@@ -44,13 +44,13 @@ test("landing previews the agreed plans with existing entry points and unavailab
   assert.equal(cards.length, 3);
   assert.match(cards[0], /15 turnos/);
   assert.match(cards[0], /href="\/login\?mode=signup"/);
-  assert.match(cards[1], /Pro/);
+  assert.match(cards[1], /PRO/);
   assert.match(cards[1], /25\.000/);
   assert.match(cards[1], /150 turnos/);
   assert.match(cards[1], /3 integrantes/);
   assert.match(cards[1], /10 servicios/);
   assert.match(cards[1], /href="\/perfil#planes"/);
-  assert.match(cards[2], /Ilimitado/);
+  assert.match(cards[2], /INFINITY/);
   assert.match(cards[2], /55\.000/);
   assert.match(cards[2], /<button[^>]*disabled=""/);
   assert.doesNotMatch(cards[2], /href=/);
@@ -66,6 +66,6 @@ test("structured data only offers plans that are currently available", () => {
   const json = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
   const offers = json["@graph"].find((node) => node["@type"] === "SoftwareApplication").offers;
   assert.deepEqual(offers.map(({ name, price }) => ({ name, price })), [
-    { name: "Gratis", price: "0" }, { name: "Pro", price: "25000" }
+    { name: "FREE", price: "0" }, { name: "PRO", price: "25000" }
   ]);
 });

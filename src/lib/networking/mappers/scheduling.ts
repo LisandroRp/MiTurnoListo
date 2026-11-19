@@ -380,7 +380,7 @@ export function mapProfile(
     : business.subscription_tier !== "free"
       ? "manual"
       : "free";
-  const subscriptionTier = getEffectiveSubscriptionTier(subscriptionAccessSource, business.subscription_tier);
+  const subscriptionTier = getEffectiveSubscriptionTier(subscriptionAccessSource, business.subscription_tier, referralSummary?.subscriptionTier);
 
   return {
     firstName: userProfile.first_name,

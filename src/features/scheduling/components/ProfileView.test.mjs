@@ -122,7 +122,7 @@ test("marks the known Free plan while referral details are still loading", () =>
   });
   const [freeCard, proCard] = getPlanCards(html);
 
-  assert.match(html, /aria-label="Plan actual: Free/);
+  assert.match(html, /aria-label="Plan actual: FREE/);
   assert.match(freeCard[1], /border-brand bg-brand-soft/);
   assert.match(freeCard[2], /Plan actual/);
   assert.doesNotMatch(proCard[1], /border-brand bg-brand-soft/);
@@ -399,7 +399,7 @@ test("previews the three plans and keeps Unlimited unavailable without changing 
     assert.match(cards[1][2], /3 integrantes/);
     assert.match(cards[1][2], /10 servicios/);
     assert.match(cards[2][0], /disabled=""/);
-    assert.match(cards[2][2], /Ilimitado/);
+    assert.match(cards[2][2], /INFINITY/);
     assert.match(cards[2][2], /55\.000/);
     assert.match(cards[2][2], /Próximamente/);
     assert.doesNotMatch(cards[2][2], /Plan actual/);
@@ -460,7 +460,7 @@ test("release flag enables the Unlimited confirmation while keeping the selected
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(app.checkoutCalls(), 1);
     const html = render(false, { ...profile, subscriptionTier: "unlimited" });
-    assert.match(html, /aria-label="Plan actual: Ilimitado/);
+    assert.match(html, /aria-label="Plan actual: INFINITY/);
     assert.match(getPlanCards(html)[2][2], /Plan actual/);
   } finally {
     if (previous === undefined) delete process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED; else process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED = previous;

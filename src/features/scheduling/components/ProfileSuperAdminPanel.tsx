@@ -87,7 +87,7 @@ export function ProfileSuperAdminPanel({
             />
             <SuperAdminMetricCard
               label={messages.profile.superAdminPlans}
-              value={`${proCount} PRO / ${unlimitedCount} ${messages.profile.unlimitedPlan} / ${freeCount} Free`}
+              value={`${proCount} PRO / ${unlimitedCount} ${messages.profile.unlimitedPlan} / ${freeCount} FREE`}
             />
             <SuperAdminMetricCard
               label={(
@@ -450,7 +450,7 @@ function SuperAdminBusinessCard({
 function PlanBadge({ isReferralPro, plan, messages }: { isReferralPro: boolean; plan: string; messages: Messages }) {
   return (
     <Badge tone={plan === "pro" ? "warning" : "brand"} className={plan === "pro" ? "bg-warning text-primary" : ""}>
-      {plan === "unlimited" ? <><FiStar aria-hidden="true" /> {messages.profile.unlimitedPlan}</> : isReferralPro ? messages.profile.referralProPlan : plan === "pro" ? <><FiZap aria-hidden="true" /> {messages.profile.proPlan}</> : messages.profile.freePlan}
+      {isReferralPro ? <><FiStar aria-hidden="true" /> {messages.profile.referralProPlan}</> : plan === "unlimited" ? <><FiStar aria-hidden="true" /> {messages.profile.unlimitedPlan}</> : plan === "pro" ? <><FiZap aria-hidden="true" /> {messages.profile.proPlan}</> : messages.profile.freePlan}
     </Badge>
   );
 }

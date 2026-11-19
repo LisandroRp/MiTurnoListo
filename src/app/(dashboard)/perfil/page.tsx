@@ -7,6 +7,7 @@ import { useAuth } from "@/features/auth/components/AuthProvider";
 import { ProfileView } from "@/features/scheduling/components/ProfileView";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
 import { ReferralSummary } from "@/features/scheduling/types";
+import { getEffectiveSubscriptionTier } from "@/lib/referral-rules";
 import { getReferralSummary } from "@/lib/networking/endpoints/referrals";
 import { getSuperAdminStatus } from "@/lib/networking/endpoints/super-admin";
 
@@ -42,7 +43,7 @@ export default function ProfileSectionPage() {
         ...profile,
         referralSummary,
         subscriptionAccessSource: referralSummary.subscriptionAccessSource,
-        subscriptionTier: referralSummary.subscriptionAccessSource === "free" ? "free" : "pro"
+        subscriptionTier: getEffectiveSubscriptionTier(referralSummary.subscriptionAccessSource, profile.subscriptionTier, referralSummary.subscriptionTier)
       } as const
     : profile;
 

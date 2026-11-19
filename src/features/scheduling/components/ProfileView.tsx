@@ -92,7 +92,6 @@ export function ProfileView({
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const [isSavingBusiness, setIsSavingBusiness] = useState(false);
   const [isSubmittingPlanChange, setIsSubmittingPlanChange] = useState(false);
-  const newPlansEnabled = process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED === "true";
   const isUnlimitedPlan = profile.subscriptionTier === "unlimited";
   const isProPlan = profile.subscriptionTier !== "free";
   const isReferralPlan = profile.subscriptionAccessSource === "referral";
@@ -360,7 +359,6 @@ export function ProfileView({
               <p className="text-sm leading-6 text-muted">{messages.profile.plansDescription}</p>
             </div>
 
-            {!newPlansEnabled ? <p className="mt-4 rounded-lg border border-subtle bg-input p-3 text-sm leading-6 text-muted">{messages.profile.upcomingPlansNotice}</p> : null}
             <div className="mt-5 grid gap-4 xl:grid-cols-3">
               <PlanCard
                 title={messages.profile.freePlan}
@@ -374,8 +372,8 @@ export function ProfileView({
               <PlanCard
                 title={messages.profile.proPlan}
                 price={messages.profile.proPlanPrice}
-                description={messages.profile.upcomingProDescription}
-                features={messages.profile.upcomingProFeatures}
+                description={messages.profile.proPlanDescription}
+                features={messages.profile.proPlanFeatures}
                 isCurrent={isProPlan && !isUnlimitedPlan && !isReferralPlan}
                 isRecommended
                 onClick={() => handlePlanClick("pro")}
@@ -388,10 +386,8 @@ export function ProfileView({
                 description={messages.profile.unlimitedPlanDescription}
                 features={messages.profile.unlimitedPlanFeatures}
                 isCurrent={isUnlimitedPlan}
-                onClick={newPlansEnabled ? () => handlePlanClick("unlimited") : undefined}
+                onClick={() => handlePlanClick("unlimited")}
                 icon={<FiStar className="shrink-0 text-brand-strong" aria-hidden="true" />}
-                disabledLabel={newPlansEnabled ? undefined : messages.profile.unlimitedComingSoon}
-                helperText={newPlansEnabled ? undefined : messages.profile.unlimitedCheckoutHint}
                 currentPlanLabel={messages.profile.currentPlan}
               />
             </div>
@@ -466,7 +462,7 @@ export function ProfileView({
                 </div>
 
                 <ul className="mt-5 grid gap-3">
-                  {(pendingTier === "unlimited" ? messages.profile.unlimitedPlanFeatures : newPlansEnabled ? messages.profile.upcomingProFeatures : messages.profile.proPlanFeatures).map((feature) => (
+                  {(pendingTier === "unlimited" ? messages.profile.unlimitedPlanFeatures : messages.profile.proPlanFeatures).map((feature) => (
                     <li key={feature} className="flex items-start gap-3 text-sm text-primary">
                       <FiCheckCircle className="mt-0.5 shrink-0 text-success" aria-hidden="true" />
                       <span>{feature}</span>
@@ -715,9 +711,7 @@ function PlanCard({
   onClick,
   currentPlanLabel,
   recommendedLabel,
-  icon,
-  disabledLabel,
-  helperText
+  icon
 }: {
   title: string;
   price: string;
@@ -725,19 +719,16 @@ function PlanCard({
   features: readonly string[];
   isCurrent: boolean;
   isRecommended?: boolean;
-  onClick?: () => void;
+  onClick: () => void;
   currentPlanLabel: string;
   recommendedLabel?: string;
   icon?: ReactNode;
-  disabledLabel?: string;
-  helperText?: string;
 }) {
   return (
     <button
       type="button"
-      onClick={disabledLabel ? undefined : onClick}
-      disabled={Boolean(disabledLabel)}
-      className={`w-full rounded-2xl border p-5 grid content-start gap-4 xl:row-span-10 xl:grid-rows-subgrid text-left transition-all enabled:hover:-translate-y-1 enabled:hover:shadow-lg enabled:cursor-pointer disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${isCurrent ? "border-brand bg-brand-soft" : "border-subtle bg-input"}`}
+      onClick={onClick}
+      className={`w-full rounded-2xl border p-5 grid content-start gap-4 xl:row-span-8 xl:grid-rows-subgrid text-left transition-all enabled:hover:-translate-y-1 enabled:hover:shadow-lg enabled:cursor-pointer disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${isCurrent ? "border-brand bg-brand-soft" : "border-subtle bg-input"}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h3 className="flex items-center gap-2 text-xl font-bold text-primary">{icon ?? (isRecommended ? <FiZap className="shrink-0 text-brand-strong" aria-hidden="true" /> : null)}{title}</h3>
@@ -758,8 +749,6 @@ function PlanCard({
           </li>
         ))}
       </ul>
-      <span className={disabledLabel ? "block rounded-lg border border-subtle bg-surface px-3 py-2 text-center text-sm font-semibold text-muted" : "hidden xl:block"} aria-hidden={!disabledLabel || undefined}>{disabledLabel}</span>
-      <span className={helperText ? "block text-xs leading-5 text-muted" : "hidden xl:block"} aria-hidden={!helperText || undefined}>{helperText}</span>
     </button>
   );
 }

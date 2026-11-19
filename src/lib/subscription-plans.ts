@@ -18,10 +18,6 @@ export function getHighestSubscriptionTier(tiers: readonly unknown[]): Subscript
   return tiers.includes("unlimited") ? "unlimited" : tiers.includes("pro") ? "pro" : "free";
 }
 
-export function areNewSubscriptionPlansEnabled() {
-  return process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED === "true";
-}
-
 export function getPaidSubscriptionConfig(tier: PaidSubscriptionTier) {
   const variable = tier === "unlimited" ? "MERCADO_PAGO_UNLIMITED_PRICE_ARS" : "MERCADO_PAGO_PRO_PRICE_ARS";
   const configured = tier === "unlimited" ? process.env.MERCADO_PAGO_UNLIMITED_PRICE_ARS : process.env.MERCADO_PAGO_PRO_PRICE_ARS;

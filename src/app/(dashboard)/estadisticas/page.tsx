@@ -5,7 +5,6 @@ import { useScheduling } from "@/features/scheduling/components/SchedulingProvid
 
 export default function StatisticsPage() {
   const { appointments, employees, services, messages, focusedDate, profile, businessDayBlocks, deleteAppointment, markAppointmentPaid, markAppointmentNoShow, rescheduleAppointment } = useScheduling();
-  const isStatisticsLocked = profile.subscriptionTier === "free";
 
   return (
     <StatisticsView
@@ -16,7 +15,7 @@ export default function StatisticsPage() {
       onMarkAppointmentNoShow={markAppointmentNoShow}
       onRescheduleAppointment={rescheduleAppointment}
       employees={employees}
-      isLocked={isStatisticsLocked}
+      subscriptionTier={profile.subscriptionTier}
       services={services}
       messages={messages}
       referenceDate={focusedDate}

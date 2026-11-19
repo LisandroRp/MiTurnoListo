@@ -192,13 +192,17 @@ test("checkout API rejects unsupported tiers and dispatches the chosen plan afte
     const { NextRequest } = require("next/server");
     const request = (plan) => new NextRequest("https://example.test/api/subscription/checkout", { method: "POST", headers: { Authorization: "Bearer local-test", "Content-Type": "application/json" }, body: JSON.stringify({ businessId: db.rows.businesses[0].id, plan, amount: 1 }) });
     assert.equal((await route.POST(request("unknown"))).status, 400);
-    process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED = "false";
-    assert.equal((await route.POST(request("unlimited"))).status, 409);
     assert.equal(calls.length, 0);
-    process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED = "true";
-    assert.equal((await route.POST(request("unlimited"))).status, 200);
-    assert.equal(calls[0].plan, "unlimited");
-    assert.equal(calls[0].amount, undefined);
+    for (const flag of [undefined, "false", "true"]) {
+      if (flag === undefined) delete process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED;
+      else process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED = flag;
+      assert.equal((await route.POST(request("unlimited"))).status, 200);
+    }
+    assert.equal(calls.length, 3);
+    for (const call of calls) {
+      assert.equal(call.plan, "unlimited");
+      assert.equal(call.amount, undefined);
+    }
   } finally {
     if (previousFlag === undefined) delete process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED; else process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED = previousFlag;
   }

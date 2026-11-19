@@ -390,7 +390,7 @@ test("overlong legacy descriptions remain editable but cannot be saved", async (
 });
 
 
-test("previews the three plans and keeps Unlimited unavailable without changing the current tier", () => {
+test("shows all three available plans without changing the current tier", () => {
   for (const tier of ["free", "pro"]) {
     const html = render(false, { ...profile, subscriptionTier: tier, subscriptionAccessSource: tier === "pro" ? "paid" : "free" });
     const cards = getPlanCards(html);
@@ -398,22 +398,24 @@ test("previews the three plans and keeps Unlimited unavailable without changing 
     assert.match(cards[1][2], /150 turnos/);
     assert.match(cards[1][2], /3 integrantes/);
     assert.match(cards[1][2], /10 servicios/);
-    assert.match(cards[2][0], /disabled=""/);
+    assert.match(cards[1][2], /estadísticas básicas/);
+    assert.doesNotMatch(cards[1][2], /estadísticas completas y avanzadas/);
+    assert.match(cards[2][2], /estadísticas completas y avanzadas/);
+    assert.doesNotMatch(cards[2][0], /disabled=""/);
     assert.match(cards[2][2], /INFINITY/);
     assert.match(cards[2][2], /55\.000/);
-    assert.match(cards[2][2], /Próximamente/);
+    assert.doesNotMatch(cards[2][2], /Próximamente/);
     assert.doesNotMatch(cards[2][2], /Plan actual/);
-    assert.match(html, /Tu suscripción y sus límites actuales no cambian/);
+    assert.doesNotMatch(html, /Tu suscripción y sus límites actuales no cambian/);
   }
 });
 
-test("Unlimited has no checkout handler and the existing PRO checkout retains its current offer", () => {
+test("Infinity can open confirmation and PRO checkout matches the published plan", () => {
   const app = interactiveProfile();
   app.render();
   const unlimited = app.nodes().find((node) => node.props?.title === messages.profile.unlimitedPlan);
   assert.ok(unlimited);
-  assert.equal(unlimited.props.onClick, undefined);
-  assert.equal(unlimited.props.disabledLabel, messages.profile.unlimitedComingSoon);
+  assert.equal(typeof unlimited.props.onClick, "function");
   assert.equal(app.checkoutCalls(), 0);
   app.button(messages.upgrade.action).props.onClick();
   app.render();
@@ -444,10 +446,10 @@ test("plan comparison aligns staff, services and appointments and uses stars for
 });
 
 
-test("release flag enables the Unlimited confirmation while keeping the selected tier explicit", async () => {
+test("Infinity confirmation works without the retired release flag and keeps the selected tier explicit", async () => {
   const previous = process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED;
   try {
-    process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED = "true";
+    delete process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED;
     const app = interactiveProfile();
     app.render();
     const card = app.nodes().find((node) => node.props?.title === messages.profile.unlimitedPlan);

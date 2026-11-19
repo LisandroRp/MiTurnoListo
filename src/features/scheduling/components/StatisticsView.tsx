@@ -13,16 +13,17 @@ import { PremiumFeatureCard } from "@/components/composed/PremiumFeatureCard";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { Messages } from "@/features/scheduling/i18n/messages";
-import { Appointment, AppointmentLifecycleStatus, BusinessDayBlock, Employee, Service } from "@/features/scheduling/types";
+import { Appointment, AppointmentLifecycleStatus, BusinessDayBlock, Employee, Service, SubscriptionTier } from "@/features/scheduling/types";
 import { cx } from "@/components/ui/utils";
 import { buildStatisticsPaymentBreakdown, buildStatisticsRevenue, filterStatisticsRevenue, type StatisticsRevenueFilter } from "@/features/scheduling/utils/statistics-revenue";
-import { AnalyticsPanel } from "@/features/scheduling/components/StatisticsView/AnalyticsPanel";
+import { StatisticsPanel } from "@/features/scheduling/components/StatisticsView/StatisticsPanel";
 import { StatusBreakdown, type StatisticsStatusRow } from "@/features/scheduling/components/StatisticsView/StatusBreakdown";
 
 type StatisticsViewProps = {
   appointments: Appointment[];
   employees: Employee[];
   isLocked?: boolean;
+  subscriptionTier: SubscriptionTier;
   services: Service[];
   messages: Messages;
   referenceDate: string;
@@ -54,7 +55,9 @@ const statusToneMap: Record<AppointmentLifecycleStatus, "success" | "warning" | 
 
 const periodIds: PeriodId[] = ["today", "yesterday", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "allTime"];
 
-export function StatisticsView({ appointments, employees, isLocked = false, services, messages, referenceDate, businessDayBlocks = [], onDeleteAppointment, onMarkAppointmentPaid, onMarkAppointmentNoShow, onRescheduleAppointment }: StatisticsViewProps) {
+export function StatisticsView({ appointments, employees, subscriptionTier, isLocked = false, services, messages, referenceDate, businessDayBlocks = [], onDeleteAppointment, onMarkAppointmentPaid, onMarkAppointmentNoShow, onRescheduleAppointment }: StatisticsViewProps) {
+  const isFreeLocked = isLocked || subscriptionTier === "free";
+  const isAdvancedLocked = isFreeLocked || subscriptionTier !== "unlimited";
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodId>("thisMonth");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("all");
   const [revenueFilter, setRevenueFilter] = useState<StatisticsRevenueFilter>("all");
@@ -214,7 +217,7 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
       />
 
       <div className="relative min-w-0">
-        {isLocked ? (
+        {isFreeLocked ? (
           <div className="pointer-events-none fixed inset-y-0 left-0 right-0 z-10 grid place-items-center px-4 lg:left-72">
             <div className="pointer-events-auto w-full max-w-lg">
               <PremiumFeatureCard
@@ -226,7 +229,7 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
             </div>
           </div>
         ) : null}
-        <div className={cx("grid min-w-0 gap-6", isLocked ? "pointer-events-none select-none blur-sm" : "")}>
+        <div inert={isFreeLocked} aria-hidden={isFreeLocked || undefined} className={cx("grid min-w-0 gap-6", isFreeLocked ? "pointer-events-none select-none blur-sm" : "")}>
       <Card className="bg-brand-soft">
         <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
@@ -298,7 +301,7 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
 
 
       <section className="grid min-w-0 content-start items-start gap-6 xl:grid-cols-2">
-        <AnalyticsPanel controls={messages.statistics} title={messages.statistics.panels.topServices} description={messages.statistics.panels.topServicesHint}>
+        <StatisticsPanel isLocked={isFreeLocked} controls={messages.statistics} title={messages.statistics.panels.topServices} description={messages.statistics.panels.topServicesHint}>
           {(isExpanded) => topServices.length > 0 ? (
             <div className={cx("grid gap-4", isExpanded && "xl:grid-cols-2")}>
               {topServices.map((service) => (
@@ -315,9 +318,10 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
           ) : (
             <EmptyState message={messages.statistics.empty} />
           )}
-        </AnalyticsPanel>
+        </StatisticsPanel>
 
-        <AnalyticsPanel
+        <StatisticsPanel
+          isLocked={isAdvancedLocked}
           controls={messages.statistics}
           title={messages.statistics.panels.hourlyDistribution}
           description={messages.statistics.panels.hourlyDistributionHint}
@@ -338,24 +342,27 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
           ) : (
             <EmptyState message={messages.statistics.empty} />
           )}
-        </AnalyticsPanel>
-        <AnalyticsPanel
+        </StatisticsPanel>
+        <StatisticsPanel
+          isLocked={isAdvancedLocked}
           controls={messages.statistics}
           title={messages.statistics.panels.statusBreakdown}
           description={messages.statistics.panels.statusBreakdownHint}
         >
           {(isExpanded) => filteredAppointments.length > 0 ? <StatusBreakdown rows={statusRows} isExpanded={isExpanded} /> : <EmptyState message={messages.statistics.empty} />}
-        </AnalyticsPanel>
+        </StatisticsPanel>
 
-        <AnalyticsPanel
+        <StatisticsPanel
+          isLocked={isAdvancedLocked}
           controls={messages.statistics}
           title={messages.statistics.panels.paymentBreakdown}
           description={messages.statistics.panels.paymentBreakdownHint}
         >
           {(isExpanded) => paymentBreakdown.total > 0 ? <StatusBreakdown rows={paymentRows} isExpanded={isExpanded} /> : <EmptyState message={messages.statistics.empty} />}
-        </AnalyticsPanel>
+        </StatisticsPanel>
 
-        <AnalyticsPanel
+        <StatisticsPanel
+          isLocked={isAdvancedLocked}
           controls={messages.statistics}
           title={messages.statistics.panels.employeePerformance}
           description={messages.statistics.panels.employeePerformanceHint}
@@ -396,8 +403,9 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
           ) : (
             <EmptyState message={messages.statistics.empty} />
           )}
-        </AnalyticsPanel>
-        <AnalyticsPanel
+        </StatisticsPanel>
+        <StatisticsPanel
+          isLocked={isAdvancedLocked}
           controls={messages.statistics}
           title={messages.statistics.panels.weekdayDistribution}
           description={messages.statistics.panels.weekdayDistributionHint}
@@ -416,11 +424,18 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
               ))}
             </div>
           ) : <EmptyState message={messages.statistics.empty} />}
-        </AnalyticsPanel>
+        </StatisticsPanel>
       </section>
 
       <div ref={appointmentsRef} className="min-w-0 scroll-mt-20">
-      <Card className="min-w-0">
+      <StatisticsPanel
+        isLocked={isAdvancedLocked}
+        expandable={false}
+        controls={messages.statistics}
+        title={messages.statistics.panels.latestAppointments}
+        description={messages.statistics.panels.latestAppointmentsHint}
+      >
+      {() => <Card className="min-w-0">
         <div className="mb-5 flex flex-col gap-4 border-b border-subtle pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-bold text-primary">{messages.statistics.panels.latestAppointments}</h2>
@@ -560,7 +575,8 @@ export function StatisticsView({ appointments, employees, isLocked = false, serv
             navigation: messages.statistics.panels.latestAppointments
           }}
         />
-      </Card>
+      </Card>}
+      </StatisticsPanel>
       </div>
         </div>
       </div>

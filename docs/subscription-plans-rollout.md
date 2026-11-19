@@ -1,6 +1,6 @@
 # Subscription plans rollout
 
-Status: prepared locally, not applied to Supabase or Mercado Pago. No customer plans or payment authorizations were changed. Do not deploy the new server before applying its schema prerequisites.
+Status: the user reports the original production schema rollout and plan activation are complete. The current application release retires the temporary plans-version flag and gates advanced statistics; it requires no additional SQL. The original migration instructions below are retained for initial setup and recovery reference, not for reapplication during this release. No production rows or provider authorizations were modified by the agent during this change.
 
 ## Reviewed state
 
@@ -27,7 +27,7 @@ No additional replacement of existing policies, keys or tables is required by th
 | Pro | 25,000 | 3 | 10 active services, including private services | 150 |
 | Unlimited | 55,000 | Unlimited | Unlimited | Unlimited |
 
-Customer-facing plan names are FREE / PRO / INFINITY; the persisted IDs remain `free` / `pro` / `unlimited`. Both paid plans retain online payments, public booking and statistics. Pro appointments are counted by their scheduled month in the business timezone. Canceled and rescheduled source records do not consume quota. A party-size booking is one appointment. Editing existing records, canceling and marking attendance remain available at the cap. Existing records are never deleted to satisfy a quota.
+Customer-facing plan names are FREE / PRO / INFINITY; the persisted IDs remain `free` / `pro` / `unlimited`. Both paid plans retain online payments and public booking. PRO statistics include the six business summary cards and the animated most-popular-services panel. INFINITY adds hourly and weekday distributions, booking/payment breakdowns, employee performance and period booking details. Restricted analysis content is not rendered in PRO; locked previews link to the plan comparison. FREE keeps its existing page-level statistics restriction. This statistics access change is enforced by application code and needs no further SQL or environment flag. Pro appointments are counted by their scheduled month in the business timezone. Canceled and rescheduled source records do not consume quota. A party-size booking is one appointment. Editing existing records, canceling and marking attendance remain available at the cap. Existing records are never deleted to satisfy a quota.
 
 A paid plan change updates the same monthly authorization. Access changes when Mercado Pago confirms the change, and the new recurring amount applies to future billing; the application does not issue a separate immediate payment or create another authorization. Confirm the next billing date and amount in a test provider account before enabling this flow in production.
 
@@ -40,12 +40,11 @@ Keep the existing server credential `MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN` and
 ```dotenv
 MERCADO_PAGO_PRO_PRICE_ARS=25000
 MERCADO_PAGO_UNLIMITED_PRICE_ARS=55000
-NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED=true
 ```
 
 `MP_WEBHOOK_TOKEN` must be configured with the same existing secret used by subscription notification URLs. The subscription webhook now fails closed when it is missing. Do not publish credential values or copy them into this document. `MERCADO_PAGO_TEST_PAYER_EMAIL` is only for an intentional test setup; ensure it is not overriding real payers at release.
 
-The release flag is public by design and contains no secret. It gates new Unlimited checkout and the corresponding purchase/manual-selection UI. It must be set before the Next.js build; changing it requires rebuilding/redeploying. It does not activate Pro quotas.
+The temporary `NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED` release flag has been retired. INFINITY purchase, plan comparison and manual selection are permanently available in this release. The variable may remain present with any value without affecting behavior. Delete it only after the deployment containing this change is live; an older application build still depends on it. Deleting it is optional and may trigger another deployment in the hosting platform. Do not confuse this variable with the database quota field described below.
 
 Pro quota enforcement uses the internal `businesses.pro_limits_enabled` field. The full-release activation script (`subscription-plans-04-activate-limits.sql`) enables it for all existing businesses and secures the default for future businesses. Free and Unlimited behavior stays unchanged because the quota trigger only applies to Pro. The user does not need to manage this field for individual customers during the full release.
 
@@ -53,7 +52,7 @@ Pro quota enforcement uses the internal `businesses.pro_limits_enabled` field. T
 
 1. In Supabase SQL Editor, run `subscription-plans-01-enum.sql` by itself. Wait for success. Do not combine it with file 02 in the same transaction.
 2. In a separate query, run all of `subscription-plans-02-support.sql`. This prepares the schema and preserves the reviewed customer's manual Pro grant. Existing Pro limits remain disabled at this point. The compatible backend must not be deployed before these two migrations succeed.
-3. In the deployment platform, set `MERCADO_PAGO_PRO_PRICE_ARS=25000`, `MERCADO_PAGO_UNLIMITED_PRICE_ARS=55000` and `NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED=true`. Keep the existing subscription access token and `MP_WEBHOOK_TOKEN`. Set variables before the build; if editing them triggers an automatic deploy of old code, the subsequent code push must still build the new release.
+3. In the deployment platform, set `MERCADO_PAGO_PRO_PRICE_ARS=25000` and `MERCADO_PAGO_UNLIMITED_PRICE_ARS=55000`. Keep the existing subscription access token and `MP_WEBHOOK_TOKEN`. No plans-version flag is required for this release. If the retired variable is already present, leave it until the new deployment is live, then optionally delete it.
 4. Commit and push the complete application changes (`src/` and prepared documentation/scripts). This is a single Next.js application: the UI and `src/app/api/` backend deploy together from the same repository. Pushing files does not execute SQL in Supabase. Do not commit local credential files. Wait until the new deployment is live.
 5. In the new application's super admin panel, find **MEDICINA INTEGRAL CANNING**, choose **Unlimited**, and apply the plan. This is a manual grant with an atomic audit and no Mercado Pago subscription or charge. The alternate file `subscription-plans-03-manual-client.sql` is unnecessary when using the panel; do not run its unfilled administrator placeholders.
 6. In Supabase SQL Editor, run `subscription-plans-04-activate-limits.sql`. It enables Pro quotas for current and future businesses while allowing legitimate authenticated Free signup and preventing a client from opting out of quotas. Run this after the reviewed manual customer has Unlimited access.
@@ -95,7 +94,7 @@ The fixture models the relevant inspected column types; it is not a full product
 
 ## Recovery
 
-First disable new purchasing via the release flag and redeploy the compatible build. Disable `pro_limits_enabled` for affected reviewed business IDs if quota behavior is the issue. Retain the enum, manual grant fields, audit records and provider IDs. Do not roll back to code that only understands Free/Pro after any business receives Unlimited.
+The retired plans-version flag no longer disables purchases. If an application rollback is needed, use a compatible build and review its checkout behavior explicitly. A build from before retirement still needs the old variable set to true before its build. Disable `pro_limits_enabled` for affected reviewed business IDs if quota behavior is the issue. Retain the enum, manual grant fields, audit records and provider IDs. Do not roll back to code that only understands Free/Pro after any business receives Unlimited.
 
 A database rollback does not reverse a provider price change. If a recurring amount must be restored, use the same authorized provider subscription after reviewing its actual billing state; do not create a replacement automatically. Preserve recorded paid amounts for revenue reporting.
 
@@ -114,3 +113,13 @@ A database rollback does not reverse a provider price change. If a recurring amo
 - The repository's Semgrep wrapper is a placeholder and not executable; the actual Semgrep CLI was used. The baseline mode selected zero files, so it was replaced by an explicit changed-file scan. `verify:full` is not declared in package.json; no build or deployment configuration was changed to add it.
 - No browser automation was performed; visual interaction validation remains with the user.
 - No migrations, customer changes, provider subscriptions, provider price updates or charges were executed against production. The user-supplied production preflight JSON was reviewed with no migration conflicts identified in its reported constraints, trigger definitions and policies. Production execution and real provider tests remain unperformed.
+
+
+## Release flag retirement validation
+
+- INFINITY is available in the landing, profile, super admin selector and checkout without the retired flag. Tests also cover an old false value remaining in the environment.
+- All temporary coming-soon notices and the legacy PRO feature fallback were removed.
+- The Pro statistics restrictions and updated plan copy are included in the same application release.
+- 463 source tests passed, along with TypeScript, lint, the explicit changed-file Semgrep scan and the production build.
+- The initial sandboxed production build was blocked by Turbopack's internal port binding; the approved build outside the sandbox passed.
+- Keep the existing deployment variable until this release is live. Once the hosting platform marks the deployment of this commit active, the variable can be deleted; any resulting rebuild uses code that ignores it. Keep the database quota field and the Mercado Pago price/credential variables.

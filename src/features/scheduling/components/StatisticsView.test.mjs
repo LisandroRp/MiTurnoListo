@@ -29,6 +29,11 @@ function setup() {
     "@/components/composed/PremiumFeatureCard": { PremiumFeatureCard: "PremiumFeatureCard" }
   };
   for (const name of ["FloatingInfoPopover", "Badge", "Button", "Card", "SelectField", "Pagination"]) modules[`@/components/ui/${name}`] = { [name]: name };
+  const panelUrl = new URL("./StatisticsView/StatisticsPanel.tsx", import.meta.url);
+  const panelModule = new Module(panelUrl.pathname);
+  panelModule.require = (name) => modules[name] ?? require(name);
+  panelModule._compile(ts.transpileModule(readFileSync(panelUrl, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText, panelUrl.pathname);
+  modules["@/features/scheduling/components/StatisticsView/StatisticsPanel"] = panelModule.exports;
   const url = new URL("./StatisticsView.tsx", import.meta.url);
   const loaded = new Module(url.pathname);
   loaded.filename = url.pathname;
@@ -42,11 +47,12 @@ function setup() {
   let tree;
   function render(overrides = {}) {
     cursor = 0;
-    tree = loaded.exports.StatisticsView({ appointments, services: [{ id: "service", name: "Service" }], employees: [{ id: "employee", name: "Employee" }], referenceDate: "2026-10-22", messages: messages.es, ...overrides });
+    tree = loaded.exports.StatisticsView({ subscriptionTier: "unlimited", appointments, services: [{ id: "service", name: "Service" }], employees: [{ id: "employee", name: "Employee" }], referenceDate: "2026-10-22", messages: messages.es, ...overrides });
     return tree;
   }
   function nodes(node = tree) {
     if (!node || typeof node !== "object") return [];
+    if (node.type === panelModule.exports.StatisticsPanel) return nodes(node.type(node.props));
     const children = typeof node.props?.children === "function" ? node.props.children(false) : node.props?.children;
     return [node, ...[children].flat(Infinity).filter((child) => child && typeof child === "object").flatMap((child) => nodes(child))];
   }
@@ -275,4 +281,48 @@ test("estimated revenue explanation appears only in the information popover besi
   assert.ok(explanation.some((node) => node.props?.children === messages.es.statistics.revenueExplanation));
   assert.ok(explanation.some((node) => node.props?.children === messages.es.statistics.revenueEquation));
   assert.equal(app.nodes().some((node) => node.type === "p" && node.props.children === messages.es.statistics.revenueExplanation), false);
+});
+
+
+test("Pro keeps all six summary cards and popular services while restricting the other analyses and period detail", () => {
+  const app = setup();
+  app.render({ subscriptionTier: "pro" });
+  const nodes = app.nodes();
+  const summaryIds = ["total", "estimated", "pending", "avg", "confirmed", "cancelled"];
+  assert.deepEqual(nodes.filter((node) => node.type === "Card" && summaryIds.includes(node.key)).map((node) => node.key), summaryIds);
+  const panels = nodes.filter((node) => node.type === "AnalyticsPanel");
+  assert.equal(panels.length, 1);
+  assert.equal(panels[0].props.title, messages.es.statistics.panels.topServices);
+  assert.ok(nodes.some((node) => node.props.label === "Service"));
+  assert.equal(nodes.some((node) => node.type === "table" || node.type === "StatusBreakdown" || node.type === "AppointmentCard" || node.type === "Pagination"), false);
+  const locks = nodes.filter((node) => node.type === "PremiumFeatureCard");
+  assert.deepEqual(locks.map((node) => node.props.title), [
+    messages.es.statistics.panels.hourlyDistribution,
+    messages.es.statistics.panels.statusBreakdown,
+    messages.es.statistics.panels.paymentBreakdown,
+    messages.es.statistics.panels.employeePerformance,
+    messages.es.statistics.panels.weekdayDistribution,
+    messages.es.statistics.panels.latestAppointments
+  ]);
+  for (const lock of locks) {
+    assert.equal(lock.props.badge, messages.es.statistics.advancedLockedBadge);
+    assert.equal(lock.props.actionLabel, messages.es.statistics.advancedLockedAction);
+  }
+});
+
+test("Infinity retains all expandable analyses and the complete period detail", () => {
+  const app = setup();
+  app.render({ subscriptionTier: "unlimited" });
+  assert.equal(app.nodes().filter((node) => node.type === "AnalyticsPanel").length, 6);
+  assert.ok(app.nodes().some((node) => node.type === "table"));
+  assert.equal(app.nodes().filter((node) => node.type === "PremiumFeatureCard").length, 0);
+});
+
+test("Free keeps its page-level restriction and makes the blurred content inert", () => {
+  const app = setup();
+  app.render({ subscriptionTier: "free" });
+  const nodes = app.nodes();
+  assert.ok(nodes.some((node) => node.props.inert === true && node.props["aria-hidden"] === true));
+  assert.ok(nodes.some((node) => node.type === "PremiumFeatureCard" && node.props.title === messages.es.statistics.lockedTitle));
+  assert.equal(nodes.some((node) => node.type === "AnalyticsPanel" || node.type === "table"), false);
 });

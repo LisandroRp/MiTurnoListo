@@ -29,7 +29,7 @@ const { PublicLanding } = load("./PublicLanding.tsx", {
   "@/features/landing/landing-content": content
 });
 
-test("landing previews the agreed plans with existing entry points and unavailable Unlimited checkout", () => {
+test("landing publishes all three plans with available signup and plan entry points", () => {
   const html = renderToStaticMarkup(createElement(PublicLanding));
   const section = html.match(/<section id="planes"[\s\S]*?<\/section>/)?.[0];
   assert.ok(section);
@@ -52,13 +52,11 @@ test("landing previews the agreed plans with existing entry points and unavailab
   assert.match(cards[1], /href="\/perfil#planes"/);
   assert.match(cards[2], /INFINITY/);
   assert.match(cards[2], /55\.000/);
-  assert.match(cards[2], /<button[^>]*disabled=""/);
-  assert.doesNotMatch(cards[2], /href=/);
-  assert.match(section, /Las condiciones de los planes actuales se mantienen/);
-  for (const card of cards.slice(1)) {
-    assert.match(card, /Reservas por link y QR/);
-    assert.match(card, /Pagos online y estadísticas avanzadas/);
-  }
+  assert.match(cards[2], /href="\/perfil#planes"/);
+  assert.doesNotMatch(section, /Próximamente|Las condiciones de los planes actuales se mantienen/);
+  for (const card of cards.slice(1)) assert.match(card, /Reservas por link y QR/);
+  assert.match(cards[1], /Pagos online y estadísticas básicas/);
+  assert.match(cards[2], /Pagos online y estadísticas completas y avanzadas/);
 });
 
 test("structured data only offers plans that are currently available", () => {
@@ -66,6 +64,6 @@ test("structured data only offers plans that are currently available", () => {
   const json = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
   const offers = json["@graph"].find((node) => node["@type"] === "SoftwareApplication").offers;
   assert.deepEqual(offers.map(({ name, price }) => ({ name, price })), [
-    { name: "FREE", price: "0" }, { name: "PRO", price: "25000" }
+    { name: "FREE", price: "0" }, { name: "PRO", price: "25000" }, { name: "INFINITY", price: "55000" }
   ]);
 });

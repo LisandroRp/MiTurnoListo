@@ -569,12 +569,11 @@ function SuperAdminPlanAction({
   onAction: (businessId: string, action: SuperAdminAction) => void;
 }) {
   const isPro = business.plan === "pro";
-  const newPlansEnabled = process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED === "true";
   const [targetPlan, setTargetPlan] = useState<"free" | "pro" | "unlimited">(business.plan === "unlimited" ? "unlimited" : isPro ? "pro" : "free");
   const isBusy = actionBusinessId === business.businessId;
 
   function applyPlan() {
-    if (isBusy || targetPlan === business.plan || (targetPlan === "unlimited" && !newPlansEnabled)) return;
+    if (isBusy || targetPlan === business.plan) return;
     onAction(business.businessId, targetPlan === "unlimited" ? "activateUnlimited" : targetPlan === "pro" ? "activatePro" : "downgradeFree");
   }
 
@@ -586,12 +585,12 @@ function SuperAdminPlanAction({
         disabled={isBusy}
         onChange={(event) => {
           const value = event.target.value;
-          if (value === "free" || value === "pro" || (value === "unlimited" && newPlansEnabled)) setTargetPlan(value);
+          if (value === "free" || value === "pro" || value === "unlimited") setTargetPlan(value);
         }}
         options={[
           { value: "free", label: messages.profile.freePlan },
           { value: "pro", label: messages.profile.proPlan },
-          { value: "unlimited", label: newPlansEnabled ? messages.profile.unlimitedPlan : `${messages.profile.unlimitedPlan} · ${messages.profile.unlimitedComingSoon}`, disabled: !newPlansEnabled }
+          { value: "unlimited", label: messages.profile.unlimitedPlan }
         ]}
       />
       <Button
@@ -604,10 +603,6 @@ function SuperAdminPlanAction({
       >
         {messages.profile.superAdminApplyPlan}
       </Button>
-      {!newPlansEnabled ? <span className="flex items-center gap-1.5 text-xs font-semibold text-muted">
-        <FiStar className="shrink-0" aria-hidden="true" /> {messages.profile.unlimitedPlan} · {messages.profile.unlimitedComingSoon}
-      </span> : null}
-      {!newPlansEnabled ? <p className="text-xs leading-5 text-muted">{messages.profile.superAdminUnlimitedPending}</p> : null}
     </div>
   );
 }

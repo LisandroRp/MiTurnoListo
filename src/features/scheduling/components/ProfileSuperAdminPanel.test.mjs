@@ -147,7 +147,7 @@ test("shows each business lifetime payments beside the monthly summary", () => {
 });
 
 
-test("manual plan selection requires applying a supported plan and gates Unlimited until release", (t) => {
+test("manual plan selection requires applying a supported plan and always offers Infinity", (t) => {
   const previousFlag = process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED;
   t.after(() => { if (previousFlag === undefined) delete process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED; else process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED = previousFlag; });
   process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED = "false";
@@ -160,17 +160,15 @@ test("manual plan selection requires applying a supported plan and gates Unlimit
   } : components[name] ?? require(name);
   loaded._compile(output + "\nexports.PlanAction = SuperAdminPlanAction;", fileUrl.pathname);
   const messages = { profile: {
-    freePlan: "Free", proPlan: "PRO", unlimitedPlan: "Unlimited", unlimitedComingSoon: "Coming soon",
-    superAdminPlan: "Plan", superAdminApplyPlan: "Apply plan", superAdminUnlimitedPending: "Available after launch"
+    freePlan: "FREE", proPlan: "PRO", unlimitedPlan: "INFINITY",
+    superAdminPlan: "Plan", superAdminApplyPlan: "Apply plan"
   } };
   const props = { actionBusinessId: "", business: { businessId: "business-1", businessName: "Example", plan: "free" }, messages, onAction: (...args) => calls.push(args) };
   const renderAction = () => loaded.exports.PlanAction(props);
   const controls = () => renderAction().props.children;
   let [select, button] = controls();
   assert.equal(button.props.disabled, true);
-  assert.equal(select.props.options.find((option) => option.value === "unlimited").disabled, true);
-  select.props.onChange({ target: { value: "unlimited" } });
-  button = controls()[1];
+  assert.notEqual(select.props.options.find((option) => option.value === "unlimited").disabled, true);
   button.props.onClick();
   assert.deepEqual(calls, []);
   select.props.onChange({ target: { value: "pro" } });
@@ -188,9 +186,9 @@ test("manual plan selection requires applying a supported plan and gates Unlimit
   controls()[1].props.onClick();
   assert.equal(calls.length, 2);
   props.actionBusinessId = "";
-  process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED = "true";
+  delete process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED;
   select = controls()[0];
-  assert.equal(select.props.options.find((option) => option.value === "unlimited").disabled, false);
+  assert.notEqual(select.props.options.find((option) => option.value === "unlimited").disabled, true);
   select.props.onChange({ target: { value: "unlimited" } });
   controls()[1].props.onClick();
   assert.deepEqual(calls[2], ["business-1", "activateUnlimited"]);

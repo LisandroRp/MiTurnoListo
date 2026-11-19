@@ -19,7 +19,6 @@ import {
 import { BrandMark } from "@/components/composed/BrandMark";
 import { PublicSupportContact } from "@/components/composed/PublicSupportContact";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { cx } from "@/components/ui/utils";
 import { LandingAnchorLink } from "@/features/landing/components/LandingAnchorLink";
@@ -137,9 +136,9 @@ const structuredData = {
           price: "25000",
           priceCurrency: "ARS"
         },
-        ...(process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED === "true" ? [{
+        {
           "@type": "Offer", name: "INFINITY", price: "55000", priceCurrency: "ARS"
-        }] : [])
+        }
       ],
       publisher: {
         "@id": `${siteUrl}/#organization`
@@ -149,7 +148,6 @@ const structuredData = {
 };
 
 export function PublicLanding() {
-  const newPlansEnabled = process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED === "true";
   return (
     <main className="min-h-screen bg-page text-primary">
       <script
@@ -286,7 +284,6 @@ export function PublicLanding() {
           <p className="text-sm font-bold uppercase text-muted">Planes</p>
           <h2 className="mt-2 text-3xl font-bold text-primary">Arrancá gratis, escalá cuando la agenda se ponga seria.</h2>
         </div>
-        {!newPlansEnabled ? <p className="mt-4 text-sm leading-6 text-muted">Próximamente: nuevos planes para cada etapa de tu negocio. Las condiciones de los planes actuales se mantienen hasta su lanzamiento.</p> : null}
         <div className="mt-8 grid gap-4 lg:grid-cols-3">
           {landingPlans.map((plan) => (
             <Card
@@ -316,15 +313,9 @@ export function PublicLanding() {
                 ))}
               </ul>
               <div>
-                {plan.id === "unlimited" && !newPlansEnabled ? (
-                  <Button disabled variant="secondary" icon={<FiStar />} className="h-11 w-full">
-                    Próximamente
-                  </Button>
-                ) : (
-                  <Link href={plan.id === "free" ? "/login?mode=signup" : "/perfil#planes"} className={cx(landingCtaPrimary, "w-full")}>
-                    {plan.id === "free" ? "Empezar gratis" : "Ver planes"} <FiArrowRight aria-hidden="true" />
-                  </Link>
-                )}
+                <Link href={plan.id === "free" ? "/login?mode=signup" : "/perfil#planes"} className={cx(landingCtaPrimary, "w-full")}>
+                  {plan.id === "free" ? "Empezar gratis" : "Ver planes"} <FiArrowRight aria-hidden="true" />
+                </Link>
               </div>
             </Card>
           ))}

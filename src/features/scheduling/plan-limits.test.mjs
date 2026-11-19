@@ -14,7 +14,7 @@ componentModule.filename = fileUrl.pathname;
 componentModule.require = require;
 componentModule._compile(output, fileUrl.pathname);
 
-const { canUseFreePlanSlot, freePlanLimits, getFreePlanIncludedIds, getMonthlyAppointmentUsage, hasReachedFreeMonthlyAppointmentLimit } = componentModule.exports;
+const { getPlanLimitMessage, canUseFreePlanSlot, freePlanLimits, getFreePlanIncludedIds, getMonthlyAppointmentUsage, hasReachedFreeMonthlyAppointmentLimit } = componentModule.exports;
 
 test("Free plan permits one active employee, two visible services, and fifteen monthly appointments", () => {
   assert.deepEqual(freePlanLimits, {
@@ -70,4 +70,12 @@ test("the monthly warning and booking block begin with the fifteenth appointment
   assert.equal(hasReachedFreeMonthlyAppointmentLimit(14), false);
   assert.equal(hasReachedFreeMonthlyAppointmentLimit(15), true);
   assert.equal(hasReachedFreeMonthlyAppointmentLimit(16), true);
+});
+
+
+test("database quota errors are exposed without leaking unrelated database details", () => {
+  assert.equal(getPlanLimitMessage({ message: "PLAN_LIMIT:Monthly quota reached." }), "Monthly quota reached.");
+  assert.equal(getPlanLimitMessage(new Error("Unable to insert", { cause: { message: "PLAN_LIMIT:Staff quota reached." } })), "Staff quota reached.");
+  assert.equal(getPlanLimitMessage({ message: "Database secret details" }), null);
+  assert.equal(getPlanLimitMessage(null), null);
 });

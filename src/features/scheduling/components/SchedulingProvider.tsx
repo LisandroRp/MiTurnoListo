@@ -95,7 +95,7 @@ type SchedulingContextValue = {
   setEmployeeQuery: (query: string) => void;
   setFocusedDate: (date: string) => void;
   setLocale: (locale: Locale) => Promise<boolean>;
-  startProSubscription: () => Promise<{ checkoutUrl: string; purchase: SubscriptionPurchase | null; subscriptionTier: SubscriptionTier } | null>;
+  startProSubscription: (plan?: "pro" | "unlimited") => Promise<{ checkoutUrl: string; purchase: SubscriptionPurchase | null; subscriptionTier: SubscriptionTier } | null>;
   cancelProSubscription: () => Promise<boolean>;
   refreshWorkspaceSubscription: (preapprovalId?: string) => Promise<{ purchase: SubscriptionPurchase | null; status: string; subscriptionTier: SubscriptionTier } | null>;
   activateReferralProgram: () => Promise<boolean>;
@@ -656,15 +656,15 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function startProSubscription() {
+  async function startProSubscription(plan: "pro" | "unlimited" = "pro") {
     if (!businessId) {
       return null;
     }
 
     try {
-      const result = await startProSubscriptionRequest(businessId);
+      const result = await startProSubscriptionRequest(businessId, plan);
 
-      if (result.subscriptionTier === "pro") {
+      if (result.subscriptionTier !== "free") {
         trackPremiumStartedOnce(profileState.subscriptionTier);
         trackSubscriptionPurchaseOnce(result.purchase);
 
@@ -733,10 +733,10 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
     try {
       const result = await refreshWorkspaceSubscriptionRequest(businessId, preapprovalId);
-      const wasPremium = profileState.subscriptionTier === "pro";
+      const wasPremium = profileState.subscriptionTier !== "free";
       const didRefresh = await hydrateWorkspace();
 
-      if (!wasPremium && result.subscriptionTier === "pro") {
+      if (!wasPremium && result.subscriptionTier !== "free") {
         trackPremiumStartedOnce(profileState.subscriptionTier);
       }
       trackSubscriptionPurchaseOnce(result.purchase);
@@ -951,7 +951,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   }
 
   function trackPremiumStartedOnce(previousSubscriptionTier: SubscriptionTier) {
-    if (didTrackPremiumStarted.current || previousSubscriptionTier === "pro") {
+    if (didTrackPremiumStarted.current || previousSubscriptionTier !== "free") {
       return;
     }
 

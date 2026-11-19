@@ -108,7 +108,7 @@ export default function ProfileSectionPage() {
     hasSyncedSubscription.current = true;
 
     void refreshWorkspaceSubscription(preapprovalId ?? undefined).then((result) => {
-      if (result?.subscriptionTier === "pro") {
+      if (result && result.subscriptionTier !== "free") {
         showToast({
           tone: "success",
           title: messages.profile.subscribedToast,
@@ -145,14 +145,14 @@ export default function ProfileSectionPage() {
     });
   }
 
-  async function handleSubscribeToPro() {
-    const result = await startProSubscription();
+  async function handleSubscribeToPro(plan: "pro" | "unlimited" = "pro") {
+    const result = await startProSubscription(plan);
 
     if (!result) {
       return;
     }
 
-    if (result.subscriptionTier === "pro") {
+    if (result.subscriptionTier !== "free") {
       return;
     }
 

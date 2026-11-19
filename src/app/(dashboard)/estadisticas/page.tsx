@@ -5,7 +5,7 @@ import { useScheduling } from "@/features/scheduling/components/SchedulingProvid
 
 export default function StatisticsPage() {
   const { appointments, employees, services, messages, focusedDate, profile, businessDayBlocks, deleteAppointment, markAppointmentPaid, markAppointmentNoShow, rescheduleAppointment } = useScheduling();
-  const isStatisticsLocked = profile.subscriptionTier !== "pro";
+  const isStatisticsLocked = profile.subscriptionTier === "free";
 
   return (
     <StatisticsView

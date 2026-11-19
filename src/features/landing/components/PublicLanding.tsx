@@ -11,12 +11,15 @@ import {
   FiMessageCircle,
   FiShare2,
   FiSmartphone,
-  FiUsers
+  FiUsers,
+  FiStar,
+  FiZap
 } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
 import { PublicSupportContact } from "@/components/composed/PublicSupportContact";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { cx } from "@/components/ui/utils";
 import { LandingAnchorLink } from "@/features/landing/components/LandingAnchorLink";
@@ -130,10 +133,13 @@ const structuredData = {
         },
         {
           "@type": "Offer",
-          name: "Premium",
+          name: "Pro",
           price: "25000",
           priceCurrency: "ARS"
-        }
+        },
+        ...(process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED === "true" ? [{
+          "@type": "Offer", name: "Ilimitado", price: "55000", priceCurrency: "ARS"
+        }] : [])
       ],
       publisher: {
         "@id": `${siteUrl}/#organization`
@@ -143,6 +149,7 @@ const structuredData = {
 };
 
 export function PublicLanding() {
+  const newPlansEnabled = process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED === "true";
   return (
     <main className="min-h-screen bg-page text-primary">
       <script
@@ -279,12 +286,13 @@ export function PublicLanding() {
           <p className="text-sm font-bold uppercase text-muted">Planes</p>
           <h2 className="mt-2 text-3xl font-bold text-primary">Arrancá gratis, escalá cuando la agenda se ponga seria.</h2>
         </div>
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
+        {!newPlansEnabled ? <p className="mt-4 text-sm leading-6 text-muted">Próximamente: nuevos planes para cada etapa de tu negocio. Las condiciones de los planes actuales se mantienen hasta su lanzamiento.</p> : null}
+        <div className="mt-8 grid gap-4 lg:grid-cols-3">
           {landingPlans.map((plan) => (
             <Card
               key={plan.name}
               className={cx(
-                "relative h-full overflow-hidden",
+                "relative grid h-full content-start gap-4 overflow-hidden lg:row-span-10 lg:grid-rows-subgrid",
                 landingCardHover,
                 plan.highlighted ? "border-brand bg-brand-soft shadow-lg ring-2 ring-brand/20" : ""
               )}
@@ -292,21 +300,32 @@ export function PublicLanding() {
               {plan.highlighted ? <div className="absolute inset-x-0 top-0 h-1.5 bg-brand" /> : null}
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-xl font-bold text-primary">{plan.name}</h3>
-                  <p className="mt-2 text-sm leading-6 text-muted">{plan.description}</p>
+                  <h3 className="flex items-center gap-2 text-xl font-bold text-primary">{plan.id === "pro" ? <FiZap className="shrink-0 text-brand-strong" aria-hidden="true" /> : plan.id === "unlimited" ? <FiStar className="shrink-0 text-brand-strong" aria-hidden="true" /> : null}{plan.name}</h3>
                 </div>
                 {plan.highlighted ? <Badge tone="brand">Popular</Badge> : null}
               </div>
-              <p className={cx("mt-6 text-4xl font-bold", plan.highlighted ? "text-brand-strong" : "text-primary")}>{plan.price}</p>
+              <p className={cx("text-4xl font-bold", plan.highlighted ? "text-brand-strong" : "text-primary")}>{plan.price}</p>
               <p className="text-sm text-muted">ARS / mes</p>
-              <ul className="mt-6 grid gap-3">
+              <p className="text-sm leading-6 text-muted">{plan.description}</p>
+              <ul className="grid gap-3 lg:row-span-5 lg:grid-rows-subgrid">
                 {plan.perks.map((perk) => (
-                  <li key={perk} className="flex items-center gap-2 text-sm font-semibold text-primary">
-                    <FiCheckCircle className="text-success" aria-hidden="true" />
+                  <li key={perk} className="flex items-start gap-2 text-sm font-semibold text-primary">
+                    {plan.id === "unlimited" ? <FiStar className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" /> : plan.id === "pro" ? <FiZap className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" /> : <FiCheckCircle className="mt-0.5 shrink-0 text-success" aria-hidden="true" />}
                     {perk}
                   </li>
                 ))}
               </ul>
+              <div>
+                {plan.id === "unlimited" && !newPlansEnabled ? (
+                  <Button disabled variant="secondary" icon={<FiStar />} className="h-11 w-full">
+                    Próximamente
+                  </Button>
+                ) : (
+                  <Link href={plan.id === "free" ? "/login?mode=signup" : "/perfil#planes"} className={cx(landingCtaPrimary, "w-full")}>
+                    {plan.id === "free" ? "Empezar gratis" : "Ver planes"} <FiArrowRight aria-hidden="true" />
+                  </Link>
+                )}
+              </div>
             </Card>
           ))}
         </div>
@@ -327,9 +346,9 @@ export function PublicLanding() {
         <div className="grid gap-6 rounded-lg border border-subtle bg-sidebar p-5 md:grid-cols-[1fr_1.2fr] md:items-center">
           <div>
             <Badge tone="brand" className="w-fit">Referidos</Badge>
-            <h2 className="mt-3 text-2xl font-bold text-primary">Compartí MiTurnoListo y ganá meses Premium.</h2>
+            <h2 className="mt-3 text-2xl font-bold text-primary">Compartí MiTurnoListo y ganá meses PRO.</h2>
             <p className="mt-3 text-sm leading-6 text-muted">
-              Cuando una cuenta nueva se suscribe a Premium con tu código, sumás 30 días de PRO acumulables hasta un máximo de 3 meses.
+              Cuando una cuenta nueva se suscribe a PRO con tu código, sumás 30 días de PRO acumulables hasta un máximo de 3 meses.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">

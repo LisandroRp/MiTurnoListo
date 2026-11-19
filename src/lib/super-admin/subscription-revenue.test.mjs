@@ -121,3 +121,18 @@ test("aggregates real approved subscription payments", () => {
     totalRevenue: 50000
   });
 });
+
+test("Unlimited revenue uses its own monthly price and manual grants do not count as billed subscriptions", () => {
+  const result = aggregateSubscriptionRevenueByBusinessId({
+    monthRange: { start: "2026-11-01T00:00:00.000Z", end: "2026-12-01T00:00:00.000Z" },
+    now: new Date("2026-11-19T00:00:00.000Z"),
+    proPrice: 25000,
+    unlimitedPrice: 55000,
+    rows: [
+      { business_id: "paid-unlimited", provider_subscription_id: "provider-1", provider_status: "authorized", subscription_tier: "unlimited", started_at: "2026-11-01T00:00:00.000Z", cancelled_at: null },
+      { business_id: "manual-unlimited", provider_subscription_id: null, provider_status: "manual", subscription_tier: "unlimited", started_at: "2026-11-01T00:00:00.000Z", cancelled_at: null }
+    ]
+  });
+  assert.equal(result.get("paid-unlimited").monthlyRevenue, 55000);
+  assert.equal(result.has("manual-unlimited"), false);
+});

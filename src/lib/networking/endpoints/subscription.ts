@@ -6,13 +6,13 @@ export type SubscriptionCheckoutResult = {
   checkoutUrl: string;
   purchase: SubscriptionPurchase | null;
   status: string;
-  subscriptionTier: "free" | "pro";
+  subscriptionTier: "free" | "pro" | "unlimited";
 };
 
 export type SubscriptionStatusResult = {
   purchase: SubscriptionPurchase | null;
   status: string;
-  subscriptionTier: "free" | "pro";
+  subscriptionTier: "free" | "pro" | "unlimited";
 };
 
 export type SubscriptionPurchase = {
@@ -21,7 +21,7 @@ export type SubscriptionPurchase = {
   paymentId: string;
 };
 
-export async function createProSubscriptionCheckout(businessId: string) {
+export async function createProSubscriptionCheckout(businessId: string, plan: "pro" | "unlimited" = "pro") {
   const accessToken = await getAccessToken();
   const response = await fetch("/api/subscription/checkout", {
     method: "POST",
@@ -29,7 +29,7 @@ export async function createProSubscriptionCheckout(businessId: string) {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ businessId })
+    body: JSON.stringify({ businessId, plan })
   });
 
   const payload = await response.json().catch(() => null) as {
@@ -37,7 +37,7 @@ export async function createProSubscriptionCheckout(businessId: string) {
     error?: string;
     purchase?: SubscriptionPurchase | null;
     status?: string;
-    subscriptionTier?: "free" | "pro";
+    subscriptionTier?: "free" | "pro" | "unlimited";
   } | null;
 
   if (!response.ok || !payload?.checkoutUrl || !payload.subscriptionTier || !payload.status) {
@@ -73,7 +73,7 @@ export async function syncProSubscriptionStatus(businessId: string, preapprovalI
     error?: string;
     purchase?: SubscriptionPurchase | null;
     status?: string;
-    subscriptionTier?: "free" | "pro";
+    subscriptionTier?: "free" | "pro" | "unlimited";
   } | null;
 
   if (!response.ok || !payload?.subscriptionTier || !payload.status) {
@@ -101,7 +101,7 @@ export async function cancelProSubscription(businessId: string) {
   const payload = await response.json().catch(() => null) as {
     error?: string;
     status?: string;
-    subscriptionTier?: "free" | "pro";
+    subscriptionTier?: "free" | "pro" | "unlimited";
   } | null;
 
   if (!response.ok || !payload?.subscriptionTier || !payload.status) {

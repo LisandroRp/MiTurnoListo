@@ -32,7 +32,7 @@ export type SuperAdminBusiness = {
   totalSubscriptionRevenue: number;
 };
 
-export type SuperAdminAction = "activatePro" | "downgradeFree";
+export type SuperAdminAction = "activatePro" | "activateUnlimited" | "downgradeFree";
 
 export async function getSuperAdminStatus() {
   const accessToken = await getAccessToken();

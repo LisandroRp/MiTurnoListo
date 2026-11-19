@@ -34,7 +34,7 @@ function InfoPopover({ ariaLabel, children, content }) {
 }
 function SelectField({ label, options, value }) {
   return createElement("label", null, label, createElement("select", { defaultValue: value },
-    options.map((option) => createElement("option", { key: option.value, value: option.value }, option.label))));
+    options.map((option) => createElement("option", { key: option.value, value: option.value, disabled: option.disabled }, option.label))));
 }
 const components = {
   "@/components/ui/Badge": { Badge: passthrough("span") },
@@ -49,6 +49,7 @@ const components = {
     FiInfo: passthrough("span"),
     FiRefreshCw: passthrough("span"),
     FiSearch: passthrough("span"),
+    FiStar: passthrough("span"),
     FiZap: passthrough("span")
   }
 };
@@ -143,4 +144,54 @@ test("shows each business lifetime payments beside the monthly summary", () => {
   assert.equal(popoverDetails.filter((detail) => detail === "Manual").length, 2);
   assert.doesNotMatch(html, />subscription-1</);
   assert.doesNotMatch(html, />Manual</);
+});
+
+
+test("manual plan selection requires applying a supported plan and gates Unlimited until release", (t) => {
+  const previousFlag = process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED;
+  t.after(() => { if (previousFlag === undefined) delete process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED; else process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED = previousFlag; });
+  process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED = "false";
+  const calls = [];
+  let state;
+  const loaded = new Module(fileUrl.pathname);
+  loaded.require = (name) => name === "react" ? {
+    ...require("react"),
+    useState(initial) { state ??= initial; return [state, (value) => { state = value; }]; }
+  } : components[name] ?? require(name);
+  loaded._compile(output + "\nexports.PlanAction = SuperAdminPlanAction;", fileUrl.pathname);
+  const messages = { profile: {
+    freePlan: "Free", proPlan: "PRO", unlimitedPlan: "Unlimited", unlimitedComingSoon: "Coming soon",
+    superAdminPlan: "Plan", superAdminApplyPlan: "Apply plan", superAdminUnlimitedPending: "Available after launch"
+  } };
+  const props = { actionBusinessId: "", business: { businessId: "business-1", businessName: "Example", plan: "free" }, messages, onAction: (...args) => calls.push(args) };
+  const renderAction = () => loaded.exports.PlanAction(props);
+  const controls = () => renderAction().props.children;
+  let [select, button] = controls();
+  assert.equal(button.props.disabled, true);
+  assert.equal(select.props.options.find((option) => option.value === "unlimited").disabled, true);
+  select.props.onChange({ target: { value: "unlimited" } });
+  button = controls()[1];
+  button.props.onClick();
+  assert.deepEqual(calls, []);
+  select.props.onChange({ target: { value: "pro" } });
+  assert.deepEqual(calls, []);
+  button = controls()[1];
+  assert.equal(button.props.disabled, false);
+  button.props.onClick();
+  assert.deepEqual(calls, [["business-1", "activatePro"]]);
+  props.business.plan = "pro";
+  select = controls()[0];
+  select.props.onChange({ target: { value: "free" } });
+  controls()[1].props.onClick();
+  assert.deepEqual(calls[1], ["business-1", "downgradeFree"]);
+  props.actionBusinessId = "business-1";
+  controls()[1].props.onClick();
+  assert.equal(calls.length, 2);
+  props.actionBusinessId = "";
+  process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED = "true";
+  select = controls()[0];
+  assert.equal(select.props.options.find((option) => option.value === "unlimited").disabled, false);
+  select.props.onChange({ target: { value: "unlimited" } });
+  controls()[1].props.onClick();
+  assert.deepEqual(calls[2], ["business-1", "activateUnlimited"]);
 });

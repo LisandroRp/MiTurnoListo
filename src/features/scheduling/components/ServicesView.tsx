@@ -768,14 +768,14 @@ export function ServicesView({
         title={messages.services.title}
         description={messages.services.description}
         actions={
-<>
-            <Button variant="secondary" icon={<FiShare2 />} disabled={!businessId} onClick={() => setIsSharingCatalog(true)}>
+          <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2">
+            <Button className="w-full" variant="secondary" icon={<FiShare2 />} disabled={!businessId} onClick={() => setIsSharingCatalog(true)}>
               {messages.services.shareCatalogAction}
             </Button>
-            <Button icon={<FiPlus />} onClick={startCreate}>
+            <Button className="w-full" icon={<FiPlus />} onClick={startCreate}>
               {messages.actions.addService}
             </Button>
-</>
+          </div>
         }
       />
 

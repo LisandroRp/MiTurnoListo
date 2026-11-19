@@ -48,7 +48,7 @@ const components = {
   "@/lib/networking/endpoints/super-admin": {},
   "@/lib/storage/business-assets": {},
   "react-icons/fi": Object.fromEntries([
-    "FiArrowRight", "FiCheckCircle", "FiClock", "FiLock", "FiMapPin", "FiUser", "FiUpload", "FiX", "FiZap"
+    "FiArrowRight", "FiCheckCircle", "FiClock", "FiLock", "FiMapPin", "FiUser", "FiUpload", "FiX", "FiZap", "FiStar"
   ].map((name) => [name, passthrough("span")]))
 };
 componentModule.require = (specifier) => components[specifier] ?? require(specifier);
@@ -186,7 +186,7 @@ test("an upgrade link opens the purchase modal for Free accounts without startin
   }
 });
 
-function interactiveProfile({ tier = "free", isSuperAdmin = false } = {}) {
+function interactiveProfile({ tier = "free", isSuperAdmin = false, accessSource } = {}) {
   const states = [], effects = [];
   let cursor = 0;
   const saved = [], resets = [];
@@ -207,7 +207,7 @@ function interactiveProfile({ tier = "free", isSuperAdmin = false } = {}) {
   loaded.require = (specifier) => specifier === "react" ? react : components[specifier] ?? require(specifier);
   loaded._compile(output, fileUrl.pathname);
   const props = {
-    messages, profile: { ...profile, subscriptionTier: tier, subscriptionAccessSource: tier === "free" ? "free" : "paid" },
+    messages, profile: { ...profile, subscriptionTier: tier, subscriptionAccessSource: accessSource ?? (tier === "free" ? "free" : "paid") },
     isSuperAdmin, themeOptions: [], businessId: "business-1",
     onSaveBusinessProfile: async (draft) => { saved.push(draft); return true; },
     onSubscribeToPro: async () => { checkoutCalls += 1; },
@@ -342,15 +342,17 @@ test("left logo editor shares the business draft and save action", async () => {
 });
 
 
-test("the PRO plan heading carries its lightning mark while Free does not", () => {
+test("plan headings distinguish PRO with lightning and Unlimited with a star", () => {
   const app = interactiveProfile();
   app.render();
   const cards = app.nodes().filter((node) => node.type?.name === "PlanCard");
-  assert.equal(cards.length, 2);
-  const [free, pro] = cards.map((card) => app.nodes(card.type(card.props)).find((node) => node.type === "h3"));
+  assert.equal(cards.length, 3);
+  const [free, pro, unlimited] = cards.map((card) => app.nodes(card.type(card.props)).find((node) => node.type === "h3"));
   assert.equal(free.props.children[0], null);
   assert.equal(pro.props.children[0].type, components["react-icons/fi"].FiZap);
   assert.equal(pro.props.children[1], messages.profile.proPlan);
+  assert.equal(unlimited.props.children[0].type, components["react-icons/fi"].FiStar);
+  assert.equal(unlimited.props.children[1], messages.profile.unlimitedPlan);
 });
 
 
@@ -385,4 +387,93 @@ test("overlong legacy descriptions remain editable but cannot be saved", async (
   assert.ok(nodes.some((node) => node.props?.disabled === true && node.props.children === messages.actions.save));
   await panel.props.onSave();
   assert.equal(app.saved.length, 0);
+});
+
+
+test("previews the three plans and keeps Unlimited unavailable without changing the current tier", () => {
+  for (const tier of ["free", "pro"]) {
+    const html = render(false, { ...profile, subscriptionTier: tier, subscriptionAccessSource: tier === "pro" ? "paid" : "free" });
+    const cards = getPlanCards(html);
+    assert.equal(cards.length, 3);
+    assert.match(cards[1][2], /150 turnos/);
+    assert.match(cards[1][2], /3 integrantes/);
+    assert.match(cards[1][2], /10 servicios/);
+    assert.match(cards[2][0], /disabled=""/);
+    assert.match(cards[2][2], /Ilimitado/);
+    assert.match(cards[2][2], /55\.000/);
+    assert.match(cards[2][2], /Próximamente/);
+    assert.doesNotMatch(cards[2][2], /Plan actual/);
+    assert.match(html, /Tu suscripción y sus límites actuales no cambian/);
+  }
+});
+
+test("Unlimited has no checkout handler and the existing PRO checkout retains its current offer", () => {
+  const app = interactiveProfile();
+  app.render();
+  const unlimited = app.nodes().find((node) => node.props?.title === messages.profile.unlimitedPlan);
+  assert.ok(unlimited);
+  assert.equal(unlimited.props.onClick, undefined);
+  assert.equal(unlimited.props.disabledLabel, messages.profile.unlimitedComingSoon);
+  assert.equal(app.checkoutCalls(), 0);
+  app.button(messages.upgrade.action).props.onClick();
+  app.render();
+  assert.ok(app.nodes().some((node) => node.props?.children === messages.profile.proPlanFeatures[0]));
+  assert.ok(app.nodes().some((node) => node.type === "h3" && Array.isArray(node.props.children) && node.props.children.includes(messages.profile.proPlanPrice)));
+});
+
+
+test("plan comparison aligns staff, services and appointments and uses stars for every Unlimited benefit", () => {
+  const app = interactiveProfile();
+  app.render();
+  const cards = app.nodes().filter((node) => node.type?.name === "PlanCard");
+  assert.deepEqual(cards.map((card) => card.props.features.slice(0, 3)), [
+    ["Hasta 1 integrante del personal", "Hasta 2 servicios visibles", "Hasta 15 turnos por mes"],
+    ["Hasta 3 integrantes del personal", "Hasta 10 servicios activos", "Hasta 150 turnos por mes"],
+    ["Personal ilimitado", "Servicios activos ilimitados", "Turnos ilimitados"]
+  ]);
+  for (const card of cards) {
+    const tree = card.type(card.props);
+    assert.match(tree.props.className, /xl:grid-rows-subgrid/);
+    const list = app.nodes(tree).find((node) => node.type === "ul");
+    assert.match(list.props.className, /xl:grid-rows-subgrid/);
+    if (card.props.title === messages.profile.unlimitedPlan) {
+      const icons = app.nodes(list).filter((node) => node.type === components["react-icons/fi"].FiStar);
+      assert.equal(icons.length, card.props.features.length);
+    }
+  }
+});
+
+
+test("release flag enables the Unlimited confirmation while keeping the selected tier explicit", async () => {
+  const previous = process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED;
+  try {
+    process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED = "true";
+    const app = interactiveProfile();
+    app.render();
+    const card = app.nodes().find((node) => node.props?.title === messages.profile.unlimitedPlan);
+    assert.equal(card.props.disabledLabel, undefined);
+    card.props.onClick();
+    app.render();
+    assert.ok(app.nodes().some((node) => node.props?.children === messages.profile.unlimitedSubscribeTitle));
+    assert.equal(app.checkoutCalls(), 0);
+    app.button(messages.profile.subscribeAction).props.onClick();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(app.checkoutCalls(), 1);
+    const html = render(false, { ...profile, subscriptionTier: "unlimited" });
+    assert.match(html, /aria-label="Plan actual: Ilimitado/);
+    assert.match(getPlanCards(html)[2][2], /Plan actual/);
+  } finally {
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED; else process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED = previous;
+  }
+});
+
+
+test("manual access explains that there is no provider subscription to cancel", () => {
+  const app = interactiveProfile({ tier: "unlimited", accessSource: "manual" });
+  app.render();
+  const free = app.nodes().find((node) => node.props?.title === messages.profile.freePlan);
+  free.props.onClick();
+  app.render();
+  assert.ok(app.nodes().some((node) => node.props?.children === messages.profile.manualPlanTitle));
+  assert.equal(app.button(messages.profile.unsubscribeAction), undefined);
 });

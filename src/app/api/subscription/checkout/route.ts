@@ -1,6 +1,8 @@
+import { areNewSubscriptionPlansEnabled, isPaidSubscriptionTier } from "@/lib/subscription-plans";
+
 import { NextRequest, NextResponse } from "next/server";
 
-import { createProSubscriptionCheckout, syncLatestBusinessSubscription } from "@/lib/mercadopago/subscriptions";
+import { changeBusinessSubscriptionPlan, createProSubscriptionCheckout, syncLatestBusinessSubscription } from "@/lib/mercadopago/subscriptions";
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 
@@ -8,11 +10,16 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => null) as {
       businessId?: string;
+      plan?: unknown;
     } | null;
 
     if (!body?.businessId) {
       return NextResponse.json({ error: "Missing businessId." }, { status: 400 });
     }
+
+    const plan = body.plan ?? "pro";
+    if (!isPaidSubscriptionTier(plan)) return NextResponse.json({ error: "Invalid subscription plan." }, { status: 400 });
+    if (plan === "unlimited" && !areNewSubscriptionPlansEnabled()) return NextResponse.json({ error: "El plan Ilimitado todavía no está disponible." }, { status: 409 });
 
     const authResult = await authenticateBusinessRequest(request, body.businessId, ["owner", "admin"]);
 
@@ -25,16 +32,22 @@ export async function POST(request: NextRequest) {
       payerEmail: authResult.user.email ?? ""
     });
 
-    if (currentStatus.subscriptionTier === "pro") {
+    if (isPaidSubscriptionTier(currentStatus.subscriptionTier) && currentStatus.subscriptionTier !== plan && currentStatus.preapprovalId) {
+      const changed = await changeBusinessSubscriptionPlan({ businessId: body.businessId, preapprovalId: currentStatus.preapprovalId, plan });
+      return NextResponse.json({ checkoutUrl: "/perfil", purchase: null, status: changed.status, subscriptionTier: changed.subscriptionTier });
+    }
+
+    if (currentStatus.subscriptionTier === plan) {
       return NextResponse.json({
         checkoutUrl: "/perfil",
         purchase: await getLatestApprovedSubscriptionPurchase(body.businessId),
         status: currentStatus.status,
-        subscriptionTier: "pro"
+        subscriptionTier: currentStatus.subscriptionTier
       });
     }
 
     const checkout = await createProSubscriptionCheckout({
+      plan,
       businessId: body.businessId,
       payerEmail: authResult.user.email ?? "",
       requestOrigin: request.nextUrl.origin,

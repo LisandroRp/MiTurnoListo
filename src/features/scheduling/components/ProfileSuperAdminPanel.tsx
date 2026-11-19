@@ -1,5 +1,5 @@
 import { ReactNode, useMemo, useState } from "react";
-import { FiInfo, FiRefreshCw, FiSearch, FiZap } from "react-icons/fi";
+import { FiInfo, FiRefreshCw, FiSearch, FiStar, FiZap } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -24,7 +24,7 @@ type ProfileSuperAdminPanelProps = {
   onRefresh: () => void;
 };
 
-type PlanFilter = "all" | "free" | "pro";
+type PlanFilter = "all" | "free" | "pro" | "unlimited";
 type RevenueMode = "monthly" | "total";
 
 export function ProfileSuperAdminPanel({
@@ -58,7 +58,8 @@ export function ProfileSuperAdminPanel({
   }, [businesses, planFilter, query, sortOrder]);
 
   const proCount = businesses.filter((business) => business.plan === "pro").length;
-  const freeCount = businesses.filter((business) => business.plan !== "pro").length;
+  const freeCount = businesses.filter((business) => business.plan === "free").length;
+  const unlimitedCount = businesses.filter((business) => business.plan === "unlimited").length;
   const paidSubscriptionCount = businesses.reduce((total, business) => (
     total + (revenueMode === "monthly" ? business.monthlyPaidSubscriptionCount : business.totalPaidSubscriptionCount)
   ), 0);
@@ -86,7 +87,7 @@ export function ProfileSuperAdminPanel({
             />
             <SuperAdminMetricCard
               label={messages.profile.superAdminPlans}
-              value={`${proCount} PRO / ${freeCount} Free`}
+              value={`${proCount} PRO / ${unlimitedCount} ${messages.profile.unlimitedPlan} / ${freeCount} Free`}
             />
             <SuperAdminMetricCard
               label={(
@@ -135,6 +136,7 @@ export function ProfileSuperAdminPanel({
               options={[
                 { value: "all", label: messages.profile.superAdminAllPlans },
                 { value: "pro", label: messages.profile.proPlan },
+                { value: "unlimited", label: messages.profile.unlimitedPlan },
                 { value: "free", label: messages.profile.freePlan }
               ]}
             />
@@ -387,6 +389,7 @@ function SuperAdminBusinessRow({
       </td>
       <td className="px-5 py-4">
         <SuperAdminPlanAction
+          key={business.plan}
           actionBusinessId={actionBusinessId}
           business={business}
           messages={messages}
@@ -434,6 +437,7 @@ function SuperAdminBusinessCard({
         <SubscriptionStatusInfo business={business} messages={messages} />
       </div>
       <SuperAdminPlanAction
+        key={business.plan}
         actionBusinessId={actionBusinessId}
         business={business}
         messages={messages}
@@ -446,7 +450,7 @@ function SuperAdminBusinessCard({
 function PlanBadge({ isReferralPro, plan, messages }: { isReferralPro: boolean; plan: string; messages: Messages }) {
   return (
     <Badge tone={plan === "pro" ? "warning" : "brand"} className={plan === "pro" ? "bg-warning text-primary" : ""}>
-      {isReferralPro ? messages.profile.referralProPlan : plan === "pro" ? messages.profile.proPlan : messages.profile.freePlan}
+      {plan === "unlimited" ? <><FiStar aria-hidden="true" /> {messages.profile.unlimitedPlan}</> : isReferralPro ? messages.profile.referralProPlan : plan === "pro" ? <><FiZap aria-hidden="true" /> {messages.profile.proPlan}</> : messages.profile.freePlan}
     </Badge>
   );
 }
@@ -565,19 +569,45 @@ function SuperAdminPlanAction({
   onAction: (businessId: string, action: SuperAdminAction) => void;
 }) {
   const isPro = business.plan === "pro";
-  const action = isPro ? "downgradeFree" : "activatePro";
+  const newPlansEnabled = process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED === "true";
+  const [targetPlan, setTargetPlan] = useState<"free" | "pro" | "unlimited">(business.plan === "unlimited" ? "unlimited" : isPro ? "pro" : "free");
+  const isBusy = actionBusinessId === business.businessId;
+
+  function applyPlan() {
+    if (isBusy || targetPlan === business.plan || (targetPlan === "unlimited" && !newPlansEnabled)) return;
+    onAction(business.businessId, targetPlan === "unlimited" ? "activateUnlimited" : targetPlan === "pro" ? "activatePro" : "downgradeFree");
+  }
 
   return (
-    <div className="flex justify-end">
+    <div className="ml-auto grid w-full min-w-52 max-w-xs gap-2 text-left">
+      <SelectField
+        aria-label={`${messages.profile.superAdminPlan}: ${business.businessName}`}
+        value={targetPlan}
+        disabled={isBusy}
+        onChange={(event) => {
+          const value = event.target.value;
+          if (value === "free" || value === "pro" || (value === "unlimited" && newPlansEnabled)) setTargetPlan(value);
+        }}
+        options={[
+          { value: "free", label: messages.profile.freePlan },
+          { value: "pro", label: messages.profile.proPlan },
+          { value: "unlimited", label: newPlansEnabled ? messages.profile.unlimitedPlan : `${messages.profile.unlimitedPlan} · ${messages.profile.unlimitedComingSoon}`, disabled: !newPlansEnabled }
+        ]}
+      />
       <Button
         size="sm"
-        variant={isPro ? "secondary" : "primary"}
-        icon={isPro ? undefined : <FiZap />}
-        isLoading={actionBusinessId === business.businessId}
-        onClick={() => onAction(business.businessId, action)}
+        variant={targetPlan === "pro" ? "primary" : "secondary"}
+        icon={targetPlan === "unlimited" ? <FiStar /> : targetPlan === "pro" ? <FiZap /> : undefined}
+        disabled={targetPlan === business.plan}
+        isLoading={isBusy}
+        onClick={applyPlan}
       >
-        {isPro ? messages.profile.superAdminDowngradeFree : messages.profile.superAdminActivatePro}
+        {messages.profile.superAdminApplyPlan}
       </Button>
+      {!newPlansEnabled ? <span className="flex items-center gap-1.5 text-xs font-semibold text-muted">
+        <FiStar className="shrink-0" aria-hidden="true" /> {messages.profile.unlimitedPlan} · {messages.profile.unlimitedComingSoon}
+      </span> : null}
+      {!newPlansEnabled ? <p className="text-xs leading-5 text-muted">{messages.profile.superAdminUnlimitedPending}</p> : null}
     </div>
   );
 }

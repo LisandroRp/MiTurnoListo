@@ -24,12 +24,14 @@ export type SubscriptionPaymentRevenueRow = {
 export function aggregateSubscriptionRevenueByBusinessId({
   monthRange,
   proPrice,
+  unlimitedPrice = 55000,
   rows,
   now = new Date()
 }: {
   monthRange: { end: string; start: string };
   now?: Date;
   proPrice: number;
+  unlimitedPrice?: number;
   rows: SubscriptionRevenueRow[];
 }) {
   const monthStart = new Date(monthRange.start);
@@ -40,6 +42,7 @@ export function aggregateSubscriptionRevenueByBusinessId({
       return accumulator;
     }
 
+    const planPrice = row.subscription_tier === "unlimited" ? unlimitedPrice : proPrice;
     const startedAt = parseDate(row.started_at);
 
     if (!startedAt) {
@@ -58,9 +61,9 @@ export function aggregateSubscriptionRevenueByBusinessId({
 
     accumulator.set(row.business_id, {
       monthlyPaidCount: current.monthlyPaidCount + monthlyPaidCount,
-      monthlyRevenue: current.monthlyRevenue + (monthlyPaidCount * proPrice),
+      monthlyRevenue: current.monthlyRevenue + (monthlyPaidCount * planPrice),
       totalPaidCount: current.totalPaidCount + totalPaidCount,
-      totalRevenue: current.totalRevenue + (totalPaidCount * proPrice)
+      totalRevenue: current.totalRevenue + (totalPaidCount * planPrice)
     });
 
     return accumulator;
@@ -109,7 +112,7 @@ function isPaidSubscription(row: SubscriptionRevenueRow) {
       row.provider_status === "authorized" ||
       row.provider_status === "cancelled" ||
       row.provider_status === "canceled" ||
-      row.subscription_tier === "pro"
+      row.subscription_tier === "pro" || row.subscription_tier === "unlimited"
     );
 }
 

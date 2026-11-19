@@ -288,3 +288,14 @@ test("expiring a referral reward never downgrades an authorized paid plan", asyn
   assert.equal(supabase.rows.businesses[0].subscription_tier, "pro");
   assert.equal(supabase.rows.referral_rewards[0].status, "used");
 });
+
+
+test("manual Unlimited access is identified separately from provider billing and survives referral reconciliation", async () => {
+  const supabase = createSupabase();
+  supabase.rows.businesses[0].subscription_tier = "unlimited";
+  const summary = await getReferralSummary({ origin: "https://example.test", supabase, userId: "referrer" });
+  assert.equal(summary.subscriptionAccessSource, "manual");
+  await reconcileReferralAccessForUser({ supabase, userId: "referrer" });
+  assert.equal(supabase.rows.businesses[0].subscription_tier, "unlimited");
+  assert.equal(supabase.rows.business_subscriptions.length, 0);
+});

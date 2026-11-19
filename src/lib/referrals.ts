@@ -5,7 +5,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { normalizeReferralCode } from "@/lib/referral-rules";
 
 export type ReferralSummary = {
-  subscriptionAccessSource: "free" | "paid" | "referral";
+  subscriptionAccessSource: "free" | "paid" | "referral" | "manual";
   referralCode: string;
   referralLink: string;
   isProgramActive: boolean;
@@ -384,8 +384,8 @@ export async function getReferralSummary({
     ? "paid"
     : activeDaysRemaining > 0
       ? "referral"
-      : businessSubscriptionTier === "pro"
-        ? "paid"
+      : businessSubscriptionTier !== "free"
+        ? "manual"
       : "free";
 
   return {
@@ -608,7 +608,7 @@ async function hasActivePaidSubscription(supabase: SupabaseClient, userId: strin
     .select("id")
     .eq("business_id", membership.business_id)
     .eq("provider", "mercadopago")
-    .eq("subscription_tier", "pro")
+    .in("subscription_tier", ["pro", "unlimited"])
     .eq("provider_status", "authorized")
     .limit(1)
     .maybeSingle();
@@ -642,7 +642,7 @@ async function getUserBusinessSubscriptionTier(supabase: SupabaseClient, userId:
     .select("subscription_tier")
     .eq("id", membership.business_id)
     .limit(1)
-    .maybeSingle<{ subscription_tier: "free" | "pro" }>();
+    .maybeSingle<{ subscription_tier: "free" | "pro" | "unlimited" }>();
 
   if (error || !data) {
     throw new Error("No pudimos verificar el plan de tu negocio.");
@@ -725,7 +725,8 @@ async function setUserBusinessTier({
   const { error } = await supabase
     .from("businesses")
     .update({ subscription_tier: subscriptionTier })
-    .eq("id", membership.business_id);
+    .eq("id", membership.business_id)
+    .neq("subscription_tier", "unlimited");
 
   return !error;
 }

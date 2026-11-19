@@ -6,7 +6,7 @@ import {
   getAvailableSlotsForEmployee,
   sanitizePublicDayBlocks
 } from "@/features/booking-flow/utils/booking";
-import { freePlanLimits, getCurrentMonthRange, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
+import { freePlanLimits, getPlanLimitMessage, getCurrentMonthRange, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
 import { buildCustomFieldResponses } from "@/features/scheduling/service-custom-fields";
 import { AppointmentStatus, PaymentMethod, ServiceAddon } from "@/features/scheduling/types";
 import { sendBookingCreatedEmails } from "@/lib/email/booking-emails";
@@ -547,7 +547,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         });
 
       if (appointmentError) {
-        return NextResponse.json({ error: "Unable to create the booking." }, { status: 500 });
+        const limitMessage = getPlanLimitMessage(appointmentError);
+        return NextResponse.json({ error: limitMessage ?? "Unable to create the booking." }, { status: limitMessage ? 402 : 500 });
       }
 
       await insertAppointmentAddons(supabase, appointmentId, selectedAddons);
@@ -593,7 +594,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .single();
 
     if (appointmentError || !appointment) {
-      return NextResponse.json({ error: "Unable to create the booking." }, { status: 500 });
+      const limitMessage = getPlanLimitMessage(appointmentError);
+      return NextResponse.json({ error: limitMessage ?? "Unable to create the booking." }, { status: limitMessage ? 402 : 500 });
     }
 
     await insertAppointmentAddons(supabase, appointment.id, selectedAddons);

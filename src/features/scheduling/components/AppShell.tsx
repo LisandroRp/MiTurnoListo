@@ -81,14 +81,14 @@ export function AppShell({ children }: AppShellProps) {
       !businessId ||
       isLoading ||
       loadError ||
-      profile.subscriptionTier === "pro"
+      profile.subscriptionTier !== "free"
     ) {
       return;
     }
 
     didReconcileSubscription.current = true;
     void refreshWorkspaceSubscription().then((result) => {
-      if (result?.subscriptionTier === "pro") {
+      if (result && result.subscriptionTier !== "free") {
         showToast({
           tone: "success",
           title: messages.profile.subscribedToast,

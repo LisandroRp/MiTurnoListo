@@ -7,6 +7,8 @@ import * as validation from "../../../../features/scheduling/utils/day-blocks.ts
 import * as booking from "../../../../features/booking-flow/utils/booking.ts";
 import * as dateTime from "../../../../lib/networking/utils/date-time.ts";
 
+import * as planLimits from "../../../../features/scheduling/plan-limits.ts";
+
 const require = createRequire(import.meta.url);
 const block = { id: "10000000-0000-4000-8000-000000000001", employeeId: "30000000-0000-4000-8000-000000000001", startsOn: "2099-08-09", endsOn: "2099-08-09", startTime: "14:00", endTime: "16:30", reason: "Absence" };
 function setup({ role = "owner", existingBusiness = null, foreignEmployee = false, appointments = [], blocks = [], failRead = false } = {}) {
@@ -46,6 +48,7 @@ function setup({ role = "owner", existingBusiness = null, foreignEmployee = fals
     }
   };
   const modules = {
+    "@/features/scheduling/plan-limits": planLimits,
     "next/server": { NextResponse: { json: (data, options) => ({ data, status: options?.status ?? 200 }) } },
     "@/features/scheduling/utils/day-blocks": validation,
     "@/features/booking-flow/utils/booking": booking,

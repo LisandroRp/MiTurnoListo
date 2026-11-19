@@ -341,8 +341,8 @@ export async function updateSchedulingPreferences({
   }
 }
 
-export async function startProSubscription(businessId: string) {
-  return createProSubscriptionCheckout(businessId);
+export async function startProSubscription(businessId: string, plan: "pro" | "unlimited" = "pro") {
+  return createProSubscriptionCheckout(businessId, plan);
 }
 
 export async function deleteProSubscription(businessId: string) {

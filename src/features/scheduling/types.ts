@@ -18,8 +18,8 @@ export type ViewId =
 export type PaymentMethod = "cash" | "card" | "transfer" | "mixed";
 export type ToastTone = "success" | "warning" | "error";
 export type BookingStep = "service" | "addons" | "employee" | "datetime" | "details" | "summary" | "success";
-export type SubscriptionTier = "free" | "pro";
-export type SubscriptionAccessSource = "free" | "paid" | "referral";
+export type SubscriptionTier = "free" | "pro" | "unlimited";
+export type SubscriptionAccessSource = "free" | "paid" | "referral" | "manual";
 
 export type ReferralSummary = {
   subscriptionAccessSource: SubscriptionAccessSource;

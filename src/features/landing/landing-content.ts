@@ -1,4 +1,5 @@
 type LandingPlan = {
+  id: "free" | "pro" | "unlimited";
   name: string;
   price: string;
   description: string;
@@ -8,17 +9,26 @@ type LandingPlan = {
 
 export const landingPlans: readonly LandingPlan[] = [
   {
+    id: "free",
     name: "Gratis",
     price: "$0",
     description: "Para empezar a ordenar tus primeros turnos.",
-    perks: ["1 integrante del personal", "2 servicios visibles", "15 turnos por mes"]
+    perks: ["Hasta 1 integrante del personal", "Hasta 2 servicios visibles", "Hasta 15 turnos por mes", "Calendario y reservas manuales", "Estadísticas y pagos avanzados bloqueados"]
   },
   {
-    name: "Premium",
+    id: "pro",
+    name: "Pro",
     price: "$25.000",
-    description: "Para negocios que viven de la agenda y necesitan orden diario.",
-    perks: ["Turnos ilimitados", "Personal y servicios ilimitados", "Estadísticas y pagos online"],
+    description: "Para empezar a automatizar la agenda de tu negocio.",
+    perks: ["Hasta 3 integrantes del personal", "Hasta 10 servicios activos", "Hasta 150 turnos por mes", "Reservas por link y QR", "Pagos online y estadísticas avanzadas"],
     highlighted: true
+  },
+  {
+    id: "unlimited",
+    name: "Ilimitado",
+    price: "$55.000",
+    description: "Para equipos y agendas que necesitan crecer sin límites.",
+    perks: ["Personal ilimitado", "Servicios activos ilimitados", "Turnos ilimitados", "Reservas por link y QR", "Pagos online y estadísticas avanzadas"]
   }
 ] as const;
 

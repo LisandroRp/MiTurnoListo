@@ -4,6 +4,8 @@ import Module, { createRequire } from "node:module";
 import test from "node:test";
 import ts from "typescript";
 
+import * as planLimits from "../../../../features/scheduling/plan-limits.ts";
+
 const require = createRequire(import.meta.url);
 const openingId = "10000000-0000-4000-8000-000000000001";
 function setup({ role = "owner", fail = false } = {}) {
@@ -22,6 +24,7 @@ function setup({ role = "owner", fail = false } = {}) {
     }
   };
   const modules = {
+    "@/features/scheduling/plan-limits": planLimits,
     "next/server": { NextResponse: { json: (data, options) => ({ data, status: options?.status ?? 200 }) } },
     "@/lib/networking/clients/supabase-admin": { getSupabaseAdminClient: () => db },
     "@/lib/special-availability": { saveSpecialAvailability: async (...args) => { if (fail) throw new Error("SPECIAL_AVAILABILITY:Conflict"); saves.push(args); } },

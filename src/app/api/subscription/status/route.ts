@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
         });
 
     return NextResponse.json({
-      purchase: status.subscriptionTier === "pro"
+      purchase: status.subscriptionTier !== "free"
         ? await getLatestApprovedSubscriptionPurchase(businessId)
         : null,
       status: status.status,

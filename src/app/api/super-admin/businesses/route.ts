@@ -9,7 +9,7 @@ import {
   SubscriptionRevenueRow
 } from "@/lib/super-admin/subscription-revenue";
 
-type SuperAdminAction = "activatePro" | "downgradeFree";
+type SuperAdminAction = "activatePro" | "activateUnlimited" | "downgradeFree";
 
 type SuperAdminMutationPayload = {
   action: SuperAdminAction;
@@ -120,58 +120,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid super admin action." }, { status: 400 });
   }
 
-  const nextTier = payload.action === "activatePro" ? "pro" : "free";
-  const { data: business, error: businessError } = await supabase
-    .from("businesses")
-    .select("id, name, subscription_tier")
-    .eq("id", payload.businessId)
-    .limit(1)
-    .maybeSingle();
-
-  if (businessError || !business) {
-    return createApiErrorResponse(businessError ?? new Error("Business not found."), {
-      code: "SUPER_ADMIN_BUSINESS_NOT_FOUND",
-      fallbackMessage: "Unable to find the business.",
-      status: businessError ? 500 : 404
-    });
-  }
-
-  const previousTier = (business.subscription_tier ?? "free") as string;
-  const { error: updateError } = await supabase
-    .from("businesses")
-    .update({ subscription_tier: nextTier })
-    .eq("id", payload.businessId);
-
-  if (updateError) {
-    return createApiErrorResponse(updateError, {
-      code: "SUPER_ADMIN_BUSINESS_UPDATE_FAILED",
-      fallbackMessage: "Unable to update the business plan.",
-      status: 500
-    });
-  }
-
-  const { error: auditError } = await supabase
-    .from("admin_audit_logs")
-    .insert({
-      action: payload.action,
-      actor_email: authResult.admin.email,
-      actor_user_id: authResult.admin.userId,
-      previous_value: {
-        subscriptionTier: previousTier
-      },
-      next_value: {
-        subscriptionTier: nextTier
-      },
-      target_business_id: payload.businessId
-    });
-
-  if (auditError) {
-    return createApiErrorResponse(auditError, {
-      code: "SUPER_ADMIN_AUDIT_LOG_FAILED",
-      fallbackMessage: "The plan was updated, but the audit log could not be saved.",
-      status: 500
-    });
-  }
+  const nextTier = payload.action === "activateUnlimited" ? "unlimited" : payload.action === "activatePro" ? "pro" : "free";
+  const { error } = await supabase.rpc("set_manual_business_plan", {
+    p_business_id: payload.businessId,
+    p_tier: nextTier,
+    p_actor_user_id: authResult.admin.userId,
+    p_actor_email: authResult.admin.email
+  });
+  if (error) return createApiErrorResponse(error, {
+    code: "SUPER_ADMIN_BUSINESS_UPDATE_FAILED", fallbackMessage: "Unable to update the manual business plan.", status: 409
+  });
 
   return NextResponse.json({
     ok: true
@@ -295,6 +253,7 @@ async function loadSuperAdminBusinesses(supabase: ReturnType<typeof getSupabaseA
   const subscriptionRevenueByBusinessId = aggregateSubscriptionRevenueByBusinessId({
     monthRange,
     proPrice: getProSubscriptionPrice(),
+    unlimitedPrice: Number(process.env.MERCADO_PAGO_UNLIMITED_PRICE_ARS?.trim() || "55000"),
     rows: subscriptions
   });
   const subscriptionPaymentsByBusinessId = aggregateSubscriptionPaymentsByBusinessId({
@@ -488,5 +447,5 @@ function getCurrentMonthRange() {
 }
 
 function isSuperAdminAction(value: unknown): value is SuperAdminAction {
-  return value === "activatePro" || value === "downgradeFree";
+  return value === "activatePro" || value === "activateUnlimited" || value === "downgradeFree";
 }

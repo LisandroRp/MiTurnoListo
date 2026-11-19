@@ -5,6 +5,8 @@ import test from "node:test";
 import ts from "typescript";
 import * as payment from "../../../../features/scheduling/appointment-payment.ts";
 
+import * as planLimits from "../../../../features/scheduling/plan-limits.ts";
+
 const require = createRequire(import.meta.url);
 function setup({ appointment = {}, role = "owner", concurrent = false } = {}) {
   const row = { id: "appointment", business_id: "business", appointment_status: "scheduled", status: "pending", payment_status: "pending", total_amount: 1, ...appointment };
@@ -30,6 +32,7 @@ function setup({ appointment = {}, role = "owner", concurrent = false } = {}) {
     }
   };
   const modules = {
+    "@/features/scheduling/plan-limits": planLimits,
     "next/server": { NextResponse: { json: (data, options) => ({ data, status: options?.status ?? 200 }) } },
     "@/features/scheduling/appointment-payment": payment,
     "@/lib/networking/clients/supabase-admin": { getSupabaseAdminClient: () => db },

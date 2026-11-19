@@ -7,7 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isValidServiceDescription } from "@/features/scheduling/service-description";
 import { isValidAppointmentPaymentAmount, isValidAppointmentPaymentNote } from "@/features/scheduling/appointment-payment";
 import { Appointment, BusinessDayBlock, Employee, Service, SpecialAvailability } from "@/features/scheduling/types";
-import { canUseFreePlanSlot, freePlanLimits, getCurrentMonthRange, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
+import { canUseFreePlanSlot, getPlanLimitMessage, freePlanLimits, getCurrentMonthRange, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
 import {
   buildCustomFieldResponses,
   hasValidServiceCustomFields,
@@ -240,6 +240,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
+    const planLimitMessage = getPlanLimitMessage(error);
+    if (planLimitMessage) return NextResponse.json({ error: planLimitMessage, code: "SCHEDULING_PLAN_LIMIT_REACHED" }, { status: 402 });
     if (payload.action === "createAppointment") {
       const message = getSafeErrorMessage(error, "No se puede crear en este momento.");
 

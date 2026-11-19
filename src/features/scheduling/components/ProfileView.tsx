@@ -1,6 +1,6 @@
 import { ChangeEvent, ReactNode, RefObject, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { FiArrowRight, FiCheckCircle, FiClock, FiLock, FiMapPin, FiUpload, FiUser, FiX, FiZap } from "react-icons/fi";
+import { FiArrowRight, FiCheckCircle, FiClock, FiLock, FiMapPin, FiUpload, FiUser, FiStar, FiX, FiZap } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -46,7 +46,7 @@ type ProfileViewProps = {
   onSaveProfileAvatar: (avatarUrl: string) => Promise<boolean>;
   onThemeChange: (theme: ThemeId) => void;
   onBusinessImageUploadError: (message: string) => void;
-  onSubscribeToPro: () => Promise<void>;
+  onSubscribeToPro: (plan?: "pro" | "unlimited") => Promise<void>;
   onUnsubscribeFromPro: () => Promise<boolean>;
   onActivateReferralReward: () => Promise<boolean>;
   openProPlan?: boolean;
@@ -92,8 +92,11 @@ export function ProfileView({
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const [isSavingBusiness, setIsSavingBusiness] = useState(false);
   const [isSubmittingPlanChange, setIsSubmittingPlanChange] = useState(false);
-  const isProPlan = profile.subscriptionTier === "pro";
+  const newPlansEnabled = process.env.NEXT_PUBLIC_SUBSCRIPTION_PLANS_V2_ENABLED === "true";
+  const isUnlimitedPlan = profile.subscriptionTier === "unlimited";
+  const isProPlan = profile.subscriptionTier !== "free";
   const isReferralPlan = profile.subscriptionAccessSource === "referral";
+  const isManualPlan = profile.subscriptionAccessSource === "manual";
 
   useEffect(() => {
     if (!openProPlan) {
@@ -189,15 +192,15 @@ export function ProfileView({
       return;
     }
 
-    if (isReferralPlan && pendingTier === "free") {
+    if ((isReferralPlan || isManualPlan) && pendingTier === "free") {
       closeModal();
       return;
     }
 
     setIsSubmittingPlanChange(true);
 
-    if (pendingTier === "pro") {
-      await onSubscribeToPro();
+    if (pendingTier === "pro" || pendingTier === "unlimited") {
+      await onSubscribeToPro(pendingTier);
       setIsSubmittingPlanChange(false);
       closeModal();
       return;
@@ -312,8 +315,8 @@ export function ProfileView({
         title={messages.profile.title}
         description={messages.profile.description}
         titleAccessory={<div className="flex items-center gap-2">
-          <button type="button" onClick={scrollToPlans} aria-label={`${messages.profile.currentPlan}: ${isProPlan ? messages.profile.proPlan : messages.profile.freePlan}. ${messages.profile.viewPlans}`} className="cursor-pointer rounded-full transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
-            <Badge tone="brand" className="gap-1.5 px-3 py-1.5 text-sm">{isProPlan ? <FiZap aria-hidden="true" /> : null}{isProPlan ? messages.profile.proPlan : messages.profile.freePlan}</Badge>
+          <button type="button" onClick={scrollToPlans} aria-label={`${messages.profile.currentPlan}: ${isUnlimitedPlan ? messages.profile.unlimitedPlan : isProPlan ? messages.profile.proPlan : messages.profile.freePlan}. ${messages.profile.viewPlans}`} className="cursor-pointer rounded-full transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+            <Badge tone="brand" className="gap-1.5 px-3 py-1.5 text-sm">{isUnlimitedPlan ? <FiStar aria-hidden="true" /> : isProPlan ? <FiZap aria-hidden="true" /> : null}{isUnlimitedPlan ? messages.profile.unlimitedPlan : isProPlan ? messages.profile.proPlan : messages.profile.freePlan}</Badge>
           </button>
           {!isProPlan ? <Button size="sm" className="button-bounce" icon={<FiZap />} onClick={() => {
             setActiveTab("profile");
@@ -357,7 +360,8 @@ export function ProfileView({
               <p className="text-sm leading-6 text-muted">{messages.profile.plansDescription}</p>
             </div>
 
-            <div className="mt-5 grid gap-4 xl:grid-cols-2">
+            {!newPlansEnabled ? <p className="mt-4 rounded-lg border border-subtle bg-input p-3 text-sm leading-6 text-muted">{messages.profile.upcomingPlansNotice}</p> : null}
+            <div className="mt-5 grid gap-4 xl:grid-cols-3">
               <PlanCard
                 title={messages.profile.freePlan}
                 price={messages.profile.freePlanPrice}
@@ -370,13 +374,25 @@ export function ProfileView({
               <PlanCard
                 title={messages.profile.proPlan}
                 price={messages.profile.proPlanPrice}
-                description={messages.profile.proPlanDescription}
-                features={messages.profile.proPlanFeatures}
-                isCurrent={isProPlan && !isReferralPlan}
+                description={messages.profile.upcomingProDescription}
+                features={messages.profile.upcomingProFeatures}
+                isCurrent={isProPlan && !isUnlimitedPlan && !isReferralPlan}
                 isRecommended
                 onClick={() => handlePlanClick("pro")}
                 currentPlanLabel={messages.profile.currentPlan}
                 recommendedLabel={messages.profile.recommendedPlan}
+              />
+              <PlanCard
+                title={messages.profile.unlimitedPlan}
+                price={messages.profile.unlimitedPlanPrice}
+                description={messages.profile.unlimitedPlanDescription}
+                features={messages.profile.unlimitedPlanFeatures}
+                isCurrent={isUnlimitedPlan}
+                onClick={newPlansEnabled ? () => handlePlanClick("unlimited") : undefined}
+                icon={<FiStar className="shrink-0 text-brand-strong" aria-hidden="true" />}
+                disabledLabel={newPlansEnabled ? undefined : messages.profile.unlimitedComingSoon}
+                helperText={newPlansEnabled ? undefined : messages.profile.unlimitedCheckoutHint}
+                currentPlanLabel={messages.profile.currentPlan}
               />
             </div>
           </Card>
@@ -436,21 +452,21 @@ export function ProfileView({
               </Button>
             </div>
 
-            {pendingTier === "pro" ? (
+            {pendingTier !== "free" ? (
               <div className="mt-6 rounded-2xl border border-brand bg-brand-soft p-5">
                 <div className="flex items-start gap-3">
                   <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand text-lg text-on-brand">
-                    <FiZap aria-hidden="true" />
+                    {pendingTier === "unlimited" ? <FiStar aria-hidden="true" /> : <FiZap aria-hidden="true" />}
                   </span>
                   <div>
                     <p className="text-sm font-semibold text-brand-strong">{messages.profile.subscribeBenefitsEyebrow}</p>
-                    <h3 className="mt-1 text-lg font-bold text-primary">{messages.profile.proPlan}</h3>
+                    <h3 className="mt-1 text-lg font-bold text-primary">{pendingTier === "unlimited" ? messages.profile.unlimitedPlan : messages.profile.proPlan} · {pendingTier === "unlimited" ? messages.profile.unlimitedPlanPrice : messages.profile.proPlanPrice}</h3>
                     <p className="mt-2 text-sm leading-6 text-muted">{messages.profile.subscribeCheckoutHint}</p>
                   </div>
                 </div>
 
                 <ul className="mt-5 grid gap-3">
-                  {messages.profile.proPlanFeatures.map((feature) => (
+                  {(pendingTier === "unlimited" ? messages.profile.unlimitedPlanFeatures : newPlansEnabled ? messages.profile.upcomingProFeatures : messages.profile.proPlanFeatures).map((feature) => (
                     <li key={feature} className="flex items-start gap-3 text-sm text-primary">
                       <FiCheckCircle className="mt-0.5 shrink-0 text-success" aria-hidden="true" />
                       <span>{feature}</span>
@@ -464,13 +480,13 @@ export function ProfileView({
               <Button variant="secondary" onClick={closeModal}>
                 {messages.actions.cancel}
               </Button>
-              {isReferralPlan && pendingTier === "free" ? null : (
+              {(isReferralPlan || isManualPlan) && pendingTier === "free" ? null : (
                 <Button
-                  icon={pendingTier === "pro" ? <FiArrowRight /> : undefined}
+                  icon={pendingTier !== "free" ? <FiArrowRight /> : undefined}
                   isLoading={isSubmittingPlanChange}
                   onClick={() => void confirmPlanChange()}
                 >
-                  {pendingTier === "pro" ? messages.profile.subscribeAction : messages.profile.unsubscribeAction}
+                  {pendingTier !== "free" ? messages.profile.subscribeAction : messages.profile.unsubscribeAction}
                 </Button>
               )}
             </div>
@@ -698,7 +714,10 @@ function PlanCard({
   isRecommended = false,
   onClick,
   currentPlanLabel,
-  recommendedLabel
+  recommendedLabel,
+  icon,
+  disabledLabel,
+  helperText
 }: {
   title: string;
   price: string;
@@ -706,43 +725,48 @@ function PlanCard({
   features: readonly string[];
   isCurrent: boolean;
   isRecommended?: boolean;
-  onClick: () => void;
+  onClick?: () => void;
   currentPlanLabel: string;
   recommendedLabel?: string;
+  icon?: ReactNode;
+  disabledLabel?: string;
+  helperText?: string;
 }) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      className={`w-full rounded-2xl border p-5 text-left transition-all hover:-translate-y-1 hover:shadow-lg cursor-pointer ${isCurrent ? "border-brand bg-brand-soft" : "border-subtle bg-input"}`}
+      onClick={disabledLabel ? undefined : onClick}
+      disabled={Boolean(disabledLabel)}
+      className={`w-full rounded-2xl border p-5 grid content-start gap-4 xl:row-span-10 xl:grid-rows-subgrid text-left transition-all enabled:hover:-translate-y-1 enabled:hover:shadow-lg enabled:cursor-pointer disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${isCurrent ? "border-brand bg-brand-soft" : "border-subtle bg-input"}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="flex items-center gap-2 text-xl font-bold text-primary">{isRecommended ? <FiZap className="shrink-0 text-brand-strong" aria-hidden="true" /> : null}{title}</h3>
-          <p className="mt-2 text-3xl font-bold text-primary">{price}</p>
-          <p className="mt-3 text-sm leading-6 text-muted">{description}</p>
-        </div>
-        <div className="grid justify-items-end gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-xl font-bold text-primary">{icon ?? (isRecommended ? <FiZap className="shrink-0 text-brand-strong" aria-hidden="true" /> : null)}{title}</h3>
+        <div className="flex flex-wrap gap-2">
           {isCurrent ? <Badge tone="brand">{currentPlanLabel}</Badge> : null}
           {isRecommended && recommendedLabel ? <Badge tone="success">{recommendedLabel}</Badge> : null}
         </div>
       </div>
-
-      <ul className="mt-5 grid gap-3">
+      <p className="text-2xl font-bold text-primary 2xl:text-3xl">{price}</p>
+      <p className="text-sm leading-6 text-muted">{description}</p>
+      <ul className="grid gap-3 xl:row-span-5 xl:grid-rows-subgrid">
         {features.map((feature) => (
           <li key={feature} className="flex items-start gap-3 text-sm text-primary">
             <span className="mt-0.5 text-brand-strong" aria-hidden="true">
-              {isRecommended ? <FiZap /> : <FiCheckCircle />}
+              {icon ?? (isRecommended ? <FiZap /> : <FiCheckCircle />)}
             </span>
             <span>{feature}</span>
           </li>
         ))}
       </ul>
+      <span className={disabledLabel ? "block rounded-lg border border-subtle bg-surface px-3 py-2 text-center text-sm font-semibold text-muted" : "hidden xl:block"} aria-hidden={!disabledLabel || undefined}>{disabledLabel}</span>
+      <span className={helperText ? "block text-xs leading-5 text-muted" : "hidden xl:block"} aria-hidden={!helperText || undefined}>{helperText}</span>
     </button>
   );
 }
 
 function getPlanModalDescription(messages: Messages, profile: Profile, pendingTier: SubscriptionTier) {
+  if (profile.subscriptionAccessSource === "manual" && pendingTier === "free") return messages.profile.manualPlanDescription;
+  if (pendingTier === "unlimited") return messages.profile.unlimitedSubscribeDescription;
   if (profile.subscriptionAccessSource !== "referral") {
     return pendingTier === "pro" ? messages.profile.subscribeDescription : messages.profile.unsubscribeDescription;
   }
@@ -753,6 +777,8 @@ function getPlanModalDescription(messages: Messages, profile: Profile, pendingTi
 }
 
 function getPlanModalTitle(messages: Messages, profile: Profile, pendingTier: SubscriptionTier) {
+  if (profile.subscriptionAccessSource === "manual" && pendingTier === "free") return messages.profile.manualPlanTitle;
+  if (pendingTier === "unlimited") return messages.profile.unlimitedSubscribeTitle;
   if (profile.subscriptionAccessSource === "referral" && pendingTier === "free") {
     return messages.profile.referralCannotUnsubscribeTitle;
   }

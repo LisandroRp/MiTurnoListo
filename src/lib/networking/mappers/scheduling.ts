@@ -377,8 +377,8 @@ export function mapProfile(
   const safeReferralSummary = referralSummary ?? createEmptyReferralSummary();
   const subscriptionAccessSource = referralSummary
     ? referralSummary.subscriptionAccessSource
-    : business.subscription_tier === "pro"
-      ? "paid"
+    : business.subscription_tier !== "free"
+      ? "manual"
       : "free";
   const subscriptionTier = getEffectiveSubscriptionTier(subscriptionAccessSource, business.subscription_tier);
 

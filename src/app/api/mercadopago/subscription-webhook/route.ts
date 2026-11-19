@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
   const configuredToken = process.env.MP_WEBHOOK_TOKEN?.trim();
   const requestToken = request.nextUrl.searchParams.get("token")?.trim();
 
-  if (configuredToken && requestToken !== configuredToken) {
+  if (!configuredToken) return NextResponse.json({ ok: false, error: "Subscription webhook is not configured." }, { status: 503 });
+  if (requestToken !== configuredToken) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
@@ -48,13 +49,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  if (type && isPaymentEvent(type)) {
-    await syncSubscriptionPaymentByPaymentId(resourceId).catch(() => null);
-    return NextResponse.json({ ok: true });
-  }
-
-  if (!type || isPreapprovalEvent(type)) {
-    await syncSubscriptionTierByPreapprovalId(resourceId).catch(() => null);
+  try {
+    if (type && isPaymentEvent(type)) {
+      await syncSubscriptionPaymentByPaymentId(resourceId);
+    } else if (!type || isPreapprovalEvent(type)) {
+      await syncSubscriptionTierByPreapprovalId(resourceId);
+    }
+  } catch {
+    return NextResponse.json({ ok: false, error: "Unable to synchronize subscription event." }, { status: 503 });
   }
 
   return NextResponse.json({ ok: true });

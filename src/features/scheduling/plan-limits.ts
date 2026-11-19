@@ -53,3 +53,13 @@ export function getMonthlyAppointmentUsage(appointments: { appointmentStatus?: s
     return appointmentDate.getFullYear() === currentYear && appointmentDate.getMonth() === currentMonth;
   }).length;
 }
+
+
+export function getPlanLimitMessage(error: unknown): string | null {
+  if (!error || typeof error !== "object") return null;
+  const candidate = error as { message?: unknown; cause?: unknown };
+  if (typeof candidate.message === "string" && candidate.message.startsWith("PLAN_LIMIT:")) {
+    return candidate.message.slice("PLAN_LIMIT:".length);
+  }
+  return candidate.cause && candidate.cause !== error ? getPlanLimitMessage(candidate.cause) : null;
+}

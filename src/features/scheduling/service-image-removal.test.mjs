@@ -352,9 +352,9 @@ test("admin can create walk-in appointments from home and new booking", () => {
   assert.equal(walkInModal.includes("getCustomers"), true);
   assert.equal(walkInModal.includes("manualMode"), false);
   assert.equal(walkInModal.includes("getEmployeesWorkingOnDate"), false);
-  assert.equal(walkInModal.includes("isReservableEmployee(employee) && (!freeEmployeeIds || freeEmployeeIds.has(employee.id))"), true);
+  assert.equal(walkInModal.includes("isReservableEmployee(employee) && (!includedEmployeeIds || includedEmployeeIds.has(employee.id))"), true);
   assert.equal(walkInModal.includes("reservableEmployees.filter((employee) => selectedService.employeeIds.includes(employee.id))"), true);
-  assert.equal(walkInModal.includes("(!freeServiceIds || freeServiceIds.has(service.id))"), true);
+  assert.equal(walkInModal.includes("(!includedServiceIds || includedServiceIds.has(service.id))"), true);
   assert.equal(walkInModal.includes('const walkInCustomerName = "Sobreturno"'), true);
   assert.equal(walkInModal.includes('source: "walk_in"'), true);
   assert.equal(walkInModal.includes("new Date()"), true);

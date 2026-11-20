@@ -13,7 +13,7 @@ import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
 import { Messages, messages as schedulingMessages } from "@/features/scheduling/i18n/messages";
 import { getProfessionalLabel, getServiceTitleOverflowClass } from "@/features/booking-flow/utils/catalog";
-import { formatCurrency } from "@/features/scheduling/utils/format";
+import { formatCurrency, formatServiceDuration } from "@/features/scheduling/utils/format";
 import {
   getPublicServicesPayload,
   PublicServicesPayload,
@@ -229,7 +229,7 @@ export function PublicServiceCard({
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
           <span className="inline-flex items-center gap-1.5" title={messages.services.duration}>
             <FiClock className="shrink-0 text-brand-strong" aria-hidden="true" />
-            {service.durationMinutes} {messages.services.minutes}
+            {formatServiceDuration(service.durationMinutes, messages.services)}
           </span>
           {service.capacity > 1 ? (
             <span className="inline-flex items-center gap-1.5" title={messages.services.capacity}>

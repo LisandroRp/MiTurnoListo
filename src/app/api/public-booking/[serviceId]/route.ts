@@ -13,7 +13,7 @@ import { sendBookingCreatedEmails } from "@/lib/email/booking-emails";
 import { createMercadoPagoPreference, getMercadoPagoPublicOrigin } from "@/lib/mercadopago/checkout";
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
-import { getFreePlanPublicAccess } from "@/lib/networking/free-plan-public-access";
+import { getPlanPublicAccess } from "@/lib/networking/plan-public-access";
 import {
   mapAppointments,
   mapBusinessDayBlocks,
@@ -148,7 +148,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   let publicPlanAccess;
 
   try {
-    publicPlanAccess = await getFreePlanPublicAccess(supabase, businessId, limitResult.currentTier);
+    publicPlanAccess = await getPlanPublicAccess(supabase, businessId, limitResult.currentTier);
   } catch {
     return NextResponse.json({ error: "Unable to validate plan access." }, { status: 500 });
   }
@@ -394,7 +394,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     let publicPlanAccess;
 
     try {
-      publicPlanAccess = await getFreePlanPublicAccess(supabase, service.business_id, limitResult.currentTier);
+      publicPlanAccess = await getPlanPublicAccess(supabase, service.business_id, limitResult.currentTier);
     } catch {
       return NextResponse.json({ error: "Unable to validate plan access." }, { status: 500 });
     }

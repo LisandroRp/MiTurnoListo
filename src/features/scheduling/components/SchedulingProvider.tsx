@@ -6,9 +6,10 @@ import type { SpecialAvailability } from "@/features/scheduling/types";
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
+import type { SubscriptionStatusResult } from "@/lib/networking/endpoints/subscription";
 import { ToastMessage } from "@/components/ui/Toast";
 import { shouldRepairWorkspaceAfterSnapshotError } from "@/features/auth/auth-bootstrap";
-import { getSubscriptionActivationFeedback } from "@/features/scheduling/subscription-feedback";
+import { getSubscriptionActivationFeedback, getSubscriptionVerificationFeedback } from "@/features/scheduling/subscription-feedback";
 import { useAuth } from "@/features/auth/components/AuthProvider";
 import { messages, Messages } from "@/features/scheduling/i18n/messages";
 import { getWorkspaceLoadMode, shouldShowWorkspaceLoading, withWorkspaceLoadTimeout } from "@/features/scheduling/scheduling-workspace-cache";
@@ -99,7 +100,7 @@ type SchedulingContextValue = {
   setLocale: (locale: Locale) => Promise<boolean>;
   startProSubscription: (plan?: "pro" | "unlimited") => Promise<{ checkoutUrl: string; purchase: SubscriptionPurchase | null; subscriptionTier: SubscriptionTier } | null>;
   cancelProSubscription: () => Promise<boolean>;
-  refreshWorkspaceSubscription: (preapprovalId?: string) => Promise<{ purchase: SubscriptionPurchase | null; status: string; subscriptionTier: SubscriptionTier } | null>;
+  refreshWorkspaceSubscription: (preapprovalId?: string) => Promise<SubscriptionStatusResult | null>;
   activateReferralProgram: () => Promise<boolean>;
   activateReferralReward: () => Promise<ReferralSummary | null>;
   setTheme: (theme: ThemeId) => Promise<boolean>;
@@ -735,6 +736,11 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
     try {
       const result = await refreshWorkspaceSubscriptionRequest(businessId, preapprovalId);
+      if (result.status === "verification_deferred") {
+        const feedback = getSubscriptionVerificationFeedback(copy, result.verification);
+        if (feedback) showToast({ tone: "warning", ...feedback });
+        return result;
+      }
       const wasPremium = profileState.subscriptionTier !== "free";
       const didRefresh = await hydrateWorkspace();
 
@@ -751,7 +757,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       showToast({
         tone: "error",
-        title: "Subscription update failed",
+        title: copy.profile.subscriptionVerificationErrorTitle,
         description: getErrorMessage(error, "Unable to verify the subscription.")
       });
       return null;

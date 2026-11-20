@@ -1,5 +1,6 @@
+import { FaInfinity } from "react-icons/fa";
 import { ReactNode, useMemo, useState } from "react";
-import { FiInfo, FiRefreshCw, FiSearch, FiStar, FiZap } from "react-icons/fi";
+import { FiInfo, FiRefreshCw, FiSearch, FiZap } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -450,7 +451,7 @@ function SuperAdminBusinessCard({
 function PlanBadge({ isReferralPro, plan, messages }: { isReferralPro: boolean; plan: string; messages: Messages }) {
   return (
     <Badge tone={plan === "pro" ? "warning" : "brand"} className={plan === "pro" ? "bg-warning text-primary" : ""}>
-      {isReferralPro ? <><FiStar aria-hidden="true" /> {messages.profile.referralProPlan}</> : plan === "unlimited" ? <><FiStar aria-hidden="true" /> {messages.profile.unlimitedPlan}</> : plan === "pro" ? <><FiZap aria-hidden="true" /> {messages.profile.proPlan}</> : messages.profile.freePlan}
+      {isReferralPro ? <><FaInfinity aria-hidden="true" /> {messages.profile.referralProPlan}</> : plan === "unlimited" ? <><FaInfinity aria-hidden="true" /> {messages.profile.unlimitedPlan}</> : plan === "pro" ? <><FiZap aria-hidden="true" /> {messages.profile.proPlan}</> : messages.profile.freePlan}
     </Badge>
   );
 }
@@ -596,7 +597,7 @@ function SuperAdminPlanAction({
       <Button
         size="sm"
         variant={targetPlan === "pro" ? "primary" : "secondary"}
-        icon={targetPlan === "unlimited" ? <FiStar /> : targetPlan === "pro" ? <FiZap /> : undefined}
+        icon={targetPlan === "unlimited" ? <FaInfinity /> : targetPlan === "pro" ? <FiZap /> : undefined}
         disabled={targetPlan === business.plan}
         isLoading={isBusy}
         onClick={applyPlan}

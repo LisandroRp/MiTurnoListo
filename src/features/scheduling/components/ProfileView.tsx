@@ -1,6 +1,7 @@
+import { FaInfinity } from "react-icons/fa";
 import { ChangeEvent, ReactNode, RefObject, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { FiArrowRight, FiCheckCircle, FiClock, FiLock, FiMapPin, FiUpload, FiUser, FiStar, FiX, FiZap } from "react-icons/fi";
+import { FiArrowRight, FiCheckCircle, FiClock, FiLock, FiMapPin, FiUpload, FiUser, FiX, FiZap } from "react-icons/fi";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -316,12 +317,11 @@ export function ProfileView({
         description={messages.profile.description}
         titleAccessory={<div className="flex items-center gap-2">
           <button type="button" onClick={scrollToPlans} aria-label={`${messages.profile.currentPlan}: ${isUnlimitedPlan ? messages.profile.unlimitedPlan : isProPlan ? messages.profile.proPlan : messages.profile.freePlan}. ${messages.profile.viewPlans}`} className="cursor-pointer rounded-full transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
-            <Badge tone="brand" className="gap-1.5 px-3 py-1.5 text-sm">{isUnlimitedPlan ? <FiStar aria-hidden="true" /> : isProPlan ? <FiZap aria-hidden="true" /> : null}{isUnlimitedPlan ? messages.profile.unlimitedPlan : isProPlan ? messages.profile.proPlan : messages.profile.freePlan}</Badge>
+            <Badge tone="brand" className="gap-1.5 px-3 py-1.5 text-sm">{isUnlimitedPlan ? <FaInfinity aria-hidden="true" /> : isProPlan ? <FiZap aria-hidden="true" /> : null}{isUnlimitedPlan ? messages.profile.unlimitedPlan : isProPlan ? messages.profile.proPlan : messages.profile.freePlan}</Badge>
           </button>
-          {!isProPlan ? <Button size="sm" className="button-bounce" icon={<FiZap />} onClick={() => {
-            setActiveTab("profile");
-            setPendingTier("pro");
-          }}>{messages.upgrade.action}</Button> : null}
+          {!isProPlan ? <Button size="sm" className="button-bounce" icon={<FiZap aria-hidden="true" />} onClick={scrollToPlans}>
+            {messages.upgrade.action}<FaInfinity aria-hidden="true" className="shrink-0 text-base" />
+          </Button> : null}
         </div>}
         actions={isSuperAdmin ? <Button variant="secondary" onClick={() => setActiveTab(activeTab === "superAdmin" ? "profile" : "superAdmin")}>{activeTab === "superAdmin" ? messages.nav.profile : messages.profile.superAdminTab}</Button> : undefined}
       />
@@ -376,10 +376,10 @@ export function ProfileView({
                 description={messages.profile.proPlanDescription}
                 features={messages.profile.proPlanFeatures}
                 isCurrent={isProPlan && !isUnlimitedPlan && !isReferralPlan}
-                isRecommended
+                isPopular
                 onClick={() => handlePlanClick("pro")}
                 currentPlanLabel={messages.profile.currentPlan}
-                recommendedLabel={messages.profile.recommendedPlan}
+                popularLabel={messages.profile.popularPlan}
               />
               <PlanCard
                 title={messages.profile.unlimitedPlan}
@@ -388,7 +388,7 @@ export function ProfileView({
                 features={messages.profile.unlimitedPlanFeatures}
                 isCurrent={isUnlimitedPlan}
                 onClick={() => handlePlanClick("unlimited")}
-                icon={<FiStar className="shrink-0 text-brand-strong" aria-hidden="true" />}
+                icon={<FaInfinity className="shrink-0 text-brand-strong" aria-hidden="true" />}
                 currentPlanLabel={messages.profile.currentPlan}
               />
             </div>
@@ -453,7 +453,7 @@ export function ProfileView({
               <div className="mt-6 rounded-2xl border border-brand bg-brand-soft p-5">
                 <div className="flex items-start gap-3">
                   <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand text-lg text-on-brand">
-                    {pendingTier === "unlimited" ? <FiStar aria-hidden="true" /> : <FiZap aria-hidden="true" />}
+                    {pendingTier === "unlimited" ? <FaInfinity aria-hidden="true" /> : <FiZap aria-hidden="true" />}
                   </span>
                   <div>
                     <p className="text-sm font-semibold text-brand-strong">{messages.profile.subscribeBenefitsEyebrow}</p>
@@ -465,7 +465,7 @@ export function ProfileView({
                 <ul className="mt-5 grid gap-3">
                   {(pendingTier === "unlimited" ? messages.profile.unlimitedPlanFeatures : messages.profile.proPlanFeatures).map((feature) => (
                     <li key={feature} className="flex items-start gap-3 text-sm text-primary">
-                      <FiCheckCircle className="mt-0.5 shrink-0 text-success" aria-hidden="true" />
+                      {pendingTier === "unlimited" ? <FaInfinity className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" /> : <FiZap className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" />}
                       <span>{feature}</span>
                     </li>
                   ))}
@@ -708,10 +708,10 @@ function PlanCard({
   description,
   features,
   isCurrent,
-  isRecommended = false,
+  isPopular = false,
   onClick,
   currentPlanLabel,
-  recommendedLabel,
+  popularLabel,
   icon
 }: {
   title: string;
@@ -719,10 +719,10 @@ function PlanCard({
   description: string;
   features: readonly string[];
   isCurrent: boolean;
-  isRecommended?: boolean;
+  isPopular?: boolean;
   onClick: () => void;
   currentPlanLabel: string;
-  recommendedLabel?: string;
+  popularLabel?: string;
   icon?: ReactNode;
 }) {
   return (
@@ -732,10 +732,10 @@ function PlanCard({
       className={`w-full rounded-2xl border p-5 grid content-start gap-4 xl:row-span-8 xl:grid-rows-subgrid text-left transition-all enabled:hover:-translate-y-1 enabled:hover:shadow-lg enabled:cursor-pointer disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${isCurrent ? "border-brand bg-brand-soft" : "border-subtle bg-input"}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-xl font-bold text-primary">{icon ?? (isRecommended ? <FiZap className="shrink-0 text-brand-strong" aria-hidden="true" /> : null)}{title}</h3>
+        <h3 className="flex items-center gap-2 text-xl font-bold text-primary">{icon ?? (isPopular ? <FiZap className="shrink-0 text-brand-strong" aria-hidden="true" /> : null)}{title}</h3>
         <div className="flex flex-wrap gap-2">
           {isCurrent ? <Badge tone="brand">{currentPlanLabel}</Badge> : null}
-          {isRecommended && recommendedLabel ? <Badge tone="success">{recommendedLabel}</Badge> : null}
+          {isPopular && !isCurrent && popularLabel ? <Badge tone="brand">{popularLabel}</Badge> : null}
         </div>
       </div>
       <p className="text-2xl font-bold text-primary 2xl:text-3xl">{price}</p>
@@ -744,7 +744,7 @@ function PlanCard({
         {features.map((feature) => (
           <li key={feature} className="flex items-start gap-3 text-sm text-primary">
             <span className="mt-0.5 text-brand-strong" aria-hidden="true">
-              {icon ?? (isRecommended ? <FiZap /> : <FiCheckCircle />)}
+              {icon ?? (isPopular ? <FiZap /> : <FiCheckCircle />)}
             </span>
             <span>{feature}</span>
           </li>

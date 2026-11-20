@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { Locale, PaymentMethod, ThemeId } from "@/features/scheduling/types";
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
-import { getFreePlanPublicAccess } from "@/lib/networking/free-plan-public-access";
+import { getPlanPublicAccess } from "@/lib/networking/plan-public-access";
 import { normalizeStoredImageUrl } from "@/lib/networking/utils/assets";
 import { reconcileExpiredReferralTierForBusiness } from "@/lib/referrals";
 import { isUuid } from "@/lib/slugs";
@@ -62,7 +62,7 @@ export async function GET(_: Request, context: RouteContext) {
       subscriptionTier: businessResult.data.subscription_tier,
       supabase
     });
-    publicPlanAccess = await getFreePlanPublicAccess(supabase, businessId, currentTier);
+    publicPlanAccess = await getPlanPublicAccess(supabase, businessId, currentTier);
   } catch {
     return NextResponse.json({ error: "Unable to validate plan access." }, { status: 500 });
   }

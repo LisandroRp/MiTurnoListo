@@ -11,24 +11,20 @@ import { BookingFlow } from "@/features/booking-flow/components/BookingFlow";
 import { getAvailableSlotsForEmployees } from "@/features/booking-flow/utils/booking";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
 import { WalkInAppointmentModal } from "@/features/scheduling/components/WalkInAppointmentModal";
-import { freePlanLimits, getFreePlanIncludedIds, isFreePlan } from "@/features/scheduling/plan-limits";
-import { formatCurrency } from "@/features/scheduling/utils/format";
+import { getPlanIncludedIds } from "@/features/scheduling/plan-limits";
+import { formatCurrency, formatServiceDuration } from "@/features/scheduling/utils/format";
 
 export default function NewBookingPreviewPage() {
   const { appointments, businessDayBlocks, businessId, createAppointment, employees, messages, profile, services } = useScheduling();
-  const freeEmployeeIds = isFreePlan(profile.subscriptionTier)
-    ? getFreePlanIncludedIds(employees.filter((employee) => !employee.isArchived), freePlanLimits.activeEmployees)
-    : null;
-  const freeServiceIds = isFreePlan(profile.subscriptionTier)
-    ? getFreePlanIncludedIds(services.filter((service) => !service.isArchived && service.isVisible), freePlanLimits.visibleServices)
-    : null;
+  const includedEmployeeIds = getPlanIncludedIds(employees.filter((employee) => !employee.isArchived && employee.isVisible), profile.subscriptionTier, "employees");
+  const includedServiceIds = getPlanIncludedIds(services.filter((service) => !service.isArchived && service.isVisible), profile.subscriptionTier, "services");
   const reservableEmployeeIds = new Set(
-    employees.filter((employee) => !employee.isArchived && employee.isVisible && (!freeEmployeeIds || freeEmployeeIds.has(employee.id))).map((employee) => employee.id)
+    employees.filter((employee) => !employee.isArchived && employee.isVisible && (!includedEmployeeIds || includedEmployeeIds.has(employee.id))).map((employee) => employee.id)
   );
   const visibleServices = services.filter((service) => (
     !service.isArchived &&
     service.isVisible &&
-    (!freeServiceIds || freeServiceIds.has(service.id)) &&
+    (!includedServiceIds || includedServiceIds.has(service.id)) &&
     service.employeeIds.some((employeeId) => reservableEmployeeIds.has(employeeId))
   ));
   const servicesWithAvailableSlots = visibleServices.filter((service) => {
@@ -113,7 +109,7 @@ export default function NewBookingPreviewPage() {
 
                     <dl className="grid grid-cols-2 gap-3 text-sm">
                       <ServiceFact label={messages.services.price} value={formatCurrency(service.price)} />
-                      <ServiceFact label={messages.services.duration} value={`${service.durationMinutes} ${messages.services.minutes}`} />
+                      <ServiceFact label={messages.services.duration} value={formatServiceDuration(service.durationMinutes, messages.services)} />
                       <ServiceFact label={messages.services.capacity} value={`${service.capacity} ${messages.services.people}`} />
                       <ServiceFact label={messages.services.deposit} value={formatCurrency(service.deposit)} />
                     </dl>

@@ -24,7 +24,7 @@ function setup({ business = { id: "business", name: "Clinic", public_slug: "clin
   const modules = {
     "server-only": {},
     "@/lib/networking/clients/supabase-admin": { getSupabaseAdminClient: () => db },
-    "@/lib/networking/free-plan-public-access": { getFreePlanPublicAccess: async () => publicAccess },
+    "@/lib/networking/plan-public-access": { getPlanPublicAccess: async () => publicAccess },
     "@/lib/slugs": slugs
   };
   const url = new URL("./public-page-metadata.ts", import.meta.url);

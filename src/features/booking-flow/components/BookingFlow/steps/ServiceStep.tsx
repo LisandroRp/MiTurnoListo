@@ -10,7 +10,7 @@ import { getProfessionalLabel } from "@/features/booking-flow/utils/catalog";
 import { Messages } from "@/features/scheduling/i18n/messages";
 import { formatCancellationPolicy } from "@/features/scheduling/service-cancellation-policy";
 import { Employee, Service } from "@/features/scheduling/types";
-import { formatCurrency } from "@/features/scheduling/utils/format";
+import { formatCurrency, formatServiceDuration } from "@/features/scheduling/utils/format";
 
 export function ServiceStep({
   messages,
@@ -37,7 +37,7 @@ export function ServiceStep({
       <div className="grid gap-3 sm:grid-cols-2">
         <EmployeeFact label={getProfessionalLabel(employees.length, messages)} names={employees.map((employee) => employee.name)} />
         <div className={service.hidePricePublicly ? "sm:col-span-2" : undefined}>
-          <MetricPill label={messages.services.duration} value={`${service.durationMinutes} ${messages.services.minutes}`} />
+          <MetricPill label={messages.services.duration} value={formatServiceDuration(service.durationMinutes, messages.services)} />
         </div>
         {!service.hidePricePublicly ? <MetricPill label={messages.services.price} value={formatCurrency(service.price)} /> : null}
         {service.deposit > 0 ? (

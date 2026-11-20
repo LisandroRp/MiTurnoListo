@@ -110,7 +110,7 @@ export default function ProfileSectionPage() {
     hasSyncedSubscription.current = true;
 
     void refreshWorkspaceSubscription(preapprovalId ?? undefined).then((result) => {
-      if (result && result.subscriptionTier !== "free") {
+      if (result && result.status !== "verification_deferred" && result.subscriptionTier !== "free") {
         showToast({
           tone: "success",
           ...getSubscriptionActivationFeedback(messages, result.subscriptionTier)

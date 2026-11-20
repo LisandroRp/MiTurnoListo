@@ -1,5 +1,6 @@
 "use client";
 
+import { parseSubscriptionVerificationNotice, type SubscriptionVerificationNotice } from "@/lib/mercadopago/subscription-verification-policy";
 import { getAccessToken } from "@/lib/networking/endpoints/auth";
 
 export type SubscriptionCheckoutResult = {
@@ -10,6 +11,7 @@ export type SubscriptionCheckoutResult = {
 };
 
 export type SubscriptionStatusResult = {
+  verification?: SubscriptionVerificationNotice;
   purchase: SubscriptionPurchase | null;
   status: string;
   subscriptionTier: "free" | "pro" | "unlimited";
@@ -71,6 +73,7 @@ export async function syncProSubscriptionStatus(businessId: string, preapprovalI
 
   const payload = await response.json().catch(() => null) as {
     error?: string;
+    verification?: unknown;
     purchase?: SubscriptionPurchase | null;
     status?: string;
     subscriptionTier?: "free" | "pro" | "unlimited";
@@ -81,6 +84,7 @@ export async function syncProSubscriptionStatus(businessId: string, preapprovalI
   }
 
   return {
+    verification: parseSubscriptionVerificationNotice(payload.verification),
     purchase: payload.purchase ?? null,
     status: payload.status,
     subscriptionTier: payload.subscriptionTier

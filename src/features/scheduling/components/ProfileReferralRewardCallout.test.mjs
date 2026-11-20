@@ -19,8 +19,8 @@ componentModule.require = (specifier) => {
   if (specifier === "@/components/ui/Button") {
     return { Button: ({ children }) => createElement("button", null, children) };
   }
-  if (specifier === "react-icons/fi") {
-    return { FiStar: () => createElement("span", null) };
+  if (specifier === "react-icons/fa") {
+    return { FaInfinity: () => createElement("span", null) };
   }
   return require(specifier);
 };

@@ -1,3 +1,4 @@
+import { formatServiceDuration } from "../../scheduling/utils/format.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import Module, { createRequire } from "node:module";
@@ -42,7 +43,7 @@ function render(publicDescription, publicLogoUrl = "") {
     "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") },
     "@/features/scheduling/i18n/messages": { messages },
     "@/features/booking-flow/utils/catalog": {},
-    "@/features/scheduling/utils/format": {},
+    "@/features/scheduling/utils/format": { formatServiceDuration,},
     "@/lib/networking/endpoints/public-services": {},
     "@/lib/networking/response-errors": {}
   };
@@ -154,7 +155,7 @@ function interactiveCatalog() {
     "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") },
     "@/features/scheduling/i18n/messages": { messages },
     "@/features/booking-flow/utils/catalog": { getCatalogDescription: (value) => value, getProfessionalLabel: () => "Professional", getServiceTitleOverflowClass: () => "" },
-    "@/features/scheduling/utils/format": { formatCurrency: (value) => `$${value}` },
+    "@/features/scheduling/utils/format": { formatServiceDuration, formatCurrency: (value) => `$${value}` },
     "@/lib/networking/endpoints/public-services": {},
     "@/lib/networking/response-errors": {}
   };

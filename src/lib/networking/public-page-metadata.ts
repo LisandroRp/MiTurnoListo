@@ -3,7 +3,7 @@ import "server-only";
 import type { Metadata } from "next";
 
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
-import { getFreePlanPublicAccess } from "@/lib/networking/free-plan-public-access";
+import { getPlanPublicAccess } from "@/lib/networking/plan-public-access";
 import { isReservedPublicSlug, isUuid } from "@/lib/slugs";
 
 const siteName = "MiTurnoListo";
@@ -55,7 +55,7 @@ export async function getPublicPageMetadata(businessKey: string, serviceKey?: st
       .limit(1).maybeSingle();
     if (serviceResult.error || !serviceResult.data) return fallback();
     const service = serviceResult.data;
-    const publicAccess = await getFreePlanPublicAccess(supabase, business.id, business.subscription_tier);
+    const publicAccess = await getPlanPublicAccess(supabase, business.id, business.subscription_tier);
     if (publicAccess && !publicAccess.serviceIds.has(service.id)) return fallback();
 
     return buildMetadata(`${service.name} en ${business.name} | ${siteName}`, `Reservá tu turno para ${service.name} en ${business.name}. Elegí el día y horario que te convengan.`, `${businessPath}/${encodeURIComponent(service.public_slug || serviceKey)}`, true);

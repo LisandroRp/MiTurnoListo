@@ -4,10 +4,11 @@ import { saveSpecialAvailability } from "@/lib/special-availability";
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { hasValidServiceNumericLimits } from "@/features/scheduling/service-numeric-limits";
 import { isValidServiceDescription } from "@/features/scheduling/service-description";
 import { isValidAppointmentPaymentAmount, isValidAppointmentPaymentNote } from "@/features/scheduling/appointment-payment";
 import { Appointment, BusinessDayBlock, Employee, Service, SpecialAvailability } from "@/features/scheduling/types";
-import { canUseFreePlanSlot, getPlanLimitMessage, freePlanLimits, getCurrentMonthRange, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
+import { getVisibleResourceLimit, getPlanLimitMessage, freePlanLimits, getCurrentMonthRange, hasReachedFreeMonthlyAppointmentLimit, isFreePlan } from "@/features/scheduling/plan-limits";
 import {
   buildCustomFieldResponses,
   hasValidServiceCustomFields,
@@ -16,7 +17,7 @@ import {
 } from "@/features/scheduling/service-custom-fields";
 import { getCancellationDeadline, hasValidCancellationLeadMinutes } from "@/features/scheduling/service-cancellation-policy";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
-import { getFreePlanPublicAccess } from "@/lib/networking/free-plan-public-access";
+import { getPlanPublicAccess } from "@/lib/networking/plan-public-access";
 import { createApiErrorResponse, getSafeErrorMessage } from "@/lib/networking/api-errors";
 import {
   mapAppointments,
@@ -111,6 +112,7 @@ type SchedulingMutationPayload =
 type BusinessContext = {
   subscriptionTier: string;
   timeZone: string;
+  proLimitsEnabled: boolean;
 };
 
 export async function POST(request: NextRequest) {
@@ -135,19 +137,19 @@ export async function POST(request: NextRequest) {
 
   try {
     if (payload.action === "saveEmployee") {
-      await enforceEmployeeLimit(supabase, payload.businessId, payload.employee.id, contextResult.context);
-      await saveEmployee(supabase, payload.businessId, payload.employee);
+      const isVisible = await resolveResourceVisibility(supabase, payload.businessId, "employees", payload.employee.id, payload.employee.isVisible, contextResult.context, true);
+      await saveEmployee(supabase, payload.businessId, { ...payload.employee, isVisible });
     }
 
     if (payload.action === "saveService") {
       if (!isValidServiceDescription(payload.service.description)) {
         return NextResponse.json({ error: "La descripción admite hasta 333 caracteres." }, { status: 400 });
       }
-      await enforceVisibleServiceLimit(supabase, payload.businessId, payload.service, contextResult.context);
+      const isVisible = await resolveResourceVisibility(supabase, payload.businessId, "services", payload.service.id, payload.service.isVisible, contextResult.context, true);
       await enforceServicePaymentConfiguration(supabase, payload.businessId, payload.service);
       enforceServiceBookingConfiguration(payload.service);
       enforceServiceScheduleConfiguration(payload.service);
-      await saveService(supabase, payload.businessId, payload.service);
+      await saveService(supabase, payload.businessId, { ...payload.service, isVisible });
     }
 
     if (payload.action === "archiveService") {
@@ -185,13 +187,12 @@ export async function POST(request: NextRequest) {
 
     if (payload.action === "updateEmployeeVisibility") {
       if (payload.isVisible) {
-        await enforceEmployeeLimit(supabase, payload.businessId, payload.employeeId, contextResult.context);
+        await resolveResourceVisibility(supabase, payload.businessId, "employees", payload.employeeId, true, contextResult.context);
       }
       await updateEmployeeVisibility(supabase, payload.businessId, payload.employeeId, payload.isVisible);
     }
 
     if (payload.action === "unarchiveEmployee") {
-      await enforceEmployeeLimit(supabase, payload.businessId, payload.employeeId, contextResult.context);
       await setEmployeeArchived(supabase, payload.businessId, payload.employeeId, false);
     }
 
@@ -201,13 +202,13 @@ export async function POST(request: NextRequest) {
 
     if (payload.action === "createAppointment") {
       await enforceMonthlyAppointmentLimit(supabase, payload.businessId, contextResult.context);
-      const publicPlanAccess = await getFreePlanPublicAccess(supabase, payload.businessId, contextResult.context.subscriptionTier);
+      const publicPlanAccess = await getPlanPublicAccess(supabase, payload.businessId, contextResult.context.subscriptionTier);
 
       if (publicPlanAccess && (
         !publicPlanAccess.serviceIds.has(payload.appointment.serviceId) ||
         !publicPlanAccess.employeeIds.has(payload.appointment.employeeId)
       )) {
-        throw new Error("PLAN_LIMIT:El plan Free permite reservar con 1 integrante activo y hasta 2 servicios visibles.");
+        throw new Error("PLAN_LIMIT:El servicio o profesional está fuera del cupo de tu plan. Ocultá otro recurso o cambiá de plan para habilitarlo.");
       }
 
       await createAppointment(supabase, payload.businessId, payload.appointment, payload.service, payload.timeZone, payload.addonIds ?? []);
@@ -263,9 +264,11 @@ export async function POST(request: NextRequest) {
     }
 
     const message = getSafeErrorMessage(error, "Unable to save changes.");
-    const status = message.startsWith("PLAN_LIMIT:") ? 402 : message.startsWith("PAYMENT_CONFIG:") || message.startsWith("ARCHIVE_RULE:") || message.startsWith("DAY_BLOCK_CONFIG:") || message.startsWith("SPECIAL_AVAILABILITY:") ? 409 : 500;
+    const status = message.startsWith("PLAN_LIMIT:") ? 402 : message.startsWith("ENTITY_CONFLICT:") || message.startsWith("SERVICE_CONFIG:") || message.startsWith("SCHEDULE_CONFIG:") || message.startsWith("SERVICE_CONFLICT:") || message.startsWith("PAYMENT_CONFIG:") || message.startsWith("ARCHIVE_RULE:") || message.startsWith("DAY_BLOCK_CONFIG:") || message.startsWith("SPECIAL_AVAILABILITY:") ? 409 : 500;
 
-    return createApiErrorResponse(message.replace(/^(PLAN_LIMIT|PAYMENT_CONFIG|ARCHIVE_RULE|DAY_BLOCK_CONFIG|SPECIAL_AVAILABILITY):/, ""), {
+    const responseMessage = message.replace(/^(PLAN_LIMIT|ENTITY_CONFLICT|SERVICE_CONFIG|SCHEDULE_CONFIG|SERVICE_CONFLICT|PAYMENT_CONFIG|ARCHIVE_RULE|DAY_BLOCK_CONFIG|SPECIAL_AVAILABILITY):/, "");
+    const responseError = error instanceof Error && error.cause ? new Error(responseMessage, { cause: error.cause }) : responseMessage;
+    return createApiErrorResponse(responseError, {
       code: "SCHEDULING_MUTATION_FAILED",
       fallbackMessage: "Unable to save changes.",
       status
@@ -320,7 +323,7 @@ async function authenticateRequest(request: NextRequest, businessId: string) {
 async function getBusinessContext(supabase: SupabaseClient, businessId: string) {
   const { data, error } = await supabase
     .from("businesses")
-    .select("subscription_tier, timezone")
+    .select("subscription_tier, timezone, pro_limits_enabled")
     .eq("id", businessId)
     .limit(1)
     .maybeSingle();
@@ -348,64 +351,41 @@ async function getBusinessContext(supabase: SupabaseClient, businessId: string) 
   return {
     context: {
       subscriptionTier,
+      proLimitsEnabled: data.pro_limits_enabled !== false,
       timeZone: data.timezone
     } satisfies BusinessContext
   };
 }
 
-async function enforceEmployeeLimit(
+async function resolveResourceVisibility(
   supabase: SupabaseClient,
   businessId: string,
-  employeeId: string,
-  context: BusinessContext
+  resource: "employees" | "services",
+  id: string,
+  requestedVisibility: boolean,
+  context: BusinessContext,
+  allowHiddenCreation = false
 ) {
-  if (!isFreePlan(context.subscriptionTier)) {
-    return;
+  if (!requestedVisibility) return false;
+  const tier = context.subscriptionTier === "pro" && !context.proLimitsEnabled ? "unlimited" : context.subscriptionTier;
+  const limit = getVisibleResourceLimit(tier, resource);
+  if (limit === null) return true;
+
+  const { data, error } = await supabase.from(resource).select("id")
+    .eq("business_id", businessId).eq("is_active", true).eq("is_public", true);
+  if (error) throw createSchedulingDatabaseError("Unable to validate plan visibility.", error);
+  const visible = data ?? [];
+  if (visible.some((row) => row.id === id) || visible.length < limit) return true;
+
+  if (allowHiddenCreation) {
+    const existing = await supabase.from(resource).select("id").eq("business_id", businessId).eq("id", id).maybeSingle();
+    if (existing.error) throw createSchedulingDatabaseError("Unable to validate the resource.", existing.error);
+    if (!existing.data) return false;
   }
-
-  const { data, error } = await supabase
-    .from("employees")
-    .select("id, name")
-    .eq("business_id", businessId)
-    .eq("is_active", true);
-
-  if (error) {
-    throw new Error("Unable to validate employee limit.");
-  }
-
-  const activeEmployees = data ?? [];
-
-  if (!canUseFreePlanSlot(activeEmployees, employeeId, freePlanLimits.activeEmployees)) {
-    throw new Error(`PLAN_LIMIT:El plan Free permite hasta ${freePlanLimits.activeEmployees} integrante activo del personal.`);
-  }
-}
-
-async function enforceVisibleServiceLimit(
-  supabase: SupabaseClient,
-  businessId: string,
-  service: Service,
-  context: BusinessContext
-) {
-  if (!isFreePlan(context.subscriptionTier) || !service.isVisible) {
-    return;
-  }
-
-  const { data, error } = await supabase
-    .from("services")
-    .select("id, name")
-    .eq("business_id", businessId)
-    .eq("is_active", true)
-    .eq("is_public", true);
-
-  if (error) {
-    throw new Error("Unable to validate visible service limit.");
-  }
-
-  const visibleServices = data ?? [];
-
-  if (!canUseFreePlanSlot(visibleServices, service.id, freePlanLimits.visibleServices)) {
-    throw new Error(`PLAN_LIMIT:El plan Free permite hasta ${freePlanLimits.visibleServices} servicios visibles.`);
-  }
+  const label = tier === "pro" ? "PRO" : "FREE";
+  throw new Error(resource === "employees"
+    ? `PLAN_LIMIT:El plan ${label} permite hasta ${limit} empleados visibles. Ocultá otro empleado para activar este o cambiá de plan.`
+    : `PLAN_LIMIT:El plan ${label} permite hasta ${limit} servicios visibles. Ocultá otro servicio para activar este o cambiá de plan.`);
 }
 
 async function enforceMonthlyAppointmentLimit(
@@ -482,6 +462,9 @@ function enforceServiceScheduleConfiguration(service: Service) {
 }
 
 function enforceServiceBookingConfiguration(service: Service) {
+  if (!hasValidServiceNumericLimits(service)) {
+    throw new Error("SERVICE_CONFIG:El precio debe ser de hasta $10.000.000, la seña de hasta $5.000.000 sin superar el precio total, y la duración de 1 a 300 minutos (5 horas).");
+  }
   const numericValues = [
     service.price,
     service.durationMinutes,
@@ -516,7 +499,7 @@ async function setServiceArchived(supabase: SupabaseClient, businessId: string, 
     .from("services")
     .update({
       is_active: !isArchived,
-      ...(isArchived ? { is_public: false } : {})
+      is_public: false
     })
     .eq("business_id", businessId)
     .eq("id", serviceId);
@@ -683,7 +666,7 @@ async function setEmployeeArchived(supabase: SupabaseClient, businessId: string,
     .from("employees")
     .update({
       is_active: !isArchived,
-      ...(isArchived ? { is_public: false } : {})
+      is_public: false
     })
     .eq("business_id", businessId)
     .eq("id", employeeId);
@@ -702,7 +685,7 @@ async function updateEmployeeVisibility(supabase: SupabaseClient, businessId: st
     .eq("is_active", true);
 
   if (error) {
-    throw new Error("Unable to update the employee visibility.");
+    throw createSchedulingDatabaseError("Unable to update the employee visibility.", error);
   }
 }
 
@@ -793,6 +776,7 @@ async function enforceNoAppointments(
 }
 
 async function saveEmployee(supabase: SupabaseClient, businessId: string, employee: Employee) {
+  await enforceUniqueEntityName(supabase, "employees", businessId, employee.id, employee.name);
   const { error: employeeError } = await supabase
     .from("employees")
     .upsert({
@@ -808,7 +792,7 @@ async function saveEmployee(supabase: SupabaseClient, businessId: string, employ
     });
 
   if (employeeError) {
-    throw new Error("Unable to save the employee.");
+    throw createSchedulingDatabaseError("Unable to save the employee.", employeeError);
   }
 
   const { error: deleteError } = await supabase
@@ -817,7 +801,7 @@ async function saveEmployee(supabase: SupabaseClient, businessId: string, employ
     .eq("employee_id", employee.id);
 
   if (deleteError) {
-    throw new Error("Unable to save the employee schedule.");
+    throw createSchedulingDatabaseError("Unable to save the employee schedule.", deleteError);
   }
 
   const availabilityRows = mapScheduleToAvailabilityRows(employee.schedule, "employee_id", employee.id);
@@ -828,12 +812,13 @@ async function saveEmployee(supabase: SupabaseClient, businessId: string, employ
       .insert(availabilityRows);
 
     if (insertError) {
-      throw new Error("Unable to save the employee schedule.");
+      throw createSchedulingDatabaseError("Unable to save the employee schedule.", insertError);
     }
   }
 }
 
 async function saveService(supabase: SupabaseClient, businessId: string, service: Service) {
+  await enforceUniqueEntityName(supabase, "services", businessId, service.id, service.name);
   const publicSlug = await resolveUniqueServiceSlug(supabase, businessId, service.name, service.id);
   const { error: serviceError } = await supabase
     .from("services")
@@ -859,7 +844,7 @@ async function saveService(supabase: SupabaseClient, businessId: string, service
     });
 
   if (serviceError) {
-    throw new Error("Unable to save the service.");
+    throw createSchedulingDatabaseError("Unable to save the service.", serviceError, true);
   }
 
   const { error: availabilityDeleteError } = await supabase
@@ -868,7 +853,7 @@ async function saveService(supabase: SupabaseClient, businessId: string, service
     .eq("service_id", service.id);
 
   if (availabilityDeleteError) {
-    throw new Error("Unable to save the service schedule.");
+    throw createSchedulingDatabaseError("Unable to save the service schedule.", availabilityDeleteError);
   }
 
   const { error: employeesDeleteError } = await supabase
@@ -877,7 +862,7 @@ async function saveService(supabase: SupabaseClient, businessId: string, service
     .eq("service_id", service.id);
 
   if (employeesDeleteError) {
-    throw new Error("Unable to save service assignments.");
+    throw createSchedulingDatabaseError("Unable to save service assignments.", employeesDeleteError);
   }
 
   const availabilityRows = mapScheduleToAvailabilityRows(service.schedule, "service_id", service.id);
@@ -888,7 +873,7 @@ async function saveService(supabase: SupabaseClient, businessId: string, service
       .insert(availabilityRows);
 
     if (availabilityInsertError) {
-      throw new Error("Unable to save the service schedule.");
+      throw createSchedulingDatabaseError("Unable to save the service schedule.", availabilityInsertError);
     }
   }
 
@@ -903,7 +888,7 @@ async function saveService(supabase: SupabaseClient, businessId: string, service
       );
 
     if (employeesInsertError) {
-      throw new Error("Unable to save service assignments.");
+      throw createSchedulingDatabaseError("Unable to save service assignments.", employeesInsertError);
     }
   }
 
@@ -913,7 +898,7 @@ async function saveService(supabase: SupabaseClient, businessId: string, service
     .eq("service_id", service.id);
 
   if (addonsDeleteError) {
-    throw new Error("Unable to save service add-ons.");
+    throw createSchedulingDatabaseError("Unable to save service add-ons.", addonsDeleteError);
   }
 
   const addonRows = service.addons
@@ -933,7 +918,7 @@ async function saveService(supabase: SupabaseClient, businessId: string, service
       .insert(addonRows);
 
     if (addonsInsertError) {
-      throw new Error("Unable to save service add-ons.");
+      throw createSchedulingDatabaseError("Unable to save service add-ons.", addonsInsertError);
     }
   }
 }
@@ -1483,6 +1468,29 @@ async function upsertCustomer(
   return data.id;
 }
 
+async function enforceUniqueEntityName(supabase: SupabaseClient, table: "employees" | "services", businessId: string, id: string, name: string) {
+  const pattern = name.trim().replace(/[\\%_]/g, "\\$&");
+  const { data, error } = await supabase.from(table).select("id")
+    .eq("business_id", businessId).neq("id", id).ilike("name", pattern).limit(1).maybeSingle();
+  if (error) throw createSchedulingDatabaseError("Unable to validate the name.", error);
+  if (data) throw new Error(table === "services" ? duplicateServiceMessage : "ENTITY_CONFLICT:Ya existe un empleado con ese nombre. Elegí otro nombre o editá el que ya tenés.");
+}
+
+const duplicateServiceMessage = "SERVICE_CONFLICT:Ya existe un servicio con ese nombre. Elegí otro nombre o editá el que ya tenés.";
+
+function createSchedulingDatabaseError(fallback: string, error: { code?: string; message?: string }, isServiceWrite = false) {
+  const planLimitMessage = getPlanLimitMessage(error);
+  if (planLimitMessage) return new Error(`PLAN_LIMIT:${planLimitMessage}`);
+  if (isServiceWrite && error.code === "23505") return new Error(duplicateServiceMessage);
+
+  // Keep diagnostic identifiers without returning row data, hints, or provider details.
+  const code = /^[A-Z0-9]{5,12}$/.test(error.code ?? "") ? error.code : "UNKNOWN";
+  const constraint = error.message?.match(/constraint "([a-zA-Z0-9_]+)"/)?.[1];
+  return new Error(fallback, {
+    cause: new Error(`Database code: ${code}${constraint ? `; constraint: ${constraint}` : ""}`)
+  });
+}
+
 function buildSlug(name: string, fallbackId: string) {
   return normalizeSlug(name, fallbackId);
 }
@@ -1493,29 +1501,21 @@ async function resolveUniqueServiceSlug(
   serviceName: string,
   serviceId: string
 ) {
-  const baseSlug = normalizeSlug(serviceName, serviceId);
-
-  for (let index = 0; index < 50; index += 1) {
-    const candidate = index === 0 ? baseSlug : `${baseSlug}-${index}`;
+  const slug = normalizeSlug(serviceName, serviceId);
+  for (const column of ["slug", "public_slug"]) {
     const { data, error } = await supabase
       .from("services")
       .select("id")
-      .eq("public_slug", candidate)
+      .eq(column, slug)
       .eq("business_id", businessId)
       .neq("id", serviceId)
       .limit(1)
       .maybeSingle();
 
-    if (error) {
-      throw new Error("Unable to save the service.");
-    }
-
-    if (!data) {
-      return candidate;
-    }
+    if (error) throw createSchedulingDatabaseError("Unable to validate the service name.", error);
+    if (data) throw new Error(duplicateServiceMessage);
   }
-
-  return `${baseSlug}-${crypto.randomUUID().slice(0, 8)}`;
+  return slug;
 }
 
 function isValidDateValue(value: string) {

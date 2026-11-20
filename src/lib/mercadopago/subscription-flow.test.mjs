@@ -30,7 +30,19 @@ function database({ manual = null, fail = false } = {}) {
     business_memberships: [{ business_id: "20000000-0000-0000-0000-000000000001", role: "owner", user_id: "owner" }]
   };
   const client = { rows,
-    async rpc(name, { p_business_id: businessId }) {
+    async rpc(name, { p_business_id: businessId, p_reference: reference, p_token: token, p_outcome: outcome }) {
+      if (name === "claim_subscription_verification") {
+        client.verification ??= new Map();
+        const entry = client.verification.get(reference);
+        if (entry?.paused) return { data: { allowed: false, failure_kind: entry.reason }, error: null };
+        client.verification.set(reference, { token: "test-lease" });
+        return { data: { allowed: true, token: "test-lease" }, error: null };
+      }
+      if (name === "finish_subscription_verification") {
+        assert.equal(token, "test-lease");
+        client.verification.set(reference, { paused: outcome !== "success" && outcome !== "aborted", reason: outcome });
+        return { data: { applied: true }, error: null };
+      }
       assert.equal(name, "reconcile_business_subscription");
       if (fail) return { data: null, error: new Error("Database unavailable") };
       const business = rows.businesses.find((row) => row.id === businessId);
@@ -252,4 +264,164 @@ test("manual Unlimited activation is authorized as super admin and delegated to 
   db.rows.super_admins = [];
   assert.equal((await route.POST(request())).status, 403);
   assert.equal(calls.length, 1);
+});
+
+test("status refresh uses a stored cancellation without reopening an inaccessible provider reference", async () => {
+  const previousFetch = global.fetch, previousToken = process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN;
+  try {
+    delete process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN;
+    for (const status of ["cancelled", "canceled"]) {
+      for (const manual of [null, "pro", "unlimited"]) {
+        const db = database({ manual });
+        const businessId = db.rows.businesses[0].id;
+        db.rows.business_subscriptions.push({ id: "old-cancelled", business_id: businessId, provider: "mercadopago", provider_plan_id: "miturnolisto-pro", provider_subscription_id: "old-provider-id", provider_status: status, subscription_tier: "free" });
+        let requests = 0;
+        global.fetch = async () => { requests += 1; return Response.json({ message: "The caller is not authorized to access this resource" }, { status: 403 }); };
+        const result = await integration(db).syncLatestBusinessSubscription({ businessId, payerEmail: "owner@example.test" });
+        assert.equal(result.status, status);
+        assert.equal(result.subscriptionTier, manual ?? "free");
+        assert.equal(requests, 0);
+        assert.equal(db.rows.business_subscriptions[0].provider_subscription_id, "old-provider-id");
+        assert.equal(db.rows.business_subscriptions[0].provider_status, status);
+      }
+    }
+  } finally {
+    global.fetch = previousFetch;
+    if (previousToken === undefined) delete process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN; else process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN = previousToken;
+  }
+});
+
+test("permission failures on an authorized subscription pause verification and never revoke paid access", async () => {
+  const previousFetch = global.fetch, previousToken = process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN;
+  process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN = "local-test-token";
+  try {
+    const db = database();
+    const businessId = db.rows.businesses[0].id;
+    db.rows.businesses[0].subscription_tier = "pro";
+    db.rows.business_subscriptions.push({ id: "active", business_id: businessId, provider: "mercadopago", provider_plan_id: "miturnolisto-pro", provider_subscription_id: "active-provider-id", provider_status: "authorized", subscription_tier: "pro" });
+    global.fetch = async () => Response.json({ message: "The caller is not authorized to access this resource" }, { status: 403 });
+    const result = await integration(db).syncLatestBusinessSubscription({ businessId, payerEmail: "owner@example.test" });
+    assert.equal(result.status, "verification_deferred");
+    assert.equal(result.verification.reason, "permission");
+    assert.equal(result.verification.showNotice, true);
+    assert.equal(db.rows.business_subscriptions[0].provider_status, "authorized");
+    assert.equal(db.rows.businesses[0].subscription_tier, "pro");
+  } finally {
+    global.fetch = previousFetch;
+    if (previousToken === undefined) delete process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN; else process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN = previousToken;
+  }
+});
+
+test("a new authorized subscription after a cancellation still synchronizes with the provider", async () => {
+  const previousFetch = global.fetch, previousToken = process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN;
+  process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN = "local-test-token";
+  try {
+    const db = database();
+    const businessId = db.rows.businesses[0].id;
+    db.rows.business_subscriptions.push(
+      { id: "old", business_id: businessId, provider: "mercadopago", provider_plan_id: "miturnolisto-pro", provider_subscription_id: "old-provider-id", provider_status: "cancelled", subscription_tier: "free" },
+      { id: "new", business_id: businessId, provider: "mercadopago", provider_plan_id: "miturnolisto-unlimited", provider_subscription_id: "new-provider-id", provider_status: "authorized", subscription_tier: "unlimited" }
+    );
+    const requests = [];
+    global.fetch = async (url) => {
+      requests.push(String(url));
+      return Response.json({ id: "new-provider-id", status: "authorized", external_reference: `mtl|b:${businessId}|u:owner|i:new|p:unlimited` });
+    };
+    const result = await integration(db).syncLatestBusinessSubscription({ businessId, payerEmail: "owner@example.test" });
+    assert.equal(result.subscriptionTier, "unlimited");
+    assert.equal(requests.length, 1);
+    assert.match(requests[0], /new-provider-id$/);
+  } finally {
+    global.fetch = previousFetch;
+    if (previousToken === undefined) delete process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN; else process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN = previousToken;
+  }
+});
+
+test("an inaccessible paid reference pauses automatically and never invalidates or retries it on later visits", async () => {
+  const previousFetch = global.fetch, previousToken = process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN;
+  process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN = "local-test-token";
+  try {
+    for (const status of [404, 403, 500]) {
+      const db = database();
+      const businessId = db.rows.businesses[0].id;
+      db.rows.businesses[0].subscription_tier = "unlimited";
+      db.rows.business_subscriptions.push({ id: "active", business_id: businessId, provider: "mercadopago", provider_plan_id: "miturnolisto-unlimited", provider_subscription_id: "active-id", provider_status: "authorized", subscription_tier: "unlimited" });
+      let calls = 0;
+      global.fetch = async () => { calls++; return Response.json({ message: "sensitive provider response" }, { status }); };
+      const input = { businessId, payerEmail: "owner@example.test" };
+      const first = await integration(db).syncLatestBusinessSubscription(input);
+      assert.equal(first.status, "verification_deferred");
+      assert.equal(first.subscriptionTier, "unlimited");
+      assert.equal(calls, status === 500 ? 2 : 1);
+      const count = calls;
+      const repeated = await integration(db).syncLatestBusinessSubscription(input);
+      assert.equal(repeated.verification.showNotice, false);
+      assert.equal(calls, count);
+      assert.equal(db.rows.business_subscriptions[0].provider_status, "authorized");
+      assert.equal(db.rows.business_subscriptions[0].provider_subscription_id, "active-id");
+      assert.doesNotMatch(JSON.stringify(first), /sensitive provider response/);
+    }
+  } finally {
+    global.fetch = previousFetch;
+    if (previousToken === undefined) delete process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN; else process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN = previousToken;
+  }
+});
+
+test("explicit status checks reject a foreign or unknown stored reference before provider requests", async () => {
+  const previousFetch = global.fetch;
+  try {
+    const db = database();
+    const businessId = db.rows.businesses[0].id;
+    db.rows.business_subscriptions.push({ id: "foreign", business_id: "other-business", provider_subscription_id: "foreign-id" });
+    let calls = 0;
+    global.fetch = async () => { calls++; throw new Error("No provider request expected"); };
+    for (const preapprovalId of ["foreign-id", "unknown-id"]) {
+      await assert.rejects(integration(db).verifyBusinessSubscriptionStatus({ businessId, preapprovalId, payerEmail: "owner@example.test" }), /no pertenece/);
+    }
+    assert.equal(calls, 0);
+  } finally { global.fetch = previousFetch; }
+});
+
+test("malformed provider responses are retried then paused without downgrading access", async () => {
+  const previousFetch = global.fetch, previousToken = process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN;
+  process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN = "local-test-token";
+  try {
+    for (const hasStoredReference of [true, false]) {
+      const db = database({ manual: "pro" });
+      const businessId = db.rows.businesses[0].id;
+      if (hasStoredReference) db.rows.business_subscriptions.push({ id: "active", business_id: businessId, provider: "mercadopago", provider_plan_id: "miturnolisto-pro", provider_subscription_id: "active-id", provider_status: "authorized", subscription_tier: "pro" });
+      let calls = 0;
+      global.fetch = async () => { calls++; return Response.json(hasStoredReference ? { id: "active-id" } : { results: {} }); };
+      const result = await integration(db).syncLatestBusinessSubscription({ businessId, payerEmail: "owner@example.test" });
+      assert.equal(result.status, "verification_deferred");
+      assert.equal(result.verification.reason, "temporary");
+      assert.equal(result.subscriptionTier, "pro");
+      assert.equal(calls, 2);
+    }
+  } finally {
+    global.fetch = previousFetch;
+    if (previousToken === undefined) delete process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN; else process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN = previousToken;
+  }
+});
+
+test("checkout never creates or changes a subscription while provider verification is deferred", async () => {
+  const db = database();
+  db.auth = { getUser: async () => ({ data: { user: { id: "owner", email: "owner@example.test" } }, error: null }) };
+  let writes = 0;
+  const route = load("src/app/api/subscription/checkout/route.ts", {
+    "@/lib/networking/clients/supabase-admin": { getSupabaseAdminClient: () => db },
+    "@/lib/mercadopago/subscriptions": {
+      syncLatestBusinessSubscription: async () => ({ subscriptionTier: "pro", status: "verification_deferred", verification: { reason: "permission", showNotice: false } }),
+      createProSubscriptionCheckout: async () => { writes++; },
+      changeBusinessSubscriptionPlan: async () => { writes++; }
+    }
+  });
+  const { NextRequest } = require("next/server");
+  for (const plan of ["pro", "unlimited"]) {
+    const request = new NextRequest("https://example.test/api/subscription/checkout", { method: "POST", headers: { Authorization: "Bearer test", "Content-Type": "application/json" }, body: JSON.stringify({ businessId: db.rows.businesses[0].id, plan }) });
+    const result = await route.POST(request);
+    assert.equal(result.status, 409);
+    assert.match((await result.json()).error, /Conservamos tu plan/);
+  }
+  assert.equal(writes, 0);
 });

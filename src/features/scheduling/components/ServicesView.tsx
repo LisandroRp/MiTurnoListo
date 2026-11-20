@@ -3,6 +3,7 @@ import { ChangeEvent, ReactNode, useCallback, useEffect, useLayoutEffect, useRef
 import { createPortal } from "react-dom";
 import { FiArrowLeft, FiArrowRight, FiCheck, FiCopy, FiEdit2, FiGrid, FiInfo, FiMoreHorizontal, FiPlus, FiSearch, FiShare2, FiTrash2 } from "react-icons/fi";
 
+import { PlanLimitIndicator } from "@/features/scheduling/components/PlanLimitIndicator";
 import { PlanLimitModal } from "@/components/composed/PlanLimitModal";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { StepProgress } from "@/components/composed/StepProgress";
@@ -17,6 +18,7 @@ import { SelectField } from "@/components/ui/SelectField";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { FormattingTextArea } from "@/components/ui/FormattingTextArea";
 import { FormattedText } from "@/components/ui/FormattedText";
+import { capServiceNumericInput, hasValidServiceNumericLimits } from "@/features/scheduling/service-numeric-limits";
 import { isValidServiceDescription, serviceDescriptionMaxLength } from "@/features/scheduling/service-description";
 import { TextField } from "@/components/ui/TextField";
 import { cx } from "@/components/ui/utils";
@@ -25,7 +27,7 @@ import { AvailabilityEditor, dayKeys, getScheduleValidationMessage, maxRangesPer
 import { employeeColorClasses } from "@/features/scheduling/components/employeeColors";
 import { ShareCatalogModal, ShareServiceModal } from "@/features/scheduling/components/ServicesView/ShareResourceModal";
 import { Messages } from "@/features/scheduling/i18n/messages";
-import { freePlanLimits, getFreePlanIncludedIds, isFreePlan } from "@/features/scheduling/plan-limits";
+import { hasVisibleResourceSlot, getVisibleResourceLimit, getPlanIncludedIds } from "@/features/scheduling/plan-limits";
 import { hasValidServiceCustomFields, maxServiceCustomFields, normalizeServiceCustomFields } from "@/features/scheduling/service-custom-fields";
 import {
   cancellationLeadMinutesToValue,
@@ -37,7 +39,7 @@ import {
   type CancellationLeadUnit
 } from "@/features/scheduling/service-cancellation-policy";
 import { Appointment, Employee, PaymentMethod, Service, ServiceAddon, ServiceCustomField, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
-import { formatCurrency } from "@/features/scheduling/utils/format";
+import { formatCurrency, formatServiceDuration } from "@/features/scheduling/utils/format";
 import { createNewServiceDraft } from "@/lib/networking/endpoints/scheduling";
 
 type ServicesViewProps = {
@@ -91,10 +93,9 @@ export function ServicesView({
   onShareError
 }: ServicesViewProps) {
   const rangeIdCounter = useRef(1);
-  const hasFreeVisibleSlot = !isFreePlan(subscriptionTier) ||
-    services.filter((service) => !service.isArchived && service.isVisible).length < freePlanLimits.visibleServices;
+  const hasVisibleSlot = hasVisibleResourceSlot(services, subscriptionTier, "services");
   const [mode, setMode] = useState<ServicesMode>(startsInCreateMode ? "form" : "grid");
-  const [draft, setDraft] = useState<Service>(() => ({ ...createNewServiceDraft(), isVisible: hasFreeVisibleSlot }));
+  const [draft, setDraft] = useState<Service>(() => ({ ...createNewServiceDraft(), isVisible: hasVisibleSlot }));
   const [cancellationLeadUnit, setCancellationLeadUnit] = useState<CancellationLeadUnit>("days");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -108,14 +109,10 @@ export function ServicesView({
   const [serviceSearchTerm, setServiceSearchTerm] = useState("");
   const [serviceStatusFilter, setServiceStatusFilter] = useState<ServiceStatusFilter>("all");
   const [serviceEmployeeFilter, setServiceEmployeeFilter] = useState("all");
-  const unlockedVisibleServiceIds = isFreePlan(subscriptionTier)
-    ? getFreePlanIncludedIds(services.filter((service) => !service.isArchived && service.isVisible), freePlanLimits.visibleServices)
-    : new Set(services.filter((service) => !service.isArchived).map((service) => service.id));
-  const freeEmployeeIds = isFreePlan(subscriptionTier)
-    ? getFreePlanIncludedIds(employees.filter((employee) => !employee.isArchived), freePlanLimits.activeEmployees)
-    : null;
+  const includedVisibleIds = getPlanIncludedIds(services.filter((service) => !service.isArchived && service.isVisible), subscriptionTier, "services");
+  const includedEmployeeIds = getPlanIncludedIds(employees.filter((employee) => !employee.isArchived && employee.isVisible), subscriptionTier, "employees");
   const assignableEmployees = employees.filter((employee) =>
-    !employee.isArchived && employee.isVisible && (!freeEmployeeIds || freeEmployeeIds.has(employee.id))
+    !employee.isArchived && employee.isVisible && (!includedEmployeeIds || includedEmployeeIds.has(employee.id))
   );
   const assignableEmployeeIds = new Set(assignableEmployees.map((employee) => employee.id));
 
@@ -141,7 +138,7 @@ export function ServicesView({
   const wizardActionVisibility = useDualActionVisibility();
 
   function startCreate() {
-    setDraft({ ...createNewServiceDraft(), isVisible: hasFreeVisibleSlot });
+    setDraft({ ...createNewServiceDraft(), isVisible: hasVisibleSlot });
     setCancellationLeadUnit("days");
     setEditingId(null);
     setCurrentStepIndex(0);
@@ -166,7 +163,7 @@ export function ServicesView({
       ...service,
       id: globalThis.crypto.randomUUID(),
       name: `${service.name} ${messages.services.copySuffix}`,
-      isVisible: hasFreeVisibleSlot && service.isVisible,
+      isVisible: hasVisibleSlot && service.isVisible,
       addons: service.addons.map((addon, index) => ({
         ...addon,
         id: globalThis.crypto.randomUUID(),
@@ -208,7 +205,7 @@ export function ServicesView({
 
   function handleNumericTextChange(field: keyof Service) {
     return (event: ChangeEvent<HTMLInputElement>) => {
-      setDraft((current) => ({ ...current, [field]: parseNumericInput(event.target.value) }));
+      setDraft((current) => ({ ...current, [field]: capServiceNumericInput(field, parseNumericInput(event.target.value)) }));
     };
   }
 
@@ -242,6 +239,10 @@ export function ServicesView({
   }
 
   function handleVisibilityChange(event: ChangeEvent<HTMLInputElement>) {
+    if (event.target.checked && !hasVisibleResourceSlot(services, subscriptionTier, "services", draft.id)) {
+      setLockedService(draft);
+      return;
+    }
     setDraft((current) => ({ ...current, isVisible: event.target.checked }));
   }
 
@@ -324,6 +325,10 @@ export function ServicesView({
   }
 
   async function toggleServiceVisibility(service: Service) {
+    if (!service.isVisible && !hasVisibleResourceSlot(services, subscriptionTier, "services", service.id)) {
+      setLockedService(service);
+      return;
+    }
     if (savingVisibilityId) {
       return;
     }
@@ -483,6 +488,7 @@ export function ServicesView({
       const existingEmployeeIds = new Set(services.find((service) => service.id === editingId)?.employeeIds ?? []);
       const didSave = await onSaveService(normalizeServiceDraft({
         ...draft,
+        isVisible: draft.isVisible && hasVisibleResourceSlot(services, subscriptionTier, "services", draft.id),
         employeeIds: draft.employeeIds.filter((employeeId) => assignableEmployeeIds.has(employeeId) || existingEmployeeIds.has(employeeId))
       }));
 
@@ -497,9 +503,21 @@ export function ServicesView({
     }
   }
 
+  const visibilityLimitModal = (
+    <PlanLimitModal
+        isOpen={Boolean(lockedService)}
+        badge={messages.planLimits.lockedBadge}
+        title={messages.planLimits.visibilityServiceTitle}
+        description={messages.planLimits.visibilityServiceDescription.replace("{plan}", subscriptionTier.toUpperCase()).replace("{limit}", String(getVisibleResourceLimit(subscriptionTier, "services")))}
+        actionLabel={messages.planLimits.infinityAction}
+        onClose={() => setLockedService(null)}
+      />
+  );
+
   if (mode === "form") {
     return (
       <div className="grid gap-6">
+        {visibilityLimitModal}
         <SectionHeader
           icon={<FiGrid />}
           eyebrow={messages.services.eyebrow}
@@ -554,9 +572,7 @@ export function ServicesView({
             <CheckboxField
               label={messages.services.visible}
               checked={draft.isVisible}
-              disabled={!editingId && !hasFreeVisibleSlot}
-              helperText={!editingId && !hasFreeVisibleSlot ? messages.planLimits.newServiceHiddenHint : undefined}
-              className={!editingId && !hasFreeVisibleSlot ? "opacity-60" : undefined}
+              helperText={!editingId && !hasVisibleSlot ? messages.planLimits.newResourceHiddenHint : undefined}
               onChange={handleVisibilityChange}
             />
             </FormSection>
@@ -571,6 +587,7 @@ export function ServicesView({
                   inputMode="numeric"
                   pattern="[0-9]*"
                   prefix="$"
+                  maxLength={8}
                   value={formatNumericInputValue(draft.price, true)}
                   required
                   onChange={handleNumericTextChange("price")}
@@ -591,6 +608,9 @@ export function ServicesView({
                   inputMode="numeric"
                   pattern="[0-9]*"
                   prefix="$"
+                  maxLength={7}
+                  helperText={draft.deposit > draft.price ? messages.services.depositExceedsPrice : undefined}
+                  aria-invalid={draft.deposit > draft.price}
                   value={formatNumericInputValue(draft.deposit, true)}
                   onChange={handleNumericTextChange("deposit")}
                 />
@@ -653,6 +673,8 @@ export function ServicesView({
                   inputMode="numeric"
                   pattern="[0-9]*"
                   suffix={<span className="text-xs font-bold text-muted">{messages.services.minutesShort}</span>}
+                  maxLength={3}
+                  helperText={messages.services.durationLimitHint}
                   value={formatNumericInputValue(draft.durationMinutes)}
                   required
                   onChange={handleNumericTextChange("durationMinutes")}
@@ -817,68 +839,14 @@ export function ServicesView({
               <tbody className="divide-y divide-subtle">
                 {filteredServices.map((service) => {
                   const isArchived = service.isArchived;
-                  const isLockedByPlan = !isArchived && isFreePlan(subscriptionTier) && service.isVisible && !unlockedVisibleServiceIds.has(service.id);
+                  const isOutsidePlan = !isArchived && service.isVisible && includedVisibleIds !== null && !includedVisibleIds.has(service.id);
                   const serviceEmployees = employees.filter((employee) => !employee.isArchived && service.employeeIds.includes(employee.id));
                   const monthBookings = countServiceAppointmentsForMonth(service.id, appointments, monthRange);
-
-                  return (
-                    <tr key={service.id} className={cx("relative transition-colors hover:bg-brand-soft/45", isArchived && "bg-shell/70 opacity-60 grayscale")}>
-                      <td className="px-4 py-4">
-                        <div className={cx("flex min-w-0 items-center gap-3", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
-                          <div className="min-w-0">
-                            <h2 className="truncate text-sm font-bold text-primary">{service.name}</h2>
-                            {service.description ? (
-                              <FormattedText className="mt-1 line-clamp-2 text-xs leading-5 text-muted" value={service.description} />
-                            ) : null}
-                          </div>
-                        </div>
-                      </td>
-                      <td className={cx("px-4 py-4 text-sm font-semibold text-primary", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
-                        {service.durationMinutes} {messages.services.minutesShort}
-                      </td>
-                      <td className={cx("px-4 py-4 text-sm", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
-                        <p className="font-bold text-primary">{formatCurrency(service.price)}</p>
-                        {service.deposit > 0 ? (
-                          <p className="mt-1 text-xs font-semibold text-muted">{messages.services.depositShort} {formatCurrency(service.deposit)}</p>
-                        ) : null}
-                      </td>
-                      <td className={cx("px-4 py-4 text-sm font-semibold text-primary", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
-                        {getAcceptedPaymentLabels(service.paymentMethod, messages, isMercadoPagoConfigured, isTransferConfigured).join(", ")}
-                      </td>
-                      <td className={cx("px-4 py-4", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
-                        <ServiceEmployeePills messages={messages} employees={serviceEmployees} />
-                      </td>
-                      <td className={cx("px-4 py-4 text-sm font-semibold text-primary", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
-                        {monthBookings}
-                      </td>
-                      <td className={cx("px-4 py-4", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
-                        {isLockedByPlan ? (
-                          <Badge tone="warning">{messages.planLimits.lockedStatus}</Badge>
-                        ) : isArchived ? (
-                          <Badge tone="neutral">{messages.services.archived}</Badge>
-                        ) : (
-                          <VisibilitySwitch
-                            messages={messages}
-                            isVisible={service.isVisible}
-                            isLoading={savingVisibilityId === service.id}
-                            isDisabled={isLockedByPlan}
-                            onToggle={() => void toggleServiceVisibility(service)}
-                          />
-                        )}
-                      </td>
-                      <td className="relative px-4 py-4 text-right">
-                        {isLockedByPlan ? (
-                          <button
-                            type="button"
-                            className="rounded-full border border-brand bg-surface px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-brand-strong shadow-sm"
-                            onClick={() => setLockedService(service)}
-                          >
-                            {messages.planLimits.lockedCardHint}
-                          </button>
-                        ) : (
+                  const serviceActions = (
                           <ServiceActionsMenu
                             messages={messages}
                             service={service}
+                            archiveOnly={isOutsidePlan}
                             disabled={pendingMenuAction !== null}
                             loadingAction={pendingMenuAction?.serviceId === service.id ? pendingMenuAction.action : null}
                             onShare={() => setSharingService(service)}
@@ -888,8 +856,63 @@ export function ServicesView({
                             onDelete={() => runServiceMenuAction(service.id, "delete", () => onDeleteService(service.id))}
                             onUnarchive={() => runServiceMenuAction(service.id, "unarchive", () => onUnarchiveService(service.id))}
                           />
-                        )}
+                  );
+                  const visibilityControl = (
+                          <VisibilitySwitch
+                            messages={messages}
+                            isVisible={service.isVisible}
+                            isLoading={savingVisibilityId === service.id}
+                            onToggle={() => void toggleServiceVisibility(service)}
+                          />
+                  );
+
+                  return (
+                    <tr key={service.id} className={cx("relative transition-colors hover:bg-brand-soft/45", isArchived && "bg-shell/70 opacity-60 grayscale", isOutsidePlan && "[&>td[data-plan-content]]:opacity-50 [&>td[data-plan-content]]:grayscale [&>td[data-plan-content]]:blur-[2px]")}>
+                      <td className="px-4 py-4">
+                        <div className={cx("flex min-w-0 items-center gap-3", isOutsidePlan && "opacity-50 grayscale blur-[2px]")} inert={isOutsidePlan} aria-hidden={isOutsidePlan}>
+                          <div className="min-w-0">
+                            <h2 className="truncate text-sm font-bold text-primary">{service.name}</h2>
+                            {service.description ? (
+                              <FormattedText className="mt-1 line-clamp-2 text-xs leading-5 text-muted" value={service.description} />
+                            ) : null}
+                          </div>
+                        </div>
+                        {isOutsidePlan ? (
+                          <div data-plan-overlay className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-surface/40 p-3" role="group" aria-label={service.name}>
+                            <div className="pointer-events-auto">
+                              <PlanLimitIndicator label={messages.planLimits.lockedCardHint} onClick={() => setLockedService(service)} />
+                            </div>
+                          </div>
+                        ) : null}
                       </td>
+                      <td className="px-4 py-4 text-sm font-semibold text-primary" data-plan-content inert={isOutsidePlan} aria-hidden={isOutsidePlan}>
+                        {formatServiceDuration(service.durationMinutes, messages.services)}
+                      </td>
+                      <td className="px-4 py-4 text-sm" data-plan-content inert={isOutsidePlan} aria-hidden={isOutsidePlan}>
+                        <p className="font-bold text-primary">{formatCurrency(service.price)}</p>
+                        {service.deposit > 0 ? (
+                          <p className="mt-1 text-xs font-semibold text-muted">{messages.services.depositShort} {formatCurrency(service.deposit)}</p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-4 text-sm font-semibold text-primary" data-plan-content inert={isOutsidePlan} aria-hidden={isOutsidePlan}>
+                        {getAcceptedPaymentLabels(service.paymentMethod, messages, isMercadoPagoConfigured, isTransferConfigured).join(", ")}
+                      </td>
+                      <td className="px-4 py-4" data-plan-content inert={isOutsidePlan} aria-hidden={isOutsidePlan}>
+                        <ServiceEmployeePills messages={messages} employees={serviceEmployees} />
+                      </td>
+                      <td className="px-4 py-4 text-sm font-semibold text-primary" data-plan-content inert={isOutsidePlan} aria-hidden={isOutsidePlan}>
+                        {monthBookings}
+                      </td>
+                      <td className={cx("px-4 py-4", isOutsidePlan && "relative z-20")}>
+                        {isArchived ? (
+                          <Badge tone="neutral">{messages.services.archived}</Badge>
+                        ) : visibilityControl}
+                      </td>
+                      <td className={cx("relative px-4 py-4 text-right", isOutsidePlan && "z-20")}>
+                        {serviceActions}
+
+                      </td>
+
                     </tr>
                   );
                 })}
@@ -923,14 +946,7 @@ export function ServicesView({
         />
       ) : null}</ModalPresence>
 
-      <PlanLimitModal
-        isOpen={Boolean(lockedService)}
-        badge={messages.planLimits.lockedBadge}
-        title={messages.planLimits.lockedServiceTitle}
-        description={messages.planLimits.lockedServiceDescription}
-        actionLabel={messages.planLimits.lockedAction}
-        onClose={() => setLockedService(null)}
-      />
+      {visibilityLimitModal}
     </div>
   );
 }
@@ -1050,6 +1066,7 @@ function ServiceActionsMenu({
   service,
   disabled,
   loadingAction,
+  archiveOnly = false,
   onShare,
   onEdit,
   onDuplicate,
@@ -1060,6 +1077,7 @@ function ServiceActionsMenu({
   messages: Messages;
   service: Service;
   disabled: boolean;
+  archiveOnly?: boolean;
   loadingAction: ServiceMenuAction | null;
   onShare: () => void;
   onEdit: () => void;
@@ -1082,7 +1100,7 @@ function ServiceActionsMenu({
     }
 
     const menuWidth = menuRef.current?.offsetWidth ?? 160;
-    const menuHeight = menuRef.current?.offsetHeight ?? (service.isArchived ? 88 : 176);
+    const menuHeight = menuRef.current?.offsetHeight ?? (archiveOnly ? 44 : service.isArchived ? 88 : 176);
     const gap = 8;
     const viewportPadding = 16;
     const nextLeft = Math.min(
@@ -1097,7 +1115,7 @@ function ServiceActionsMenu({
         ? Math.max(viewportPadding, rect.top - menuHeight - gap)
         : rect.bottom + gap
     });
-  }, [service.isArchived]);
+  }, [archiveOnly, service.isArchived]);
 
   useLayoutEffect(() => {
     if (!isOpen) {
@@ -1173,6 +1191,7 @@ function ServiceActionsMenu({
         >
         {!service.isArchived ? (
           <>
+            {!archiveOnly ? (<>
             <button
               type="button"
               className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-primary hover:bg-shell disabled:cursor-not-allowed disabled:opacity-50"
@@ -1201,6 +1220,7 @@ function ServiceActionsMenu({
               <FiCopy aria-hidden="true" />
               {messages.actions.duplicate}
             </button>
+            </>) : null}
             <button
               type="button"
               className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-danger hover:bg-danger-soft disabled:cursor-wait disabled:opacity-70"
@@ -1689,6 +1709,7 @@ function hasValidBookingNumbers(service: Service) {
   ];
 
   return (
+    hasValidServiceNumericLimits(service) &&
     numericValues.every((value) => Number.isInteger(value) && value >= 0) &&
     Number.isInteger(service.durationMinutes) &&
     service.durationMinutes > 0 &&

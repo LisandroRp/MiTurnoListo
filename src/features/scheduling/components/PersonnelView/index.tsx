@@ -2,6 +2,7 @@ import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { FiEdit2, FiPlus, FiUsers } from "react-icons/fi";
 
+import { PlanLimitIndicator } from "@/features/scheduling/components/PlanLimitIndicator";
 import { PlanLimitModal } from "@/components/composed/PlanLimitModal";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { StepProgress } from "@/components/composed/StepProgress";
@@ -24,7 +25,7 @@ import { formatTodayRanges, getDayKeyForDate, getInitials, getPersonnelStepValid
 import { EmployeeMenuAction, PersonnelFilter, PersonnelMode, PersonnelWizardStep } from "@/features/scheduling/components/PersonnelView/types";
 import { WizardActions } from "@/features/scheduling/components/PersonnelView/WizardActions";
 import { Messages } from "@/features/scheduling/i18n/messages";
-import { freePlanLimits, getFreePlanIncludedIds, isFreePlan } from "@/features/scheduling/plan-limits";
+import { hasVisibleResourceSlot, getVisibleResourceLimit, getPlanIncludedIds } from "@/features/scheduling/plan-limits";
 import { Appointment, Employee, Service, ServiceSchedule, SubscriptionTier, TimeRange } from "@/features/scheduling/types";
 import { createNewEmployeeDraft } from "@/lib/networking/endpoints/scheduling";
 import { uploadBusinessImageAsset } from "@/lib/storage/business-assets";
@@ -71,10 +72,9 @@ export function PersonnelView({
   const searchParams = useSearchParams();
   const employeeSearchParam = searchParams.get("search") ?? "";
   const rangeIdCounter = useRef(1);
-  const canCreateEmployee = !isFreePlan(subscriptionTier) ||
-    employees.filter((employee) => !employee.isArchived).length < freePlanLimits.activeEmployees;
-  const [mode, setMode] = useState<PersonnelMode>(startsInCreateMode && canCreateEmployee ? "form" : "grid");
-  const [draft, setDraft] = useState<Employee>(() => createNewEmployeeDraft(employees));
+  const hasVisibleSlot = hasVisibleResourceSlot(employees, subscriptionTier, "employees");
+  const [mode, setMode] = useState<PersonnelMode>(startsInCreateMode ? "form" : "grid");
+  const [draft, setDraft] = useState<Employee>(() => ({ ...createNewEmployeeDraft(employees), isVisible: hasVisibleSlot }));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
@@ -84,17 +84,14 @@ export function PersonnelView({
   const [showArchivedPersonnel, setShowArchivedPersonnel] = useState(false);
   const [isSavingEmployee, setIsSavingEmployee] = useState(false);
   const [lockedEmployee, setLockedEmployee] = useState<Employee | null>(null);
-  const [isCreateLimitOpen, setIsCreateLimitOpen] = useState(startsInCreateMode && !canCreateEmployee);
   const [pendingMenuAction, setPendingMenuAction] = useState<{ employeeId: string; action: EmployeeMenuAction } | null>(null);
 
+  const includedVisibleIds = getPlanIncludedIds(employees.filter((employee) => !employee.isArchived && employee.isVisible), subscriptionTier, "employees");
   const currentStep = personnelWizardStepOrder[currentStepIndex] ?? "details";
   const stepItems = personnelWizardStepOrder.map((step) => ({
     id: step,
     label: messages.personnel.steps[step]
   }));
-  const unlockedEmployeeIds = isFreePlan(subscriptionTier)
-    ? getFreePlanIncludedIds(employees.filter((employee) => !employee.isArchived), freePlanLimits.activeEmployees)
-    : new Set(employees.filter((employee) => !employee.isArchived).map((employee) => employee.id));
   const todayKey = getDayKeyForDate(referenceDate);
   const wizardActionVisibility = useDualActionVisibility();
   useEffect(() => {
@@ -114,12 +111,7 @@ export function PersonnelView({
   }).sort((left, right) => Number(left.isArchived) - Number(right.isArchived) || left.name.localeCompare(right.name));
 
   function startCreate() {
-    if (!canCreateEmployee) {
-      setIsCreateLimitOpen(true);
-      return;
-    }
-
-    setDraft(createNewEmployeeDraft(employees));
+    setDraft({ ...createNewEmployeeDraft(employees), isVisible: hasVisibleSlot });
     setEditingId(null);
     setCurrentStepIndex(0);
     setPendingEmployeeImageFile(null);
@@ -277,7 +269,7 @@ export function PersonnelView({
             })
           }
         : draft;
-      const didSave = await onSaveEmployee({ ...employeeToSave, initials: getInitials(employeeToSave.name) });
+      const didSave = await onSaveEmployee({ ...employeeToSave, isVisible: employeeToSave.isVisible && hasVisibleResourceSlot(employees, subscriptionTier, "employees", employeeToSave.id), initials: getInitials(employeeToSave.name) });
 
       if (didSave) {
         resetForm();
@@ -304,6 +296,10 @@ export function PersonnelView({
   }
 
   async function toggleEmployeeVisibility(employee: Employee) {
+    if (!employee.isVisible && !hasVisibleResourceSlot(employees, subscriptionTier, "employees", employee.id)) {
+      setLockedEmployee(employee);
+      return;
+    }
     await runEmployeeMenuAction(
       employee.id,
       "visibility",
@@ -351,6 +347,7 @@ export function PersonnelView({
           </div>
         ) : null}
 
+        {!editingId && !hasVisibleSlot ? <p className="text-sm text-muted">{messages.planLimits.newResourceHiddenHint}</p> : null}
         <div className="grid gap-5">
           {currentStep === "details" ? (
             <FormSection title={messages.personnel.detailsSection} description={messages.personnel.detailsSectionHint}>
@@ -448,7 +445,7 @@ export function PersonnelView({
       <section className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
         {filteredEmployees.length > 0 ? filteredEmployees.map((employee) => {
           const isArchived = employee.isArchived;
-          const isLockedByPlan = !isArchived && isFreePlan(subscriptionTier) && !unlockedEmployeeIds.has(employee.id);
+          const isOutsidePlan = !isArchived && employee.isVisible && includedVisibleIds !== null && !includedVisibleIds.has(employee.id);
           const employeeServices = services.filter((service) => !service.isArchived && service.employeeIds.includes(employee.id));
           const todayRanges = employee.schedule[todayKey] ?? [];
           const todayAppointments = appointments.filter((appointment) => (
@@ -457,6 +454,31 @@ export function PersonnelView({
             appointment.appointmentStatus !== "cancelled"
           ));
           const weeklyOccupation = getWeeklyOccupation(employee, employeeServices, appointments, referenceDate);
+          const visibilitySwitch = (
+                  !isArchived ? (
+                    <EmployeeVisibilitySwitch
+                      employee={employee}
+                      isDisabled={pendingMenuAction !== null}
+                      isLoading={pendingMenuAction?.employeeId === employee.id && pendingMenuAction.action === "visibility"}
+                      messages={messages}
+                      onToggle={() => void toggleEmployeeVisibility(employee)}
+                    />
+                  ) : null
+          );
+          const visibilityControls = (
+                <div className={cx("grid shrink-0 justify-items-end gap-2", isOutsidePlan && "absolute right-5 top-5 z-20")}>
+                  <EmployeeActionsMenu
+                    disabled={pendingMenuAction !== null}
+                    employee={employee}
+                    loadingAction={pendingMenuAction?.employeeId === employee.id ? pendingMenuAction.action : null}
+                    messages={messages}
+                    onArchive={() => runEmployeeMenuAction(employee.id, "archive", () => onArchiveEmployee(employee.id))}
+                    onDelete={() => runEmployeeMenuAction(employee.id, "delete", () => onDeleteEmployee(employee.id))}
+                    onUnarchive={() => runEmployeeMenuAction(employee.id, "unarchive", () => onUnarchiveEmployee(employee.id))}
+                  />
+                  {visibilitySwitch}
+                </div>
+          );
 
           return (
           <Card
@@ -464,10 +486,9 @@ export function PersonnelView({
             className={cx(
               "relative flex h-full min-h-[22rem] w-full flex-col transition duration-200 hover:-translate-y-1 hover:scale-[1.01] hover:border-brand hover:shadow-lg",
               isArchived && "bg-shell/70 opacity-60 grayscale",
-              isLockedByPlan && "hover:translate-y-0 hover:scale-100"
             )}
           >
-            <div className={cx("flex h-full flex-col gap-4", isLockedByPlan && "opacity-50 grayscale blur-[1px]")}>
+            <div className={cx("flex h-full flex-col gap-4", isOutsidePlan && "opacity-50 grayscale blur-[2px]")} inert={isOutsidePlan} aria-hidden={isOutsidePlan}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-3">
                   <EmployeeAvatar employee={employee} />
@@ -476,26 +497,7 @@ export function PersonnelView({
                     <p className="truncate text-sm text-muted">{employee.role || messages.personnel.emptyRole}</p>
                   </div>
                 </div>
-                <div className="grid shrink-0 justify-items-end gap-2">
-                  <EmployeeActionsMenu
-                    disabled={isLockedByPlan || pendingMenuAction !== null}
-                    employee={employee}
-                    loadingAction={pendingMenuAction?.employeeId === employee.id ? pendingMenuAction.action : null}
-                    messages={messages}
-                    onArchive={() => runEmployeeMenuAction(employee.id, "archive", () => onArchiveEmployee(employee.id))}
-                    onDelete={() => runEmployeeMenuAction(employee.id, "delete", () => onDeleteEmployee(employee.id))}
-                    onUnarchive={() => runEmployeeMenuAction(employee.id, "unarchive", () => onUnarchiveEmployee(employee.id))}
-                  />
-                  {!isArchived ? (
-                    <EmployeeVisibilitySwitch
-                      employee={employee}
-                      isDisabled={isLockedByPlan || pendingMenuAction !== null}
-                      isLoading={pendingMenuAction?.employeeId === employee.id && pendingMenuAction.action === "visibility"}
-                      messages={messages}
-                      onToggle={() => void toggleEmployeeVisibility(employee)}
-                    />
-                  ) : null}
-                </div>
+                {isOutsidePlan ? <div className="h-16 w-24 shrink-0" aria-hidden="true" /> : visibilityControls}
               </div>
 
               <div className="grid gap-2 text-sm">
@@ -508,21 +510,20 @@ export function PersonnelView({
 
               <div className="mt-auto grid justify-items-center gap-3 pt-2">
                 <WeekdayPills employee={employee} messages={messages} />
-                <Button className="w-full" variant="secondary" size="sm" icon={<FiEdit2 />} disabled={isLockedByPlan || isArchived} onClick={() => startEdit(employee)}>
+                <Button className="w-full" variant="secondary" size="sm" icon={<FiEdit2 />} disabled={isArchived || isOutsidePlan} onClick={() => startEdit(employee)}>
                   {messages.personnel.editProfile}
                 </Button>
               </div>
             </div>
-            {isLockedByPlan ? (
-              <button
-                type="button"
-                className="absolute inset-0 z-10 grid cursor-pointer place-items-center bg-surface/40 p-5 text-center"
-                onClick={() => setLockedEmployee(employee)}
-              >
-                <span className="rounded-full border border-brand bg-surface px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-brand-strong shadow-sm">
-                  {messages.planLimits.lockedCardHint}
-                </span>
-              </button>
+            {isOutsidePlan ? (
+              <>
+                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-surface/40 p-5" role="group" aria-label={employee.name}>
+                  <div className="pointer-events-auto">
+                    <PlanLimitIndicator label={messages.planLimits.lockedCardHint} onClick={() => setLockedEmployee(employee)} />
+                  </div>
+                </div>
+                {visibilityControls}
+              </>
             ) : null}
           </Card>
           );
@@ -536,22 +537,12 @@ export function PersonnelView({
       <PlanLimitModal
         isOpen={Boolean(lockedEmployee)}
         badge={messages.planLimits.lockedBadge}
-        title={messages.planLimits.lockedEmployeeTitle}
-        description={messages.planLimits.lockedEmployeeDescription}
-        actionLabel={messages.planLimits.lockedAction}
+        title={messages.planLimits.visibilityEmployeeTitle}
+        description={messages.planLimits.visibilityEmployeeDescription.replace("{plan}", subscriptionTier.toUpperCase()).replace("{limit}", String(getVisibleResourceLimit(subscriptionTier, "employees")))}
+        actionLabel={messages.planLimits.infinityAction}
         onClose={() => setLockedEmployee(null)}
       />
-      <PlanLimitModal
-        isOpen={isCreateLimitOpen}
-        badge={messages.planLimits.lockedBadge}
-        title={messages.planLimits.employeeCreateTitle}
-        description={messages.planLimits.employeeCreateDescription}
-        actionLabel={messages.planLimits.lockedAction}
-        onClose={() => {
-          setIsCreateLimitOpen(false);
-          onLeaveSetupCreation?.();
-        }}
-      />
+
     </div>
   );
 }

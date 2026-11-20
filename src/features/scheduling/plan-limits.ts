@@ -63,3 +63,32 @@ export function getPlanLimitMessage(error: unknown): string | null {
   }
   return candidate.cause && candidate.cause !== error ? getPlanLimitMessage(candidate.cause) : null;
 }
+
+
+export type VisibleResource = "employees" | "services";
+
+export function getVisibleResourceLimit(tier: string, resource: VisibleResource): number | null {
+  if (tier === "free") return resource === "employees" ? 1 : 2;
+  if (tier === "pro") return resource === "employees" ? 3 : 10;
+  return null;
+}
+
+export function hasVisibleResourceSlot(
+  items: readonly { id: string; isVisible: boolean; isArchived: boolean }[],
+  tier: string,
+  resource: VisibleResource,
+  candidateId?: string
+) {
+  const limit = getVisibleResourceLimit(tier, resource);
+  const visible = items.filter((item) => item.isVisible && !item.isArchived);
+  return limit === null || visible.some((item) => item.id === candidateId) || visible.length < limit;
+}
+
+export function getPlanIncludedIds<T extends { id: string; name: string }>(
+  items: readonly T[],
+  tier: string,
+  resource: VisibleResource
+) {
+  const limit = getVisibleResourceLimit(tier, resource);
+  return limit === null ? null : getFreePlanIncludedIds(items, limit);
+}

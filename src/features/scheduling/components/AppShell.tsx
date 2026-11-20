@@ -89,7 +89,7 @@ export function AppShell({ children }: AppShellProps) {
 
     didReconcileSubscription.current = true;
     void refreshWorkspaceSubscription().then((result) => {
-      if (result && result.subscriptionTier !== "free") {
+      if (result && result.status !== "verification_deferred" && result.subscriptionTier !== "free") {
         showToast({
           tone: "success",
           ...getSubscriptionActivationFeedback(messages, result.subscriptionTier)

@@ -49,7 +49,6 @@ const components = {
     FiInfo: passthrough("span"),
     FiRefreshCw: passthrough("span"),
     FiSearch: passthrough("span"),
-    FiStar: passthrough("span"),
     FiZap: passthrough("span")
   }
 };

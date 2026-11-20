@@ -15,7 +15,7 @@ import { DashboardActiveTeam } from "@/features/scheduling/components/DashboardA
 import { WalkInAppointmentModal } from "@/features/scheduling/components/WalkInAppointmentModal";
 import { Appointment, DashboardMetric, Employee, Service } from "@/features/scheduling/types";
 import { Messages } from "@/features/scheduling/i18n/messages";
-import { freePlanLimits, getFreePlanIncludedIds, isFreePlan } from "@/features/scheduling/plan-limits";
+import { getPlanIncludedIds } from "@/features/scheduling/plan-limits";
 import { SubscriptionTier } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 import { cx } from "@/components/ui/utils";
@@ -59,15 +59,13 @@ export function DashboardView({
   const activeServiceIds = new Set(services.filter((service) => !service.isArchived).map((service) => service.id));
   const todaysAppointments = appointments.filter((appointment) => appointment.date === referenceDate && activeServiceIds.has(appointment.serviceId));
   const activeTodaysAppointments = todaysAppointments.filter((appointment) => appointment.appointmentStatus !== "cancelled");
-  const freeEmployeeIds = isFreePlan(subscriptionTier)
-    ? getFreePlanIncludedIds(employees.filter((employee) => !employee.isArchived), freePlanLimits.activeEmployees)
-    : null;
+  const includedEmployeeIds = getPlanIncludedIds(employees.filter((employee) => !employee.isArchived && employee.isVisible), subscriptionTier, "employees");
   const employeesWorkingToday = getEmployeesWorkingNowOnDate(
-    employees.filter((employee) => !freeEmployeeIds || freeEmployeeIds.has(employee.id)),
+    employees.filter((employee) => !includedEmployeeIds || includedEmployeeIds.has(employee.id)),
     referenceDate
   );
   const employeesScheduledToday = getEmployeesScheduledOnDate(
-    employees.filter((employee) => !freeEmployeeIds || freeEmployeeIds.has(employee.id)),
+    employees.filter((employee) => !includedEmployeeIds || includedEmployeeIds.has(employee.id)),
     referenceDate
   );
   const dayAppointments = todaysAppointments

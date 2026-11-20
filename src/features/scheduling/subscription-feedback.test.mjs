@@ -32,3 +32,24 @@ test("activation feedback names the confirmed plan in both languages and all ent
     assert.match(source, /getSubscriptionActivationFeedback\((?:messages|copy), result.subscriptionTier\)/);
   }
 });
+
+test("verification notices are localized, shown only once and never announce a missing reference as an error", () => {
+  const { getSubscriptionVerificationFeedback } = load("./subscription-feedback.ts");
+  for (const locale of ["es", "en"]) {
+    assert.equal(getSubscriptionVerificationFeedback(messages[locale], { reason: "not_found", retryAt: null, showNotice: true }), null);
+    assert.equal(getSubscriptionVerificationFeedback(messages[locale], { reason: "permission", retryAt: null, showNotice: false }), null);
+    assert.equal(getSubscriptionVerificationFeedback(messages[locale]), null);
+    const permission = getSubscriptionVerificationFeedback(messages[locale], { reason: "permission", retryAt: null, showNotice: true });
+    assert.equal(permission.description, messages[locale].profile.subscriptionVerificationPermission);
+    const temporary = getSubscriptionVerificationFeedback(messages[locale], { reason: "temporary", retryAt: "2099-01-01", showNotice: true });
+    assert.match(temporary.description, /30/);
+    const exhausted = getSubscriptionVerificationFeedback(messages[locale], { reason: "temporary", retryAt: null, showNotice: true, needsReview: true });
+    assert.equal(exhausted.description, messages[locale].profile.subscriptionVerificationExhausted);
+  }
+  for (const path of ["./components/AppShell.tsx", "../../app/(dashboard)/perfil/page.tsx"]) {
+    const source = readFileSync(new URL(path, import.meta.url), "utf8");
+    assert.match(source, /result.status !== "verification_deferred"/);
+  }
+  const provider = readFileSync(new URL("./components/SchedulingProvider.tsx", import.meta.url), "utf8");
+  assert.match(provider, /if \(result.status === "verification_deferred"\) \{[\s\S]*?return result;[\s\S]*?trackSubscriptionPurchaseOnce\(result.purchase\)/);
+});

@@ -1,3 +1,4 @@
+import { formatServiceDuration } from "../../scheduling/utils/format.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import Module, { createRequire } from "node:module";
@@ -18,7 +19,7 @@ const modules = {
   "@/features/booking-flow/utils/booking": { formatLongDate: () => "Date" },
   "@/features/booking-flow/utils/catalog": { getProfessionalLabel: () => "Professional" },
   "@/features/scheduling/service-cancellation-policy": { formatCancellationPolicy: () => "Cancellation policy" },
-  "@/features/scheduling/utils/format": { formatCurrency: (amount) => `AMOUNT:${amount}` }
+  "@/features/scheduling/utils/format": { formatServiceDuration, formatCurrency: (amount) => `AMOUNT:${amount}` }
 };
 function load(path, name) {
   const url = new URL(path, import.meta.url);
@@ -110,4 +111,17 @@ test("booking service description renders bold, underline and bullets", () => {
   const html = render(Component, true);
   assert.match(html, /<strong>Welcome<\/strong>/);
   assert.match(html, /<li><span class="underline">Arrive early<\/span><\/li>/);
+});
+
+test("public service and booking sidebar render a ninety-minute service as hours and minutes", () => {
+  for (const name of ["ServiceStep", "BookingSidebar"]) {
+    const Component = components.find(([componentName]) => componentName === name)[1];
+    const html = renderToStaticMarkup(createElement(Component, {
+      messages: messages.es, locale: "es", employees: [], selectedPartySize: 1,
+      service: { name: "Example", description: "", durationMinutes: 90, capacity: 1, price: 100, deposit: 0 },
+      draft: {}, total: 100
+    }));
+    assert.match(html, /1 hora 30 minutos/);
+    assert.doesNotMatch(html, /90 minutos/);
+  }
 });

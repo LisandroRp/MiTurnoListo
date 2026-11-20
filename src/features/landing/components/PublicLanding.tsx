@@ -1,3 +1,4 @@
+import { FaInfinity } from "react-icons/fa";
 import Link from "next/link";
 import { ReactNode } from "react";
 import {
@@ -12,7 +13,6 @@ import {
   FiShare2,
   FiSmartphone,
   FiUsers,
-  FiStar,
   FiZap
 } from "react-icons/fi";
 
@@ -297,7 +297,7 @@ export function PublicLanding() {
               {plan.highlighted ? <div className="absolute inset-x-0 top-0 h-1.5 bg-brand" /> : null}
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="flex items-center gap-2 text-xl font-bold text-primary">{plan.id === "pro" ? <FiZap className="shrink-0 text-brand-strong" aria-hidden="true" /> : plan.id === "unlimited" ? <FiStar className="shrink-0 text-brand-strong" aria-hidden="true" /> : null}{plan.name}</h3>
+                  <h3 className="flex items-center gap-2 text-xl font-bold text-primary">{plan.id === "pro" ? <FiZap className="shrink-0 text-brand-strong" aria-hidden="true" /> : plan.id === "unlimited" ? <FaInfinity className="shrink-0 text-brand-strong" aria-hidden="true" /> : null}{plan.name}</h3>
                 </div>
                 {plan.highlighted ? <Badge tone="brand">Popular</Badge> : null}
               </div>
@@ -307,7 +307,7 @@ export function PublicLanding() {
               <ul className="grid gap-3 lg:row-span-5 lg:grid-rows-subgrid">
                 {plan.perks.map((perk) => (
                   <li key={perk} className="flex items-start gap-2 text-sm font-semibold text-primary">
-                    {plan.id === "unlimited" ? <FiStar className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" /> : plan.id === "pro" ? <FiZap className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" /> : <FiCheckCircle className="mt-0.5 shrink-0 text-success" aria-hidden="true" />}
+                    {plan.id === "unlimited" ? <FaInfinity className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" /> : plan.id === "pro" ? <FiZap className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" /> : <FiCheckCircle className="mt-0.5 shrink-0 text-success" aria-hidden="true" />}
                     {perk}
                   </li>
                 ))}

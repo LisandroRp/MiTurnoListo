@@ -47,8 +47,9 @@ const components = {
   "@/features/scheduling/components/ProfileReferralRewardCallout": { ProfileReferralRewardCallout: () => null },
   "@/lib/networking/endpoints/super-admin": {},
   "@/lib/storage/business-assets": {},
+  "react-icons/fa": { FaInfinity: passthrough("span") },
   "react-icons/fi": Object.fromEntries([
-    "FiArrowRight", "FiCheckCircle", "FiClock", "FiLock", "FiMapPin", "FiUser", "FiUpload", "FiX", "FiZap", "FiStar"
+    "FiArrowRight", "FiCheckCircle", "FiClock", "FiLock", "FiMapPin", "FiUser", "FiUpload", "FiX", "FiZap"
   ].map((name) => [name, passthrough("span")]))
 };
 componentModule.require = (specifier) => components[specifier] ?? require(specifier);
@@ -139,7 +140,7 @@ test("does not mark the paid PRO card as current for referral PRO", () => {
   assert.doesNotMatch(proCard[1], /border-brand bg-brand-soft/);
 });
 
-test("an upgrade link opens the purchase modal for Free accounts without starting checkout", () => {
+test("legacy direct PRO links open confirmation for Free accounts without starting checkout", () => {
   for (const tier of ["free", "pro"]) {
     const states = [];
     const effects = [];
@@ -216,7 +217,7 @@ function interactiveProfile({ tier = "free", isSuperAdmin = false, accessSource 
   let tree;
   const nodes = (node = tree) => !node || typeof node !== "object" ? [] : [node, ...[node.props?.children, node.props?.actions, node.props?.titleAccessory, node.props?.leftContent].flat(Infinity).filter((child) => child && typeof child === "object").flatMap((child) => nodes(child))];
   const render = () => { cursor = 0; effects.length = 0; tree = loaded.exports.ProfileView(props); };
-  const button = (label) => nodes().find((node) => node.type === components["@/components/ui/Button"].Button && node.props.children === label);
+  const button = (label) => nodes().find((node) => node.type === components["@/components/ui/Button"].Button && [node.props.children].flat(Infinity).includes(label));
   const panel = () => nodes().find((node) => node.type?.name === "BusinessProfilePanel");
   return { render, nodes, button, panel, saved, resets, checkoutCalls: () => checkoutCalls };
 }
@@ -251,10 +252,10 @@ test("business edits save from the unified profile and account password reset re
   assert.deepEqual(app.resets, [profile.email]);
 });
 
-test("new upgrade action opens confirmation and starts checkout only after confirmation", async () => {
+test("selecting a plan opens confirmation and starts checkout only after confirmation", async () => {
   const app = interactiveProfile();
   app.render();
-  app.button(messages.upgrade.action).props.onClick();
+  app.nodes().find((node) => node.type?.name === "PlanCard" && node.props.title === messages.profile.proPlan).props.onClick();
   app.render();
   assert.equal(app.nodes().find((node) => node.type === components["@/components/ui/Modal"].Modal).props.isOpen, true);
   assert.equal(app.checkoutCalls(), 0);
@@ -342,7 +343,7 @@ test("left logo editor shares the business draft and save action", async () => {
 });
 
 
-test("plan headings distinguish PRO with lightning and Unlimited with a star", () => {
+test("plan headings distinguish PRO with lightning and Unlimited with an infinity symbol", () => {
   const app = interactiveProfile();
   app.render();
   const cards = app.nodes().filter((node) => node.type?.name === "PlanCard");
@@ -351,7 +352,7 @@ test("plan headings distinguish PRO with lightning and Unlimited with a star", (
   assert.equal(free.props.children[0], null);
   assert.equal(pro.props.children[0].type, components["react-icons/fi"].FiZap);
   assert.equal(pro.props.children[1], messages.profile.proPlan);
-  assert.equal(unlimited.props.children[0].type, components["react-icons/fi"].FiStar);
+  assert.equal(unlimited.props.children[0].type, components["react-icons/fa"].FaInfinity);
   assert.equal(unlimited.props.children[1], messages.profile.unlimitedPlan);
 });
 
@@ -417,20 +418,20 @@ test("Infinity can open confirmation and PRO checkout matches the published plan
   assert.ok(unlimited);
   assert.equal(typeof unlimited.props.onClick, "function");
   assert.equal(app.checkoutCalls(), 0);
-  app.button(messages.upgrade.action).props.onClick();
+  app.nodes().find((node) => node.type?.name === "PlanCard" && node.props.title === messages.profile.proPlan).props.onClick();
   app.render();
   assert.ok(app.nodes().some((node) => node.props?.children === messages.profile.proPlanFeatures[0]));
   assert.ok(app.nodes().some((node) => node.type === "h3" && Array.isArray(node.props.children) && node.props.children.includes(messages.profile.proPlanPrice)));
 });
 
 
-test("plan comparison aligns staff, services and appointments and uses stars for every Unlimited benefit", () => {
+test("plan comparison aligns staff, services and appointments and uses infinity symbols for every Unlimited benefit", () => {
   const app = interactiveProfile();
   app.render();
   const cards = app.nodes().filter((node) => node.type?.name === "PlanCard");
   assert.deepEqual(cards.map((card) => card.props.features.slice(0, 3)), [
-    ["Hasta 1 integrante del personal", "Hasta 2 servicios visibles", "Hasta 15 turnos por mes"],
-    ["Hasta 3 integrantes del personal", "Hasta 10 servicios activos", "Hasta 150 turnos por mes"],
+    ["Hasta 1 integrante visible del personal", "Hasta 2 servicios visibles", "Hasta 15 turnos por mes"],
+    ["Hasta 3 integrantes visibles del personal", "Hasta 10 servicios visibles", "Hasta 150 turnos por mes"],
     ["Personal ilimitado", "Servicios activos ilimitados", "Turnos ilimitados"]
   ]);
   for (const card of cards) {
@@ -439,7 +440,7 @@ test("plan comparison aligns staff, services and appointments and uses stars for
     const list = app.nodes(tree).find((node) => node.type === "ul");
     assert.match(list.props.className, /xl:grid-rows-subgrid/);
     if (card.props.title === messages.profile.unlimitedPlan) {
-      const icons = app.nodes(list).filter((node) => node.type === components["react-icons/fi"].FiStar);
+      const icons = app.nodes(list).filter((node) => node.type === components["react-icons/fa"].FaInfinity);
       assert.equal(icons.length, card.props.features.length);
     }
   }
@@ -514,4 +515,61 @@ test("Free and manual PRO purchases do not promise a deferred first payment", ()
     assert.equal(app.nodes().some((node) => node.props?.children === messages.profile.infinityUpgradeDescription), false);
     assert.equal(app.checkoutCalls(), 0);
   }
+});
+
+test("paid plan confirmation uses lightning for every PRO benefit and Infinity for every INFINITY benefit", () => {
+  for (const [plan, icon] of [[messages.profile.proPlan, components["react-icons/fi"].FiZap], [messages.profile.unlimitedPlan, components["react-icons/fa"].FaInfinity]]) {
+    const app = interactiveProfile();
+    app.render();
+    app.nodes().find((node) => node.type?.name === "PlanCard" && node.props.title === plan).props.onClick();
+    app.render();
+    const modal = app.nodes().find((node) => node.type === components["@/components/ui/Modal"].Modal);
+    const benefits = app.nodes(modal).filter((node) => node.type === "li");
+    assert.equal(benefits.length, 5);
+    for (const benefit of benefits) {
+      assert.equal(benefit.props.children[0].type, icon);
+      assert.match(benefit.props.children[0].props.className, /text-brand-strong/);
+    }
+    assert.equal(app.checkoutCalls(), 0);
+  }
+});
+
+test("PRO shows a brand Popular badge only while it is not the current paid plan", () => {
+  for (const tier of ["free", "pro", "unlimited"]) {
+    const app = interactiveProfile({ tier });
+    app.render();
+    const card = app.nodes().find((node) => node.type?.name === "PlanCard" && node.props.title === messages.profile.proPlan);
+    const tree = card.type(card.props);
+    const badges = app.nodes(tree).filter((node) => node.type === components["@/components/ui/Badge"].Badge);
+    const popular = badges.find((node) => node.props.children === "Popular");
+    if (tier === "pro") {
+      assert.equal(popular, undefined);
+      assert.ok(badges.some((node) => node.props.children === messages.profile.currentPlan));
+    } else {
+      assert.equal(popular.props.tone, "brand");
+    }
+  }
+});
+
+
+test("neutral profile upgrade action scrolls to all plans without opening a modal and displays both plan icons", () => {
+  const previousWindow = globalThis.window;
+  globalThis.window = { requestAnimationFrame: (callback) => callback() };
+  try {
+    const app = interactiveProfile();
+    app.render();
+    const plans = app.nodes().find((node) => node.props?.id === "planes");
+    let scrolled = false;
+    plans.props.ref.current = { scrollIntoView: () => { scrolled = true; } };
+    const upgrade = app.button(messages.upgrade.action);
+    assert.equal(upgrade.props.icon.type, components["react-icons/fi"].FiZap);
+    assert.ok([upgrade.props.children].flat().some((node) => node?.type === components["react-icons/fa"].FaInfinity));
+    assert.doesNotMatch(upgrade.props.className, /justify-between/);
+    upgrade.props.onClick();
+    app.render();
+    assert.equal(scrolled, true);
+    assert.equal(app.nodes().find((node) => node.type === components["@/components/ui/Modal"].Modal).props.isOpen, false);
+    assert.equal(app.nodes().filter((node) => node.type?.name === "PlanCard").length, 3);
+    assert.equal(app.checkoutCalls(), 0);
+  } finally { globalThis.window = previousWindow; }
 });

@@ -123,3 +123,51 @@ A database rollback does not reverse a provider price change. If a recurring amo
 - 463 source tests passed, along with TypeScript, lint, the explicit changed-file Semgrep scan and the production build.
 - The initial sandboxed production build was blocked by Turbopack's internal port binding; the approved build outside the sandbox passed.
 - Keep the existing deployment variable until this release is live. Once the hosting platform marks the deployment of this commit active, the variable can be deleted; any resulting rebuild uses code that ignores it. Keep the database quota field and the Mercado Pago price/credential variables.
+
+## Visibility quota update (migration 05)
+
+Apply `docs/subscription-plans-05-visible-resources.sql` once before deploying the visibility workflow. It updates the existing quota function for FREE and PRO, reuses its triggers, and adds private subscription-verification metadata and service-only RPCs. Do not reapply file 02 afterward, because it restores the old active-resource rule. No environment variable changes are required.
+
+Employees and services count toward the quota only when active and public. PRO includes 3 visible employees and 10 visible services; FREE includes 1 and 2 respectively. Hidden resources remain editable. At capacity, new resources are saved hidden; making an existing hidden resource visible is rejected until another resource is hidden. Restored archived resources start hidden. The SQL locks the business row to serialize concurrent FREE and PRO visibility requests. Appointment quotas and existing appointments are unchanged.
+
+The migration does not modify existing rows, assignments, or appointment history. Existing over-quota visible resources are not automatically hidden. This file was prepared locally; applying it to production remains a separate deployment step.
+
+Local SQL verification: run the original synthetic fixture, migrations 01/02, then `docs/subscription-plans-visible-resources.test.sql` in an isolated PostgreSQL instance. The test file adds the fixture's missing employee visibility column and applies migration 05; never run the fixture or test file in production.
+
+
+## Persistent subscription verification (included in migration 05)
+
+Use the updated contents of file 05 rather than a previously copied version. There is no migration 06 and no new environment variable. Apply the whole file once in the SQL Editor before deploying or testing the new verification flow against that database. The migration creates `subscription_verifications`; it does not call Mercado Pago or change paid subscriptions, manual grants, or existing access.
+
+Automatic status checks and checkout preflight share a persistent business/reference verification lease. Known cancelled/invalid references are not queried again. Temporary provider errors (including network/timeouts and malformed responses) get one retry, then a 30-minute cooldown. On the next visit after cooldown there is one final two-attempt batch; a second failed batch requires manual review and stops all automatic checks for that reference. Success or an explicit support reset clears the failed-batch counter. HTTP 404 and permission failures pause that reference until reviewed. A new checkout reference has independent state. The prior access tier and provider authorization are preserved during a deferred check; no failed HTTP request invalidates or cancels a paid subscription. Checkout is blocked while verification is deferred, preventing duplicate subscriptions. Deferred responses contain no purchase event, and the UI does not announce activation or record a purchase for them.
+
+A 60-second lease prevents duplicate requests from concurrent tabs and expires after a worker crash. Retry metadata and error categories are private to the service role. Raw provider messages, credentials, and payer data are not stored. Permission/temporary notices are shown once per failure cycle; reloads during the pause are quiet. Missing-reference responses are quiet from the first failure. Webhook processing remains independent and retryable.
+
+After reviewing the missing reference or fixing credentials, support can resume verification with the SQL below, replacing the UUID with the reviewed business. Do not run this to change a plan: it only clears verification pauses.
+
+```sql
+select public.resume_subscription_verification('BUSINESS_UUID'::uuid);
+```
+
+To inspect the pause in the SQL Editor:
+
+```sql
+select business_id, provider_reference, failure_count, failed_cycles, failure_kind,
+       needs_review, retry_after, lease_until, last_success_at
+from public.subscription_verifications
+where business_id = 'BUSINESS_UUID'::uuid;
+```
+
+Additional local verification after the synthetic fixture and migration 05: execute `docs/subscription-verification.test.sql`, then run `docs/subscription-plans-visible-concurrency.test.mjs` with `SUBSCRIPTION_TEST_CONTAINER` pointing to the isolated PostgreSQL test container. These test files must never run in production. Existing FREE and PRO over-quota records can be hidden directly; making a hidden record visible still requires a free slot.
+
+FREE and PRO records inherited from a higher plan remain in the management list. Visible records outside the deterministic tier-specific public quota use a blurred card or a blurred full table row. The plan-modal button is centered. The visibility switch and three-dot menu retain their normal card-header or table-column positions above the blur. Blocked-record menus expose only Archive; editing is blocked until the record is hidden or re-enters the public quota. Hidden records remain editable, with activation subject to available slots. Existing data is never automatically removed or hidden by this migration.
+
+
+## Final release verification
+
+- 528 source tests passed, including inherited PRO quota handling and subscription verification retries.
+- TypeScript, lint, the production build and the changed-file Semgrep scan passed with no findings.
+- Migration 05 and its visibility and verification SQL assertions passed in isolated PostgreSQL 16.
+- Nine concurrent visibility and verification-lease tests passed in the same isolated database.
+- Browser interaction checks remain with the user; no production SQL or payment mutation was executed.
+- This repository does not define a `verify:full` script; the available checks above were executed directly.

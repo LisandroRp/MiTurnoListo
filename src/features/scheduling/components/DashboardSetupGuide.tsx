@@ -10,7 +10,7 @@ import { cx } from "@/components/ui/utils";
 import { usePointerTilt } from "@/components/ui/usePointerTilt";
 import { setupCreationQuery, setupCreationValue } from "@/features/scheduling/components/useSetupCreation";
 import type { Messages } from "@/features/scheduling/i18n/messages";
-import { freePlanLimits, getFreePlanIncludedIds, isFreePlan } from "@/features/scheduling/plan-limits";
+import { getPlanIncludedIds } from "@/features/scheduling/plan-limits";
 import type { Employee, Service, SubscriptionTier } from "@/features/scheduling/types";
 
 type DashboardSetupGuideProps = {
@@ -32,9 +32,7 @@ export function DashboardSetupGuide({ copy, employees, services, subscriptionTie
   const stepTilt = usePointerTilt<HTMLLIElement>();
 
   const activePersonnel = employees.filter((employee) => !employee.isArchived);
-  const includedPersonnelIds = isFreePlan(subscriptionTier)
-    ? getFreePlanIncludedIds(activePersonnel, freePlanLimits.activeEmployees)
-    : null;
+  const includedPersonnelIds = getPlanIncludedIds(activePersonnel.filter((employee) => employee.isVisible), subscriptionTier, "employees");
   const hasService = services.some((service) => !service.isArchived);
   const hasAssignablePersonnel = activePersonnel.some((employee) =>
     employee.isVisible && (!includedPersonnelIds || includedPersonnelIds.has(employee.id))

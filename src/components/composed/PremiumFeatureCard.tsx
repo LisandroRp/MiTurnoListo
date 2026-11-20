@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FiLock } from "react-icons/fi";
+import { FaInfinity } from "react-icons/fa";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
@@ -24,7 +24,7 @@ export function PremiumFeatureCard({
   return (
     <Card className="grid w-full max-w-lg justify-items-center gap-4 border-brand bg-surface text-center shadow-xl ring-2 ring-brand/20">
       <span className="grid h-12 w-12 place-items-center rounded-full bg-brand-soft text-xl text-brand-strong">
-        <FiLock aria-hidden="true" />
+        <FaInfinity aria-hidden="true" />
       </span>
       <div>
         <Badge tone="brand">{badge}</Badge>

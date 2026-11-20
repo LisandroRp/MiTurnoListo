@@ -2,6 +2,7 @@ import { isPaidSubscriptionTier } from "@/lib/subscription-plans";
 
 import { NextRequest, NextResponse } from "next/server";
 
+import { SubscriptionVerificationError } from "@/lib/mercadopago/subscription-verification-policy";
 import { changeBusinessSubscriptionPlan, createProSubscriptionCheckout, syncLatestBusinessSubscription } from "@/lib/mercadopago/subscriptions";
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
@@ -30,6 +31,9 @@ export async function POST(request: NextRequest) {
       businessId: body.businessId,
       payerEmail: authResult.user.email ?? ""
     });
+    if (currentStatus.status === "verification_deferred") {
+      return NextResponse.json({ error: new SubscriptionVerificationError(currentStatus.verification?.reason ?? "temporary").message }, { status: 409 });
+    }
 
     if (isPaidSubscriptionTier(currentStatus.subscriptionTier) && currentStatus.subscriptionTier !== plan && currentStatus.preapprovalId) {
       const changed = await changeBusinessSubscriptionPlan({ businessId: body.businessId, preapprovalId: currentStatus.preapprovalId, plan });

@@ -13,7 +13,7 @@ function harness(path, name, initialProps) {
     react: { useId: () => `field-${cursor++}`, useState: (initial) => { const index = cursor++; if (!(index in states)) states[index] = typeof initial === "function" ? initial() : initial; return [states[index], (update) => { const next = typeof update === "function" ? update(states[index]) : update; if (!Object.is(next, states[index])) { states[index] = next; dirty = true; } }]; }, useRef: () => ({ current: null }), useEffect: () => {} },
     "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") },
     "@/components/ui/useDropdownMotion": { useDropdownMotion: ({ isOpen }) => ({ isPresent: isOpen }) },
-    "@/features/scheduling/plan-limits": { isFreePlan: () => false },
+    "@/features/scheduling/plan-limits": { getPlanIncludedIds: () => null },
     "@/features/scheduling/utils/format": { formatCurrency: (value) => String(value) },
     "@/features/booking-flow/components/CustomerLookupField": { CustomerLookupField: "CustomerLookupField" }
   };

@@ -14,7 +14,7 @@ componentModule.filename = fileUrl.pathname;
 componentModule.require = require;
 componentModule._compile(output, fileUrl.pathname);
 
-const { getPlanLimitMessage, canUseFreePlanSlot, freePlanLimits, getFreePlanIncludedIds, getMonthlyAppointmentUsage, hasReachedFreeMonthlyAppointmentLimit } = componentModule.exports;
+const { getPlanIncludedIds, getVisibleResourceLimit, hasVisibleResourceSlot, getPlanLimitMessage, canUseFreePlanSlot, freePlanLimits, getFreePlanIncludedIds, getMonthlyAppointmentUsage, hasReachedFreeMonthlyAppointmentLimit } = componentModule.exports;
 
 test("Free plan permits one active employee, two visible services, and fifteen monthly appointments", () => {
   assert.deepEqual(freePlanLimits, {
@@ -78,4 +78,26 @@ test("database quota errors are exposed without leaking unrelated database detai
   assert.equal(getPlanLimitMessage(new Error("Unable to insert", { cause: { message: "PLAN_LIMIT:Staff quota reached." } })), "Staff quota reached.");
   assert.equal(getPlanLimitMessage({ message: "Database secret details" }), null);
   assert.equal(getPlanLimitMessage(null), null);
+});
+
+
+test("visibility quotas count public non-archived resources and allow editing an included record", () => {
+  for (const [tier, kind, expected] of [["free", "employees", 1], ["free", "services", 2], ["pro", "employees", 3], ["pro", "services", 10]]) {
+    assert.equal(getVisibleResourceLimit(tier, kind), expected);
+    const visible = Array.from({ length: expected }, (_, index) => ({ id: String(index), isVisible: true, isArchived: false }));
+    assert.equal(hasVisibleResourceSlot(visible, tier, kind), false);
+    assert.equal(hasVisibleResourceSlot(visible, tier, kind, "0"), true);
+    const others = [{ id: "hidden", isVisible: false, isArchived: false }, { id: "archived", isVisible: true, isArchived: true }];
+    assert.equal(hasVisibleResourceSlot([...visible.slice(1), ...others], tier, kind), true);
+    assert.equal(hasVisibleResourceSlot([...visible, ...others], "unlimited", kind), true);
+  }
+});
+
+test("tier-specific inclusion applies PRO quotas and leaves INFINITY unrestricted", () => {
+  const records = Array.from({ length: 12 }, (_, index) => ({ id: String(index), name: String(index).padStart(2, "0") }));
+  assert.equal(getPlanIncludedIds(records, "pro", "employees").size, 3);
+  assert.equal(getPlanIncludedIds(records, "pro", "services").size, 10);
+  assert.equal(getPlanIncludedIds(records, "free", "services").size, 2);
+  assert.equal(getPlanIncludedIds(records, "unlimited", "services"), null);
+  assert.deepEqual([...getPlanIncludedIds([...records].reverse(), "pro", "employees")], ["0", "1", "2"]);
 });

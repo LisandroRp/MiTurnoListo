@@ -36,8 +36,8 @@ test("landing publishes all three plans with available signup and plan entry poi
   assert.match(section, /lg:grid-cols-3/);
   assert.match(section, /lg:grid-rows-subgrid/);
   assert.deepEqual(content.landingPlans.map((plan) => plan.perks.slice(0, 3)), [
-    ["Hasta 1 integrante del personal", "Hasta 2 servicios visibles", "Hasta 15 turnos por mes"],
-    ["Hasta 3 integrantes del personal", "Hasta 10 servicios activos", "Hasta 150 turnos por mes"],
+    ["Hasta 1 integrante visible del personal", "Hasta 2 servicios visibles", "Hasta 15 turnos por mes"],
+    ["Hasta 3 integrantes visibles del personal", "Hasta 10 servicios visibles", "Hasta 150 turnos por mes"],
     ["Personal ilimitado", "Servicios activos ilimitados", "Turnos ilimitados"]
   ]);
   const cards = [...section.matchAll(/<article[^>]*>([\s\S]*?)<\/article>/g)].map((match) => match[1]);
@@ -56,7 +56,7 @@ test("landing publishes all three plans with available signup and plan entry poi
   assert.doesNotMatch(section, /Próximamente|Las condiciones de los planes actuales se mantienen/);
   for (const card of cards.slice(1)) assert.match(card, /Reservas por link y QR/);
   assert.match(cards[1], /Pagos online y estadísticas básicas/);
-  assert.match(cards[2], /Pagos online y estadísticas completas y avanzadas/);
+  assert.match(cards[2], /Pagos online, estadísticas completas y avanzadas/);
 });
 
 test("structured data only offers plans that are currently available", () => {

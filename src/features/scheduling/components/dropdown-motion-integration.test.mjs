@@ -189,3 +189,16 @@ test("service action menus wait for measured placement before animating and repo
     assert.equal(panel().props.style.top, 16);
   } finally { cleanup?.(); app.restore(); }
 });
+
+
+test("blocked service menu exposes only Archive through its existing three-dot trigger", () => {
+  const app = harness("./ServicesView.tsx", "ServiceActionsMenu", { ...actionProps("service"), archiveOnly: true });
+  try {
+    app.trigger().props.onClick();
+    app.render();
+    assert.ok(app.button(messages.es.actions.archive));
+    for (const label of [messages.es.actions.share, messages.es.actions.edit, messages.es.actions.duplicate, messages.es.actions.delete, messages.es.actions.unarchive]) {
+      assert.equal(app.button(label), undefined);
+    }
+  } finally { app.restore(); }
+});

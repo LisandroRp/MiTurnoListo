@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { syncBusinessSubscriptionByPreapprovalId, syncLatestBusinessSubscription } from "@/lib/mercadopago/subscriptions";
+import { verifyBusinessSubscriptionStatus } from "@/lib/mercadopago/subscriptions";
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
 import { getSupabaseAdminClient } from "@/lib/networking/clients/supabase-admin";
 
@@ -19,18 +19,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const status = preapprovalId
-      ? await syncBusinessSubscriptionByPreapprovalId({
-          businessId,
-          preapprovalId
-        })
-      : await syncLatestBusinessSubscription({
-          businessId,
-          payerEmail: authResult.user.email ?? ""
-        });
+    if (preapprovalId && !/^[a-zA-Z0-9_-]{1,128}$/.test(preapprovalId)) {
+      return NextResponse.json({ error: "Referencia de suscripción inválida." }, { status: 400 });
+    }
+    const status = await verifyBusinessSubscriptionStatus({ businessId, preapprovalId: preapprovalId ?? undefined, payerEmail: authResult.user.email ?? "" });
 
     return NextResponse.json({
-      purchase: status.subscriptionTier !== "free"
+      ...(status.verification ? { verification: status.verification } : {}),
+      purchase: status.status !== "verification_deferred" && status.subscriptionTier !== "free"
         ? await getLatestApprovedSubscriptionPurchase(businessId)
         : null,
       status: status.status,

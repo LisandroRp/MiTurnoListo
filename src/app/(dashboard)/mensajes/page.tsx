@@ -2,15 +2,13 @@
 
 import { MessageTemplatesView } from "@/features/scheduling/components/MessageTemplatesView";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
-import { freePlanLimits, getFreePlanIncludedIds, isFreePlan } from "@/features/scheduling/plan-limits";
+import { getPlanIncludedIds } from "@/features/scheduling/plan-limits";
 
 export default function MessagesSectionPage() {
   const { businessId, profile, services, locale } = useScheduling();
   if (!businessId) return null;
   const publicServices = services.filter((service) => service.isVisible && !service.isArchived);
-  const includedIds = isFreePlan(profile.subscriptionTier)
-    ? getFreePlanIncludedIds(publicServices, freePlanLimits.visibleServices)
-    : null;
+  const includedIds = getPlanIncludedIds(publicServices, profile.subscriptionTier, "services");
 
   return (
     <MessageTemplatesView

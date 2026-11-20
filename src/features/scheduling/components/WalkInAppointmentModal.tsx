@@ -12,7 +12,7 @@ import { CustomerLookupField } from "@/features/booking-flow/components/Customer
 import { BookingCustomerSuggestion } from "@/features/booking-flow/types";
 import { Appointment, Employee, PaymentMethod, Service } from "@/features/scheduling/types";
 import { Messages } from "@/features/scheduling/i18n/messages";
-import { freePlanLimits, getFreePlanIncludedIds, isFreePlan } from "@/features/scheduling/plan-limits";
+import { getPlanIncludedIds } from "@/features/scheduling/plan-limits";
 import { SubscriptionTier } from "@/features/scheduling/types";
 import { formatCurrency } from "@/features/scheduling/utils/format";
 import { getCustomers } from "@/lib/networking/endpoints/customers";
@@ -41,17 +41,13 @@ export function WalkInAppointmentModal({
   onCreateAppointment
 }: WalkInAppointmentModalProps) {
   const phoneFieldId = useId();
-  const freeEmployeeIds = isFreePlan(subscriptionTier)
-    ? getFreePlanIncludedIds(employees.filter((employee) => !employee.isArchived), freePlanLimits.activeEmployees)
-    : null;
-  const freeServiceIds = isFreePlan(subscriptionTier)
-    ? getFreePlanIncludedIds(services.filter((service) => !service.isArchived && service.isVisible), freePlanLimits.visibleServices)
-    : null;
-  const reservableEmployees = employees.filter((employee) => isReservableEmployee(employee) && (!freeEmployeeIds || freeEmployeeIds.has(employee.id)));
+  const includedEmployeeIds = getPlanIncludedIds(employees.filter((employee) => !employee.isArchived && employee.isVisible), subscriptionTier, "employees");
+  const includedServiceIds = getPlanIncludedIds(services.filter((service) => !service.isArchived && service.isVisible), subscriptionTier, "services");
+  const reservableEmployees = employees.filter((employee) => isReservableEmployee(employee) && (!includedEmployeeIds || includedEmployeeIds.has(employee.id)));
   const availableServices = services.filter((service) => (
     !service.isArchived &&
     service.isVisible &&
-    (!freeServiceIds || freeServiceIds.has(service.id)) &&
+    (!includedServiceIds || includedServiceIds.has(service.id)) &&
     service.employeeIds.some((employeeId) => reservableEmployees.some((employee) => employee.id === employeeId))
   ));
   const [serviceId, setServiceId] = useState("");

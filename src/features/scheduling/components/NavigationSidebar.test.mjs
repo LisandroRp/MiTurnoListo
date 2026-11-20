@@ -1,3 +1,4 @@
+import { messages as localizedMessages } from "../i18n/messages.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import Module, { createRequire } from "node:module";
@@ -31,20 +32,27 @@ loaded._compile(ts.transpileModule(readFileSync(fileUrl, "utf8"), {
   compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS }
 }).outputText, fileUrl.pathname);
 
-test("upgrade access links to the PRO modal on desktop, mobile and collapsed menus", () => {
+test("upgrade access links to the three-plan comparison with both icons on desktop, mobile and collapsed menus", () => {
   const props = {
     items: [], activeView: "home", isCollapsed: false,
-    messages: { nav: {}, actions: { logout: "Cerrar sesión" }, upgrade: { action: "Pasate a PRO" } },
+    messages: { nav: {}, actions: { logout: "Cerrar sesión" }, upgrade: localizedMessages.es.upgrade },
     onLogout: () => {}, onToggle: () => {}
   };
   for (const layout of [{}, { mode: "mobile" }, { isCollapsed: true }]) {
     const html = renderToStaticMarkup(createElement(loaded.exports.NavigationSidebar, { ...props, ...layout, showProUpgrade: true }));
-    assert.match(html, /href="\/perfil\?plan=pro"/);
-    assert.match(html, /Pasate a PRO/);
-    assert.ok(html.indexOf("Pasate a PRO") < html.indexOf("Cerrar sesión"));
+    assert.match(html, /href="\/perfil#planes"/);
+    const upgrade = html.match(/<a\b[^>]*href="\/perfil#planes"[^>]*>([\s\S]*?)<\/a>/)?.[0];
+    assert.ok(upgrade);
+    assert.match(upgrade, /\bw-fit\b/);
+    assert.match(upgrade, /\bmx-auto\b/);
+    assert.equal((upgrade.match(/<svg/g) ?? []).length, 2);
+    assert.match(upgrade, layout.isCollapsed ? /justify-center/ : /justify-between/);
+    assert.doesNotMatch(upgrade, /plan=pro/);
+    assert.match(html, /Mejorá tu plan/);
+    assert.ok(html.indexOf("Mejorá tu plan") < html.indexOf("Cerrar sesión"));
   }
   const proHtml = renderToStaticMarkup(createElement(loaded.exports.NavigationSidebar, { ...props, showProUpgrade: false }));
-  assert.doesNotMatch(proHtml, /plan=pro/);
+  assert.doesNotMatch(proHtml, /perfil#planes/);
 });
 
 test("navigation groups operational links and keeps Profile in the fixed footer", () => {
@@ -162,4 +170,48 @@ test("account footer has no plan badge for either tier", () => {
     assert.match(footer, />Studio</);
     assert.doesNotMatch(footer, /PRO|!bg-brand/);
   }
+});
+
+test("upgrade navigation scrolls again on every click while already on Profile", () => {
+  const oldWindow = globalThis.window, oldDocument = globalThis.document;
+  const component = new Module(fileUrl.pathname);
+  component.require = (name) => name === "react" ? { ...require("react"), useState: (value) => [value, () => {}] } : modules[name] ?? require(name);
+  component._compile(ts.transpileModule(readFileSync(fileUrl, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText, fileUrl.pathname);
+  const nodes = (node) => !node || typeof node !== "object" ? [] : [node, ...[node.props?.children].flat(Infinity).filter(Boolean).flatMap(nodes)];
+  const scrolls = [];
+  globalThis.document = { getElementById: (id) => { assert.equal(id, "planes"); return { scrollIntoView: (options) => scrolls.push(options) }; } };
+  globalThis.window = { requestAnimationFrame: (callback) => callback() };
+  try {
+    for (const layout of [{}, { mode: "mobile" }, { isCollapsed: true }]) {
+      let navigations = 0, prevented = 0;
+      const tree = component.exports.NavigationSidebar({ items: [], activeView: "profile", isCollapsed: false, messages: localizedMessages.es, showProUpgrade: true, onNavigate: () => { navigations++; }, ...layout });
+      const link = nodes(tree).find((node) => node.props?.href === "/perfil#planes");
+      const event = { button: 0, preventDefault: () => { prevented++; } };
+      link.props.onClick(event);
+      link.props.onClick(event);
+      assert.equal(prevented, 2);
+      assert.equal(navigations, 2);
+    }
+    assert.equal(scrolls.length, 6);
+    assert.ok(scrolls.every((options) => options.behavior === "smooth" && options.block === "start"));
+  } finally { globalThis.window = oldWindow; globalThis.document = oldDocument; }
+});
+
+test("upgrade navigation preserves native links from other views and modified clicks", () => {
+  const component = new Module(fileUrl.pathname);
+  component.require = (name) => name === "react" ? { ...require("react"), useState: (value) => [value, () => {}] } : modules[name] ?? require(name);
+  component._compile(ts.transpileModule(readFileSync(fileUrl, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText, fileUrl.pathname);
+  const nodes = (node) => !node || typeof node !== "object" ? [] : [node, ...[node.props?.children].flat(Infinity).filter(Boolean).flatMap(nodes)];
+  let navigations = 0;
+  const props = { items: [], isCollapsed: false, messages: localizedMessages.es, showProUpgrade: true, onNavigate: () => { navigations++; } };
+  const tree = component.exports.NavigationSidebar({ ...props, activeView: "home" });
+  const link = nodes(tree).find((node) => node.props?.href === "/perfil#planes");
+  link.props.onClick({ button: 0, preventDefault: () => assert.fail("First navigation should use Next Link") });
+  assert.equal(navigations, 1);
+  const profileTree = component.exports.NavigationSidebar({ ...props, activeView: "profile" });
+  const profileLink = nodes(profileTree).find((node) => node.props?.href === "/perfil#planes");
+  for (const change of [{ metaKey: true }, { ctrlKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }, { defaultPrevented: true }]) {
+    profileLink.props.onClick({ button: 0, ...change, preventDefault: () => assert.fail("Modified links should retain native behavior") });
+  }
+  assert.equal(navigations, 1);
 });

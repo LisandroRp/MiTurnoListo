@@ -1,5 +1,6 @@
+import { FaInfinity } from "react-icons/fa";
 import { IconType } from "react-icons";
-import { useState } from "react";
+import { type MouseEvent, useState } from "react";
 import { FiChevronLeft, FiChevronRight, FiLogOut, FiUser, FiX, FiZap } from "react-icons/fi";
 import Link from "next/link";
 import Image from "next/image";
@@ -56,6 +57,17 @@ export function NavigationSidebar({
     { label: messages.nav.businessGroup, ids: ["paymentMethods", "payments", "statistics"] },
     { label: messages.nav.communicationGroup, ids: ["messages", "referrals", "suggestions"] }
   ];
+
+  function handleUpgradeNavigation(event: MouseEvent<HTMLAnchorElement>) {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+    const plans = isAccountActive ? document.getElementById("planes") : null;
+    if (plans) {
+      event.preventDefault();
+      window.requestAnimationFrame(() => plans.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
+    onNavigate?.();
+  }
 
   function renderItem(item: NavigationItem) {
     const Icon = item.icon;
@@ -149,16 +161,17 @@ export function NavigationSidebar({
       <div className={cx("shrink-0 border-t border-subtle p-3", isMobile ? "pb-safe-6" : "")}>
         {showProUpgrade ? (
           <Link
-            href="/perfil?plan=pro"
-            onClick={onNavigate}
+            href="/perfil#planes"
+            onClick={handleUpgradeNavigation}
             title={messages.upgrade.action}
             className={cx(
-              "mb-2 flex h-10 items-center gap-2 rounded-lg border border-brand bg-brand-soft px-4 text-sm font-semibold !text-brand-strong shadow-sm transition-colors hover:bg-brand hover:!text-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus button-bounce",
-              shouldCollapse ? "justify-center px-0" : "justify-start"
+              "mx-auto mb-2 flex h-10 w-fit items-center gap-2 rounded-lg border border-brand bg-brand-soft px-4 text-sm font-semibold !text-brand-strong shadow-sm transition-colors hover:bg-brand hover:!text-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus button-bounce",
+              shouldCollapse ? "justify-center !px-0" : "justify-between"
             )}
           >
-            <FiZap aria-hidden="true" className="shrink-0 text-lg text-brand-strong" />
+            <FiZap aria-hidden="true" className="shrink-0 text-lg" />
             <span className={shouldCollapse ? "sr-only" : undefined}>{messages.upgrade.action}</span>
+            <FaInfinity aria-hidden="true" className="shrink-0 text-lg" />
           </Link>
         ) : null}
         <div className={cx("flex items-center gap-1 rounded-xl", shouldCollapse && "flex-col", isAccountActive && "bg-brand-soft")}>

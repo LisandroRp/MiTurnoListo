@@ -23,7 +23,7 @@ export function DashboardActiveTeam({ employees, appointments, referenceDate, me
   const [isExpanded, setIsExpanded] = useState(false);
   const id = useId();
   const day = getDayKeyForDate(referenceDate);
-  const cardTilt = usePointerTilt<HTMLButtonElement>(6);
+  const cardTilt = usePointerTilt<HTMLButtonElement>({ intensity: 100, shadow: true });
 
   if (employees.length === 0) {
     return (

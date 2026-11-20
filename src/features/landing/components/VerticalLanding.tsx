@@ -1,3 +1,4 @@
+import { FaInfinity } from "react-icons/fa";
 import Link from "next/link";
 import { ReactNode } from "react";
 import {
@@ -9,18 +10,19 @@ import {
   FiMessageCircle,
   FiScissors,
   FiSettings,
-  FiUsers
+  FiUsers,
+  FiZap
 } from "react-icons/fi";
 
 import { BrandMark } from "@/components/composed/BrandMark";
 import { PublicSupportContact } from "@/components/composed/PublicSupportContact";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { PointerTiltCard } from "@/components/ui/PointerTiltCard";
 import { cx } from "@/components/ui/utils";
 import { LandingAnchorLink } from "@/features/landing/components/LandingAnchorLink";
 import {
   getSiteUrl,
-  landingCardHover,
   landingCtaLarge,
   landingCtaPrimary,
   landingCtaSecondary,
@@ -151,7 +153,7 @@ function HeroSection({ config }: { config: VerticalLandingConfig }) {
 
 function VerticalBookingPreview({ config }: { config: VerticalLandingConfig }) {
   return (
-    <Card className={cx("bg-sidebar", landingCardHover)}>
+    <PointerTiltCard className="bg-sidebar">
       <div className="flex items-center justify-between gap-4 border-b border-subtle pb-4">
         <div>
           <p className="text-sm font-semibold text-brand-strong">Reserva online</p>
@@ -194,7 +196,7 @@ function VerticalBookingPreview({ config }: { config: VerticalLandingConfig }) {
           </div>
         </div>
       </div>
-    </Card>
+    </PointerTiltCard>
   );
 }
 
@@ -272,13 +274,13 @@ function HowItWorksSection({ config }: { config: VerticalLandingConfig }) {
       </div>
       <div className="mt-8 grid gap-4 md:grid-cols-4">
         {howItWorksSteps.map((step, index) => (
-          <Card key={step} className={cx("h-full", landingCardHover)}>
+          <PointerTiltCard key={step} className="h-full">
             <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-soft text-sm font-bold text-brand-strong">
               {index + 1}
             </span>
             <h3 className="mt-4 text-lg font-bold text-primary">{step}</h3>
             <p className="mt-2 text-sm leading-6 text-muted">{getHowItWorksDescription(step, config)}</p>
-          </Card>
+          </PointerTiltCard>
         ))}
       </div>
     </section>
@@ -296,7 +298,7 @@ function CustomerExperienceSection({ config }: { config: VerticalLandingConfig }
             El flujo público mantiene los pasos importantes claros: servicio, profesional, día, horario y confirmación.
           </p>
         </div>
-        <Card className={cx("bg-sidebar", landingCardHover)}>
+        <PointerTiltCard className="bg-sidebar">
           <div className="grid gap-3">
             {customerFlowSteps.map((step, index) => (
               <div key={step} className="flex items-center gap-3 rounded-lg border border-subtle bg-input p-4">
@@ -304,7 +306,7 @@ function CustomerExperienceSection({ config }: { config: VerticalLandingConfig }
                   {index + 1}
                 </span>
                 <span className="min-w-0 flex-1 text-sm font-bold text-primary">{step}</span>
-                <FiCheckCircle className="shrink-0 text-success" aria-hidden="true" />
+                <FiCheckCircle className="shrink-0 text-brand-strong" aria-hidden="true" />
               </div>
             ))}
           </div>
@@ -312,7 +314,7 @@ function CustomerExperienceSection({ config }: { config: VerticalLandingConfig }
             <p className="text-sm font-bold text-brand-strong">Listo para compartir</p>
             <p className="mt-1 text-sm leading-6 text-muted">Tus servicios de {config.eyebrow.toLowerCase().replace("turnos online para ", "")} quedan disponibles desde tu link.</p>
           </div>
-        </Card>
+        </PointerTiltCard>
       </div>
     </section>
   );
@@ -326,11 +328,11 @@ function BenefitsSection() {
           const Icon = benefit.icon;
 
           return (
-            <Card key={benefit.title} className={cx("h-full", landingCardHover)}>
+            <PointerTiltCard key={benefit.title} className="h-full">
               <Icon className="text-2xl text-brand-strong" aria-hidden="true" />
               <h2 className="mt-4 text-base font-bold text-primary">{benefit.title}</h2>
               <p className="mt-2 text-sm leading-6 text-muted">{benefit.description}</p>
-            </Card>
+            </PointerTiltCard>
           );
         })}
       </div>
@@ -345,20 +347,19 @@ function PricingSection({ config }: { config: VerticalLandingConfig }) {
         <p className="text-sm font-bold uppercase text-muted">Planes</p>
         <h2 className="mt-2 text-3xl font-bold text-primary">Empezá gratis. Crecé cuando lo necesites.</h2>
       </div>
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
+      <div className="mt-8 grid gap-4 lg:grid-cols-3">
         {landingPlans.map((plan) => (
-          <Card
+          <PointerTiltCard
             key={plan.name}
             className={cx(
               "relative h-full overflow-hidden",
-              landingCardHover,
               plan.highlighted ? "border-brand bg-brand-soft shadow-lg ring-2 ring-brand/20" : ""
             )}
           >
             {plan.highlighted ? <div className="absolute inset-x-0 top-0 h-1.5 bg-brand" /> : null}
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-xl font-bold text-primary">{plan.name}</h3>
+                <h3 className="flex items-center gap-2 text-xl font-bold text-primary">{plan.id === "pro" ? <FiZap className="shrink-0 text-brand-strong" aria-hidden="true" /> : plan.id === "unlimited" ? <FaInfinity className="shrink-0 text-brand-strong" aria-hidden="true" /> : <FiCheckCircle className="shrink-0 text-brand-strong" aria-hidden="true" />}{plan.name}</h3>
                 <p className="mt-2 text-sm leading-6 text-muted">{plan.description}</p>
               </div>
               {plan.highlighted ? <Badge tone="brand">Popular</Badge> : null}
@@ -367,8 +368,8 @@ function PricingSection({ config }: { config: VerticalLandingConfig }) {
             <p className="text-sm text-muted">ARS / mes</p>
             <ul className="mt-6 grid gap-3">
               {plan.perks.map((perk) => (
-                <li key={perk} className="flex items-center gap-2 text-sm font-semibold text-primary">
-                  <FiCheckCircle className="text-success" aria-hidden="true" />
+                <li key={perk} className="flex items-start gap-2 text-sm font-semibold text-primary">
+                  {plan.id === "unlimited" ? <FaInfinity className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" /> : plan.id === "pro" ? <FiZap className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" /> : <FiCheckCircle className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" />}
                   {perk}
                 </li>
               ))}
@@ -378,7 +379,7 @@ function PricingSection({ config }: { config: VerticalLandingConfig }) {
                 Empezá gratis <FiArrowRight />
               </TrackedSignupLink>
             </div>
-          </Card>
+          </PointerTiltCard>
         ))}
       </div>
     </section>

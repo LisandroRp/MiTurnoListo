@@ -96,3 +96,31 @@ test("sitemap and public home link to vertical landings", () => {
   assert.equal(home.includes('href="/peluquerias"'), true);
   assert.equal(home.includes('href="/estetica"'), true);
 });
+
+
+test("all vertical landings keep three plans on one desktop row without an orphaned Infinity card", () => {
+  const component = readProjectFile("src/features/landing/components/VerticalLanding.tsx");
+  const pricing = component.slice(component.indexOf("function PricingSection("), component.indexOf("function FaqSection("));
+  assert.match(pricing, /className="mt-8 grid gap-4 lg:grid-cols-3"/);
+  assert.doesNotMatch(pricing, /grid-cols-2/);
+  for (const vertical of ["barberias", "peluquerias", "estetica"]) {
+    const page = readProjectFile(`src/app/${vertical}/page.tsx`);
+    assert.match(page, /<VerticalLanding config=\{config\}/);
+  }
+});
+
+
+test("home and vertical pricing headings and features show each plan icon including the FREE check", () => {
+  for (const filename of ["PublicLanding", "VerticalLanding"]) {
+    const source = readProjectFile(`src/features/landing/components/${filename}.tsx`);
+    const heading = source.match(/<h3 className="flex items-center gap-2 text-xl font-bold text-primary">([\s\S]*?)\{plan.name\}<\/h3>/)?.[1];
+    assert.ok(heading);
+    assert.match(heading, /plan.id === "pro".*<FiZap/);
+    assert.match(heading, /plan.id === "unlimited".*<FaInfinity/);
+    assert.match(heading, /<FiCheckCircle/);
+    const feature = source.match(/<li key=\{perk\}([\s\S]*?)<\/li>/)?.[1];
+    assert.match(feature, /<FiZap/);
+    assert.match(feature, /<FaInfinity/);
+    assert.match(feature, /<FiCheckCircle/);
+  }
+});

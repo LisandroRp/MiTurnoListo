@@ -6,6 +6,7 @@ import { AppointmentCard } from "@/features/scheduling/components/CalendarView";
 import { FloatingInfoPopover } from "@/components/ui/FloatingInfoPopover";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { PointerTiltCard } from "@/components/ui/PointerTiltCard";
 import { Button } from "@/components/ui/Button";
 import { SelectField } from "@/components/ui/SelectField";
 import { Pagination } from "@/components/ui/Pagination";
@@ -272,7 +273,7 @@ export function StatisticsView({ appointments, employees, subscriptionTier, isLo
 
       <section className="grid min-w-0 gap-4 min-[900px]:grid-cols-2 2xl:grid-cols-3">
         {cards.map((card) => (
-          <Card key={card.id} className="min-w-0 transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
+          <PointerTiltCard key={card.id} intensity={50} className="min-w-0">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1 break-words">
                 <div className="flex items-center gap-1.5">
@@ -295,7 +296,7 @@ export function StatisticsView({ appointments, employees, subscriptionTier, isLo
               </span>
             </div>
             {card.filter ? <Button variant="ghost" size="sm" className="mt-3 bg-surface-strong hover:bg-brand-soft hover:!text-brand-strong" onClick={() => viewRevenueAppointments(card.filter ?? "all")}>{messages.statistics.viewAppointments}</Button> : null}
-          </Card>
+          </PointerTiltCard>
         ))}
       </section>
 

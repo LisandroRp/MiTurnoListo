@@ -7,6 +7,7 @@ import { SectionHeader } from "@/components/composed/SectionHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PointerTiltCard } from "@/components/ui/PointerTiltCard";
 import { SelectField } from "@/components/ui/SelectField";
 import { getPayloadErrorMessage } from "@/lib/networking/response-errors";
 import { getPayments, PaymentsPaginationMeta } from "@/lib/networking/endpoints/payments";
@@ -304,7 +305,7 @@ function PaymentMetricCard({
   }[tone];
 
   return (
-    <Card className="grid gap-3">
+    <PointerTiltCard intensity={50} className="grid gap-3">
       <span className={`w-fit h-fit justify-center items-center text-center rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${toneClassName}`}>
         {label}
       </span>
@@ -319,7 +320,7 @@ function PaymentMetricCard({
           <p className="text-sm leading-6 text-muted">{helper}</p>
         </>
       )}
-    </Card>
+    </PointerTiltCard>
   );
 }
 

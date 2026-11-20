@@ -10,6 +10,7 @@ import { DualActionSlot } from "@/components/composed/DualActionSlot";
 import { useDualActionVisibility } from "@/components/composed/useDualActionVisibility";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PointerTiltCard } from "@/components/ui/PointerTiltCard";
 import { ImageUploadField } from "@/components/ui/ImageUploadField";
 import { TextAreaField } from "@/components/ui/TextAreaField";
 import { TextField } from "@/components/ui/TextField";
@@ -481,10 +482,11 @@ export function PersonnelView({
           );
 
           return (
-          <Card
+          <PointerTiltCard
+            intensity={50}
             key={employee.id}
             className={cx(
-              "relative flex h-full min-h-[22rem] w-full flex-col transition duration-200 hover:-translate-y-1 hover:scale-[1.01] hover:border-brand hover:shadow-lg",
+              "relative flex h-full min-h-[22rem] w-full flex-col hover:border-brand",
               isArchived && "bg-shell/70 opacity-60 grayscale",
             )}
           >
@@ -525,7 +527,7 @@ export function PersonnelView({
                 {visibilityControls}
               </>
             ) : null}
-          </Card>
+          </PointerTiltCard>
           );
         }) : (
           <Card className="h-fit">

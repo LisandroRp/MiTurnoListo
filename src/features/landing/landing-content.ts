@@ -44,7 +44,6 @@ export const landingPlans: readonly LandingPlan[] = [
 export const landingCtaPrimary = "inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-hover";
 export const landingCtaSecondary = "inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-subtle bg-surface px-4 text-sm font-semibold text-primary transition-colors hover:bg-surface-strong";
 export const landingCtaLarge = "h-12 px-5 text-base";
-export const landingCardHover = "transition-all duration-200 hover:-translate-y-1 hover:shadow-lg";
 
 export function getSiteUrl() {
   return (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.miturnolisto.com").replace(/\/+$/, "");

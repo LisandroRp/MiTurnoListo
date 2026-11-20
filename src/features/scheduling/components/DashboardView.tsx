@@ -7,6 +7,7 @@ import { FiChevronDown, FiHome, FiPlusCircle } from "react-icons/fi";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PointerTiltCard } from "@/components/ui/PointerTiltCard";
 import { Modal } from "@/components/ui/Modal";
 import { SectionHeader } from "@/components/composed/SectionHeader";
 import { AppointmentCard } from "@/features/scheduling/components/CalendarView";
@@ -101,7 +102,7 @@ export function DashboardView({
         <p className="text-xs font-semibold text-muted">{messages.metrics.contexts.monthComparison}</p>
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {metrics.map((metric) => (
-            <Card key={metric.id} className="flex flex-col justify-between">
+            <PointerTiltCard key={metric.id} intensity={50} className="flex flex-col justify-between">
               <div className="flex flex-wrap gap-2 flex-row justify-between">
               <p className="text-sm text-muted">{messages.metrics[metric.labelKey]}</p>
                               {metric.trendFormat !== "current" ? (
@@ -111,7 +112,7 @@ export function DashboardView({
               <div className="mt-3 flex items-end justify-between gap-3">
                 <p className="text-3xl font-bold text-primary">{metric.value}</p>
               </div>
-            </Card>
+            </PointerTiltCard>
           ))}
         </section>
       </div>

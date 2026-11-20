@@ -33,6 +33,7 @@ function setup(kind, maximum, create = false, tier = "pro") {
   const mocks = {
     react: { ...require("react"), useState(initial) { const index = cursor++; if (!(index in states)) states[index] = typeof initial === "function" ? initial() : initial; return [states[index], (update) => { states[index] = typeof update === "function" ? update(states[index]) : update; }]; }, useEffect: () => {}, useLayoutEffect: () => {}, useCallback: (callback) => callback, useRef: () => ({ current: null }) },
     "next/navigation": { useSearchParams: () => new URLSearchParams() },
+    "@/components/ui/PointerTiltCard": { PointerTiltCard: "Card" },
     "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") },
     "@/components/composed/useDualActionVisibility": { useDualActionVisibility: () => ({ topRef: {}, bottomRef: {}, showTopActions: true, showBottomActions: true }) },
     "@/features/scheduling/plan-limits": planLimits,

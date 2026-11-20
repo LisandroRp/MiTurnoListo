@@ -8,7 +8,7 @@ import { FiSearch, FiUserCheck } from "react-icons/fi";
 import { CustomerBookingHistory, CustomerBookingHistoryButton } from "@/features/scheduling/components/CustomerBookingHistory";
 import { CustomerTagBadge } from "@/features/scheduling/components/CustomerTagBadge";
 import { SectionHeader } from "@/components/composed/SectionHeader";
-import { Card } from "@/components/ui/Card";
+import { PointerTiltCard } from "@/components/ui/PointerTiltCard";
 import { Pagination } from "@/components/ui/Pagination";
 import { Button } from "@/components/ui/Button";
 import { SelectField } from "@/components/ui/SelectField";
@@ -268,14 +268,14 @@ export function CustomersView({ businessId, messages }: CustomersViewProps) {
 
 function CustomerMetricCard({ isLoading, label, value }: { isLoading: boolean; label: string; value: string }) {
   return (
-    <Card className="grid gap-2">
+    <PointerTiltCard intensity={50} className="grid gap-2">
       <span className="text-sm font-semibold text-muted">{label}</span>
       {isLoading ? (
         <span className="h-9 w-28 animate-pulse rounded-lg bg-surface-strong" aria-label={label} />
       ) : (
         <strong className="text-3xl font-black text-primary">{value}</strong>
       )}
-    </Card>
+    </PointerTiltCard>
   );
 }
 

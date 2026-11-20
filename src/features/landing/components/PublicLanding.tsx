@@ -20,11 +20,11 @@ import { BrandMark } from "@/components/composed/BrandMark";
 import { PublicSupportContact } from "@/components/composed/PublicSupportContact";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { PointerTiltCard } from "@/components/ui/PointerTiltCard";
 import { cx } from "@/components/ui/utils";
 import { LandingAnchorLink } from "@/features/landing/components/LandingAnchorLink";
 import {
   getSiteUrl,
-  landingCardHover,
   landingCtaLarge,
   landingCtaPrimary,
   landingCtaSecondary,
@@ -189,7 +189,7 @@ export function PublicLanding() {
         </div>
         <div className="mt-8 grid gap-4 md:grid-cols-4">
           {bookingSteps.map((step, index) => (
-            <Card key={step.title} className={cx("h-full", landingCardHover)}>
+            <PointerTiltCard key={step.title} className="h-full">
               <div className="flex items-center justify-between gap-3">
                 <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-soft text-sm font-bold text-brand-strong">
                   {index + 1}
@@ -199,7 +199,7 @@ export function PublicLanding() {
               <h3 className="mt-4 text-lg font-bold text-primary">{step.title}</h3>
               <p className="mt-2 text-sm leading-6 text-muted">{step.description}</p>
               <p className="mt-4 text-xs font-bold uppercase text-brand-strong">{step.meta}</p>
-            </Card>
+            </PointerTiltCard>
           ))}
         </div>
         <Card className="mt-4 border-brand bg-brand-soft">
@@ -221,11 +221,11 @@ export function PublicLanding() {
             const Icon = benefit.icon;
 
             return (
-              <Card key={benefit.title} className={cx("h-full", landingCardHover)}>
+              <PointerTiltCard key={benefit.title} className="h-full">
                 <Icon className="text-2xl text-brand-strong" aria-hidden="true" />
                 <h2 className="mt-4 text-lg font-bold text-primary">{benefit.title}</h2>
                 <p className="mt-2 text-sm leading-6 text-muted">{benefit.description}</p>
-              </Card>
+              </PointerTiltCard>
             );
           })}
         </div>
@@ -244,11 +244,11 @@ export function PublicLanding() {
             const Icon = feature.icon;
 
             return (
-              <Card key={feature.title} className={cx("h-full", landingCardHover)}>
+              <PointerTiltCard key={feature.title} className="h-full">
                 <Icon className="text-2xl text-brand-strong" aria-hidden="true" />
                 <h3 className="mt-4 text-lg font-bold text-primary">{feature.title}</h3>
                 <p className="mt-2 text-sm leading-6 text-muted">{feature.description}</p>
-              </Card>
+              </PointerTiltCard>
             );
           })}
         </div>
@@ -275,18 +275,17 @@ export function PublicLanding() {
         </div>
         <div className="mt-8 grid gap-4 lg:grid-cols-3">
           {landingPlans.map((plan) => (
-            <Card
+            <PointerTiltCard
               key={plan.name}
               className={cx(
                 "relative grid h-full content-start gap-4 overflow-hidden lg:row-span-10 lg:grid-rows-subgrid",
-                landingCardHover,
                 plan.highlighted ? "border-brand bg-brand-soft shadow-lg ring-2 ring-brand/20" : ""
               )}
             >
               {plan.highlighted ? <div className="absolute inset-x-0 top-0 h-1.5 bg-brand" /> : null}
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="flex items-center gap-2 text-xl font-bold text-primary">{plan.id === "pro" ? <FiZap className="shrink-0 text-brand-strong" aria-hidden="true" /> : plan.id === "unlimited" ? <FaInfinity className="shrink-0 text-brand-strong" aria-hidden="true" /> : null}{plan.name}</h3>
+                  <h3 className="flex items-center gap-2 text-xl font-bold text-primary">{plan.id === "pro" ? <FiZap className="shrink-0 text-brand-strong" aria-hidden="true" /> : plan.id === "unlimited" ? <FaInfinity className="shrink-0 text-brand-strong" aria-hidden="true" /> : <FiCheckCircle className="shrink-0 text-brand-strong" aria-hidden="true" />}{plan.name}</h3>
                 </div>
                 {plan.highlighted ? <Badge tone="brand">Popular</Badge> : null}
               </div>
@@ -296,7 +295,7 @@ export function PublicLanding() {
               <ul className="grid gap-3 lg:row-span-5 lg:grid-rows-subgrid">
                 {plan.perks.map((perk) => (
                   <li key={perk} className="flex items-start gap-2 text-sm font-semibold text-primary">
-                    {plan.id === "unlimited" ? <FaInfinity className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" /> : plan.id === "pro" ? <FiZap className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" /> : <FiCheckCircle className="mt-0.5 shrink-0 text-success" aria-hidden="true" />}
+                    {plan.id === "unlimited" ? <FaInfinity className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" /> : plan.id === "pro" ? <FiZap className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" /> : <FiCheckCircle className="mt-0.5 shrink-0 text-brand-strong" aria-hidden="true" />}
                     {perk}
                   </li>
                 ))}
@@ -306,7 +305,7 @@ export function PublicLanding() {
                   {plan.id === "free" ? "Empezar gratis" : "Ver planes"} <FiArrowRight aria-hidden="true" />
                 </Link>
               </div>
-            </Card>
+            </PointerTiltCard>
           ))}
         </div>
       </section>
@@ -360,7 +359,7 @@ export function PublicLanding() {
 
 function BookingFlowPreview() {
   return (
-    <Card className={cx("bg-sidebar", landingCardHover)}>
+    <PointerTiltCard className="bg-sidebar">
       <div className="flex items-center justify-between gap-4 border-b border-subtle pb-4">
         <div>
           <p className="mt-1 text-xl font-bold text-primary">Reservar en MiTurnoListo</p>
@@ -379,7 +378,7 @@ function BookingFlowPreview() {
               <p className="text-sm font-bold text-primary">{step.title}</p>
               <p className="truncate text-sm text-muted">{step.description}</p>
             </div>
-            <FiCheckCircle className="shrink-0 text-success" aria-hidden="true" />
+            <FiCheckCircle className="shrink-0 text-brand-strong" aria-hidden="true" />
           </div>
         ))}
       </div>
@@ -387,7 +386,7 @@ function BookingFlowPreview() {
         <p className="text-sm font-bold text-brand-strong">Reserva confirmada</p>
         <p className="mt-1 text-sm leading-6 text-muted">El horario queda bloqueado y aparece en el panel del negocio.</p>
       </div>
-    </Card>
+    </PointerTiltCard>
   );
 }
 

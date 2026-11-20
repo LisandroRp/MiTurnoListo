@@ -6,6 +6,7 @@ import { FiArrowRight, FiCheckCircle, FiClock, FiLock, FiMapPin, FiUpload, FiUse
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { usePointerTilt } from "@/components/ui/usePointerTilt";
 import { ImageUploadField } from "@/components/ui/ImageUploadField";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/SelectField";
@@ -725,14 +726,19 @@ function PlanCard({
   popularLabel?: string;
   icon?: ReactNode;
 }) {
+  const cardTilt = usePointerTilt<HTMLButtonElement>({ intensity: 100, shadow: true });
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-2xl border p-5 grid content-start gap-4 xl:row-span-8 xl:grid-rows-subgrid text-left transition-all enabled:hover:-translate-y-1 enabled:hover:shadow-lg enabled:cursor-pointer disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${isCurrent ? "border-brand bg-brand-soft" : "border-subtle bg-input"}`}
+      onPointerMove={cardTilt.onPointerMove}
+      onPointerLeave={cardTilt.onPointerLeave}
+      onPointerCancel={cardTilt.onPointerCancel}
+      className={`w-full rounded-2xl border p-5 grid content-start gap-4 xl:row-span-8 xl:grid-rows-subgrid text-left ${cardTilt.className} enabled:cursor-pointer disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${isCurrent ? "border-brand bg-brand-soft" : "border-subtle bg-input"}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-xl font-bold text-primary">{icon ?? (isPopular ? <FiZap className="shrink-0 text-brand-strong" aria-hidden="true" /> : null)}{title}</h3>
+        <h3 className="flex items-center gap-2 text-xl font-bold text-primary">{icon ?? (isPopular ? <FiZap className="shrink-0 text-brand-strong" aria-hidden="true" /> : <FiCheckCircle className="shrink-0 text-brand-strong" aria-hidden="true" />)}{title}</h3>
         <div className="flex flex-wrap gap-2">
           {isCurrent ? <Badge tone="brand">{currentPlanLabel}</Badge> : null}
           {isPopular && !isCurrent && popularLabel ? <Badge tone="brand">{popularLabel}</Badge> : null}

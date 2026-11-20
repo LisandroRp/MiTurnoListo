@@ -27,6 +27,7 @@ const { PublicLanding } = load("./PublicLanding.tsx", {
   "@/components/composed/PublicSupportContact": { PublicSupportContact: () => null },
   "@/components/ui/Badge": { Badge: ({ children }) => createElement("span", null, children) },
   "@/components/ui/Button": { Button: ({ children, disabled }) => createElement("button", { disabled }, children) },
+  "@/components/ui/PointerTiltCard": { PointerTiltCard: ({ children, className }) => createElement("article", { className }, children) },
   "@/components/ui/Card": { Card: ({ children, className }) => createElement("article", { className }, children) },
   "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") },
   "@/features/landing/components/LandingAnchorLink": { LandingAnchorLink: ({ children }) => createElement("a", null, children) },

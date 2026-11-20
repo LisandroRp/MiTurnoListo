@@ -116,6 +116,8 @@ test("team cards follow the pointer, reset their tilt and preserve professional 
   assert.equal(properties.size, 0);
   assert.doesNotMatch(card.className, /hover:bg-brand-soft/);
   assert.match(card.className, /motion-safe:\[transform:/);
+  assert.match(card.className, /shadow-sm.*hover:shadow-lg/);
+  assert.match(card.className, /transition-\[transform,box-shadow\]/);
   card.onClick();
   assert.deepEqual(app.clicked, ["employee-0"]);
 });

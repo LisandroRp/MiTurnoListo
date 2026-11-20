@@ -6,6 +6,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ts from "typescript";
+import { usePointerTilt } from "../../../components/ui/usePointerTilt.ts";
 
 const require = createRequire(import.meta.url);
 const fileUrl = new URL("./ProfileView.tsx", import.meta.url);
@@ -31,6 +32,7 @@ const limitsUrl = new URL("../business-profile-limits.ts", import.meta.url);
 const limitsModule = new Module(limitsUrl.pathname);
 limitsModule._compile(ts.transpileModule(readFileSync(limitsUrl, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, limitsUrl.pathname);
 const components = {
+  "@/components/ui/usePointerTilt": { usePointerTilt },
   "@/features/scheduling/business-profile-limits": limitsModule.exports,
   "@/components/ui/FormattingTextArea": { FormattingTextArea: passthrough("div") },
   "@/components/ui/FormattedText": formattedModule.exports,
@@ -346,13 +348,13 @@ test("left logo editor shares the business draft and save action", async () => {
 });
 
 
-test("plan headings distinguish PRO with lightning and Unlimited with an infinity symbol", () => {
+test("plan headings distinguish FREE with a check, PRO with lightning and INFINITY with infinity", () => {
   const app = interactiveProfile();
   app.render();
   const cards = app.nodes().filter((node) => node.type?.name === "PlanCard");
   assert.equal(cards.length, 3);
   const [free, pro, unlimited] = cards.map((card) => app.nodes(card.type(card.props)).find((node) => node.type === "h3"));
-  assert.equal(free.props.children[0], null);
+  assert.equal(free.props.children[0].type, components["react-icons/fi"].FiCheckCircle);
   assert.equal(pro.props.children[0].type, components["react-icons/fi"].FiZap);
   assert.equal(pro.props.children[1], messages.profile.proPlan);
   assert.equal(unlimited.props.children[0].type, components["react-icons/fa"].FaInfinity);
@@ -575,4 +577,35 @@ test("neutral profile upgrade action scrolls to all plans without opening a moda
     assert.equal(app.nodes().filter((node) => node.type?.name === "PlanCard").length, 3);
     assert.equal(app.checkoutCalls(), 0);
   } finally { globalThis.window = previousWindow; }
+});
+
+
+test("all plan cards combine mouse tilt and shadows while preserving selection and resetting on leave", () => {
+  const app = interactiveProfile();
+  app.render();
+  const cards = app.nodes().filter((node) => node.type?.name === "PlanCard");
+  assert.equal(cards.length, 3);
+  for (const card of cards) {
+    const button = card.type(card.props);
+    assert.equal(button.props.onClick, card.props.onClick);
+    assert.match(button.props.className, /shadow-sm.*hover:shadow-lg/);
+    assert.match(button.props.className, /motion-safe:.*perspective/);
+    assert.doesNotMatch(button.props.className, /hover:-translate/);
+    const properties = new Map();
+    const currentTarget = {
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 300, height: 500 }),
+      style: { setProperty: (key, value) => properties.set(key, value), removeProperty: (key) => properties.delete(key) }
+    };
+    const event = { currentTarget, pointerType: "mouse", clientX: 300, clientY: 500 };
+    button.props.onPointerMove(event);
+    assert.equal(properties.get("--tilt-rotate-x"), "6deg");
+    assert.equal(properties.get("--tilt-rotate-y"), "-6deg");
+    button.props.onPointerLeave(event);
+    assert.equal(properties.size, 0);
+    button.props.onPointerMove({ ...event, pointerType: "touch" });
+    assert.equal(properties.size, 0);
+    button.props.onPointerMove(event);
+    button.props.onPointerCancel(event);
+    assert.equal(properties.size, 0);
+  }
 });

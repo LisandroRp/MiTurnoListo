@@ -18,6 +18,7 @@ function setup() {
       if (!(index in states)) states[index] = initial;
       return [states[index], (value) => { states[index] = value; }];
     }, useRef: () => ({ current: null }) },
+    "@/components/ui/PointerTiltCard": { PointerTiltCard: "Card" },
     "@/components/ui/utils": { cx: (...values) => values.filter(Boolean).join(" ") },
     "@/features/scheduling/components/CalendarView": { AppointmentCard: "AppointmentCard" },
     "@/features/scheduling/components/employeeColors": { employeeColorClasses: {} },

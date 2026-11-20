@@ -47,6 +47,7 @@ export function AvailabilityCalendar({
   }, {});
   const visibleWeekdays = locale.startsWith("es") ? weekdayLabels : weekdayLabelsEn;
   const selectedDaySlots = selectedDate ? (slotsByDate[selectedDate] ?? []) : [];
+  const selectedSlot = selectedDaySlots.find((slot) => slot.startTime === selectedStartTime);
   const todayKey = toDateKey(new Date());
 
   function handleSelectDay(date: string) {
@@ -145,6 +146,18 @@ export function AvailabilityCalendar({
         ) : null}
       </Card>
 
+      {selectedSlot ? (
+        <div role="status" aria-live="polite" className="flex items-start gap-3 rounded-2xl border border-brand/45 bg-brand-soft p-4 text-brand-strong lg:hidden">
+          <FiClock aria-hidden="true" className="mt-0.5 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold">{copy.selectedSchedule}</p>
+            <p className="mt-1 text-sm font-bold">
+              {formatLongDate(selectedSlot.date, locale)} · {selectedSlot.startTime}–{selectedSlot.endTime}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <div className={cx("hidden lg:block", (!showDesktopHours || isMobileSheetOpen) && "lg:hidden")}>
         <AvailabilityHourList
           messages={messages}
@@ -157,8 +170,8 @@ export function AvailabilityCalendar({
       </div>
 
       {isMobileSheetOpen && selectedDate ? (
-        <div className="p-safe fixed inset-0 z-50 grid overscroll-contain bg-primary/35 lg:hidden">
-          <div className="pb-safe mt-auto max-h-[85dvh] overflow-y-auto overscroll-contain rounded-[28px] bg-sidebar px-5 pt-5 shadow-xl">
+        <div className="p-safe fixed inset-0 z-50 grid place-items-center overscroll-contain bg-primary/35 lg:hidden">
+          <div className="pb-safe w-full max-w-lg max-h-[85dvh] overflow-y-auto overscroll-contain rounded-[28px] bg-sidebar px-5 pt-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h3 className="text-lg font-bold text-primary">{formatLongDate(selectedDate, locale)}</h3>
               <Button size="icon" variant="ghost" aria-label="Close schedule" onClick={() => setIsMobileSheetOpen(false)}>

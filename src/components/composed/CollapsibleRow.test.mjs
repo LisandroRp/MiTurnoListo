@@ -43,7 +43,9 @@ test("rows exceeding the adjacent controls height expand, fade and adapt to resi
     return loaded.exports.CollapsibleRow({ heightReference, title: "Staff", expandLabel: "Expand staff", collapseLabel: "Collapse staff", children: "Employees" });
   };
   try {
-    render();
+    const initialTree = render();
+    assert.equal(initialTree.props.children[1].props.style.height, 0, "unmeasured content never renders fully expanded");
+    assert.doesNotMatch(initialTree.props.children[1].props.className, /transition-\[height\]/);
     cleanup = effect();
     let tree = render();
     let button = tree.props.children[0].props.children[1];
@@ -52,6 +54,7 @@ test("rows exceeding the adjacent controls height expand, fade and adapt to resi
     assert.match(tree.props.children[1].props.children[1].props.className, /pointer-events-none.*from-surface.*opacity-100/);
     assert.equal(button.props["aria-controls"], "visible-employees");
     assert.equal(tree.props.children[1].props.style.height, 106);
+    assert.doesNotMatch(tree.props.children[1].props.className, /transition-\[height\]/, "initial measurement does not animate a collapse");
     assert.deepEqual(items.map((item) => item.inert), [false, false, false, false, false, true]);
     button.props.onClick();
     tree = render();
@@ -66,6 +69,12 @@ test("rows exceeding the adjacent controls height expand, fade and adapt to resi
     tree = render();
     assert.equal(tree.props.children[1].props.style.height, 106);
     assert.match(tree.props.children[1].props.className, /transition-\[height\].*duration-300.*motion-reduce:transition-none/);
+    heightReference.current.offsetHeight = 0;
+    onResize();
+    tree = render();
+    assert.equal(tree.props.children[1].props.style.height, 48, "an unavailable reference keeps only the first row visible");
+    assert.equal(tree.props.children[0].props.children[1].props["aria-expanded"], false);
+    heightReference.current.offsetHeight = 146;
     items.forEach((item) => { item.offsetTop = 0; });
     content.scrollHeight = 50;
     onResize();

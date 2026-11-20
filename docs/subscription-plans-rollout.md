@@ -39,7 +39,7 @@ Keep the existing server credential `MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN` and
 
 ```dotenv
 MERCADO_PAGO_PRO_PRICE_ARS=25000
-MERCADO_PAGO_UNLIMITED_PRICE_ARS=55000
+MERCADO_PAGO_INFINITY_PRICE_ARS=55000
 ```
 
 `MP_WEBHOOK_TOKEN` must be configured with the same existing secret used by subscription notification URLs. The subscription webhook now fails closed when it is missing. Do not publish credential values or copy them into this document. `MERCADO_PAGO_TEST_PAYER_EMAIL` is only for an intentional test setup; ensure it is not overriding real payers at release.
@@ -52,7 +52,7 @@ Pro quota enforcement uses the internal `businesses.pro_limits_enabled` field. T
 
 1. In Supabase SQL Editor, run `subscription-plans-01-enum.sql` by itself. Wait for success. Do not combine it with file 02 in the same transaction.
 2. In a separate query, run all of `subscription-plans-02-support.sql`. This prepares the schema and preserves the reviewed customer's manual Pro grant. Existing Pro limits remain disabled at this point. The compatible backend must not be deployed before these two migrations succeed.
-3. In the deployment platform, set `MERCADO_PAGO_PRO_PRICE_ARS=25000` and `MERCADO_PAGO_UNLIMITED_PRICE_ARS=55000`. Keep the existing subscription access token and `MP_WEBHOOK_TOKEN`. No plans-version flag is required for this release. If the retired variable is already present, leave it until the new deployment is live, then optionally delete it.
+3. In the deployment platform, set `MERCADO_PAGO_PRO_PRICE_ARS=25000` and `MERCADO_PAGO_INFINITY_PRICE_ARS=55000`. Keep the existing subscription access token and `MP_WEBHOOK_TOKEN`. No plans-version flag is required for this release. If the retired variable is already present, leave it until the new deployment is live, then optionally delete it.
 4. Commit and push the complete application changes (`src/` and prepared documentation/scripts). This is a single Next.js application: the UI and `src/app/api/` backend deploy together from the same repository. Pushing files does not execute SQL in Supabase. Do not commit local credential files. Wait until the new deployment is live.
 5. In the new application's super admin panel, find **MEDICINA INTEGRAL CANNING**, choose **Unlimited**, and apply the plan. This is a manual grant with an atomic audit and no Mercado Pago subscription or charge. The alternate file `subscription-plans-03-manual-client.sql` is unnecessary when using the panel; do not run its unfilled administrator placeholders.
 6. In Supabase SQL Editor, run `subscription-plans-04-activate-limits.sql`. It enables Pro quotas for current and future businesses while allowing legitimate authenticated Free signup and preventing a client from opting out of quotas. Run this after the reviewed manual customer has Unlimited access.
@@ -171,3 +171,13 @@ FREE and PRO records inherited from a higher plan remain in the management list.
 - Nine concurrent visibility and verification-lease tests passed in the same isolated database.
 - Browser interaction checks remain with the user; no production SQL or payment mutation was executed.
 - This repository does not define a `verify:full` script; the available checks above were executed directly.
+
+
+## Configured public prices
+
+Landing cards, structured search offers, profile cards, subscription modals and upgrade notices now use the same `MERCADO_PAGO_PRO_PRICE_ARS` and `MERCADO_PAGO_INFINITY_PRICE_ARS` values as checkout. Configure `30000` and `55000` respectively for the new price scale, then rebuild/redeploy. Only public numeric amounts are passed from the server layout to the client provider; no new public environment variables or database migration are required. Existing provider subscriptions retain their current recurring amount unless explicitly updated through the subscription workflow.
+
+The legacy `MERCADO_PAGO_UNLIMITED_PRICE_ARS` name is accepted only as a fallback when the new INFINITY variable is absent. The internal tier and plan code remain unchanged; no subscription migration is needed.
+
+
+Pricing release verification: 533 source tests, TypeScript, lint, production build and changed-file Semgrep passed. The generated home and all three vertical landing HTML files show ARS 30,000 / 55,000 in both cards and structured offers when built with the matching environment values. No production database or payment subscription was changed. Browser verification remains with the user.

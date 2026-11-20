@@ -492,7 +492,7 @@ function buildStructuredData(config: VerticalLandingConfig) {
         offers: landingPlans.map((plan) => ({
           "@type": "Offer",
           name: plan.name,
-          price: plan.price === "$0" ? "0" : "25000",
+          price: String(plan.amount),
           priceCurrency: "ARS"
         }))
       },

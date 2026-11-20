@@ -1,3 +1,4 @@
+import { getPaidSubscriptionConfig } from "@/lib/subscription-plans";
 import { NextRequest, NextResponse } from "next/server";
 
 import { createApiErrorResponse } from "@/lib/networking/api-errors";
@@ -253,7 +254,7 @@ async function loadSuperAdminBusinesses(supabase: ReturnType<typeof getSupabaseA
   const subscriptionRevenueByBusinessId = aggregateSubscriptionRevenueByBusinessId({
     monthRange,
     proPrice: getProSubscriptionPrice(),
-    unlimitedPrice: Number(process.env.MERCADO_PAGO_UNLIMITED_PRICE_ARS?.trim() || "55000"),
+    unlimitedPrice: getPaidSubscriptionConfig("unlimited").amount,
     rows: subscriptions
   });
   const subscriptionPaymentsByBusinessId = aggregateSubscriptionPaymentsByBusinessId({
@@ -430,9 +431,7 @@ function getFirstByBusinessId(rows: BusinessSubscriptionRow[]) {
 }
 
 function getProSubscriptionPrice() {
-  const price = Number(process.env.MERCADO_PAGO_PRO_PRICE_ARS?.trim() || "25000");
-
-  return Number.isFinite(price) && price > 0 ? price : 25000;
+  return getPaidSubscriptionConfig("pro").amount;
 }
 
 function getCurrentMonthRange() {

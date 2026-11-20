@@ -91,7 +91,7 @@ test("both checkouts send the selected server price and persist their distinct p
   process.env.MERCADO_PAGO_SUBSCRIPTION_ACCESS_TOKEN = "local-test-token";
   process.env.MP_WEBHOOK_TOKEN = "local-webhook-token";
   try {
-    for (const [plan, amount] of [["pro", 25000], ["unlimited", 55000]]) {
+    for (const [plan, amount] of [["pro", 30000], ["unlimited", 55000]]) {
       const db = database();
       let request;
       global.fetch = async (_url, init) => {

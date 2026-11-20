@@ -123,23 +123,12 @@ const structuredData = {
       operatingSystem: "Web",
       url: homeUrl,
       description: "Agenda virtual y organizador de turnos online para gestionar reservas, horarios, personal, pagos y clientes en negocios de servicios.",
-      offers: [
-        {
-          "@type": "Offer",
-          name: "FREE",
-          price: "0",
-          priceCurrency: "ARS"
-        },
-        {
-          "@type": "Offer",
-          name: "PRO",
-          price: "25000",
-          priceCurrency: "ARS"
-        },
-        {
-          "@type": "Offer", name: "INFINITY", price: "55000", priceCurrency: "ARS"
-        }
-      ],
+      offers: landingPlans.map((plan) => ({
+        "@type": "Offer",
+        name: plan.name,
+        price: String(plan.amount),
+        priceCurrency: "ARS"
+      })),
       publisher: {
         "@id": `${siteUrl}/#organization`
       }

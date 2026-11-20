@@ -718,19 +718,19 @@ export const messages = {
       freePlanDescription: "Ideal para arrancar y ordenar una agenda chica.",
       proPlan: "PRO",
       referralProPlan: "INFINITY referido",
-      proPlanPrice: "$25.000 / mes",
+      proPlanPrice: "{price} / mes",
       proPlanDescription: "Para empezar a automatizar la agenda de tu negocio.",
       proPlanFeatures: ["Hasta 3 integrantes visibles del personal", "Hasta 10 servicios visibles", "Hasta 150 turnos por mes", "Reservas por link y QR", "Pagos online y estadísticas básicas"],
       unlimitedPlan: "INFINITY",
       unlimitedSubscribeTitle: "¿Querés suscribirte al plan INFINITY?",
       infinityUpgradeTitle: "¿Querés cambiar de PRO a INFINITY?",
-      infinityUpgradeDescription: "INFINITY se activa cuando se confirme el cambio. Tu misma suscripción pasa a $55.000 ARS por mes desde el próximo cobro mensual. No se cobra una diferencia ni un cargo adicional ahora.",
+      infinityUpgradeDescription: "INFINITY se activa cuando se confirme el cambio. Tu misma suscripción pasa a {price} ARS por mes desde el próximo cobro mensual. No se cobra una diferencia ni un cargo adicional ahora.",
       infinityUpgradeHint: "Actualizaremos tu suscripción actual de Mercado Pago. Conservás la misma suscripción y su fecha de cobro mensual.",
       confirmPlanChange: "Confirmar cambio",
       manualPlanTitle: "Tu plan está activado manualmente",
       manualPlanDescription: "No hay una suscripción de Mercado Pago para cancelar. Contactá a administración para modificar este acceso.",
       unlimitedSubscribeDescription: "Vas a gestionar tu negocio sin límites de personal, servicios ni turnos.",
-      unlimitedPlanPrice: "$55.000 / mes",
+      unlimitedPlanPrice: "{price} / mes",
       unlimitedPlanDescription: "Para equipos y agendas que necesitan crecer sin límites.",
       unlimitedPlanFeatures: ["Personal ilimitado", "Servicios activos ilimitados", "Turnos ilimitados", "Reservas por link y QR", "Pagos online, estadísticas completas y avanzadas"],
       superAdminApplyPlan: "Aplicar plan",
@@ -1818,19 +1818,19 @@ export const messages = {
       freePlanDescription: "Great for getting started and organizing a small schedule.",
       proPlan: "PRO",
       referralProPlan: "Referral INFINITY",
-      proPlanPrice: "$25,000 / month",
+      proPlanPrice: "{price} / month",
       proPlanDescription: "Start automating your business schedule.",
       proPlanFeatures: ["Up to 3 visible employees", "Up to 10 visible services", "Up to 150 bookings per month", "Booking by link and QR", "Online payments and basic statistics"],
       unlimitedPlan: "INFINITY",
       unlimitedSubscribeTitle: "Subscribe to the INFINITY plan?",
       infinityUpgradeTitle: "Switch from PRO to INFINITY?",
-      infinityUpgradeDescription: "INFINITY activates once the change is confirmed. Your existing subscription becomes ARS 55,000 per month starting with the next monthly charge. There is no difference or additional charge now.",
+      infinityUpgradeDescription: "INFINITY activates once the change is confirmed. Your existing subscription becomes {price} ARS per month starting with the next monthly charge. There is no difference or additional charge now.",
       infinityUpgradeHint: "We will update your current Mercado Pago subscription. You keep the same subscription and monthly billing date.",
       confirmPlanChange: "Confirm change",
       manualPlanTitle: "Your plan was activated manually",
       manualPlanDescription: "There is no Mercado Pago subscription to cancel. Contact an administrator to change this access.",
       unlimitedSubscribeDescription: "Manage your business with unlimited staff, services and bookings.",
-      unlimitedPlanPrice: "$55,000 / month",
+      unlimitedPlanPrice: "{price} / month",
       unlimitedPlanDescription: "For teams and schedules that need room to grow without limits.",
       unlimitedPlanFeatures: ["Unlimited employees", "Unlimited active services", "Unlimited bookings", "Booking by link and QR", "Online payments and complete advanced statistics"],
       superAdminApplyPlan: "Apply plan",
@@ -2203,4 +2203,11 @@ export const messages = {
   }
 } as const;
 
-export type Messages = (typeof messages)[Locale];
+type LocalizedMessages = (typeof messages)[Locale];
+export type Messages = Omit<LocalizedMessages, "profile"> & {
+  profile: Omit<LocalizedMessages["profile"], "proPlanPrice" | "unlimitedPlanPrice" | "infinityUpgradeDescription"> & {
+    proPlanPrice: string;
+    unlimitedPlanPrice: string;
+    infinityUpgradeDescription: string;
+  };
+};

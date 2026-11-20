@@ -1,3 +1,4 @@
+import { getSubscriptionPrices } from "@/lib/subscription-plans";
 import type { Metadata } from "next";
 import "./globals.css";
 
@@ -100,7 +101,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <MetaPixel />
         <MarketingEventTracker />
         <AuthProvider>
-          <SchedulingProvider>{children}</SchedulingProvider>
+          <SchedulingProvider subscriptionPrices={getSubscriptionPrices()}>{children}</SchedulingProvider>
         </AuthProvider>
       </body>
     </html>

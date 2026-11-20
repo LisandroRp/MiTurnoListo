@@ -19,9 +19,20 @@ export function getHighestSubscriptionTier(tiers: readonly unknown[]): Subscript
 }
 
 export function getPaidSubscriptionConfig(tier: PaidSubscriptionTier) {
-  const variable = tier === "unlimited" ? "MERCADO_PAGO_UNLIMITED_PRICE_ARS" : "MERCADO_PAGO_PRO_PRICE_ARS";
-  const configured = tier === "unlimited" ? process.env.MERCADO_PAGO_UNLIMITED_PRICE_ARS : process.env.MERCADO_PAGO_PRO_PRICE_ARS;
-  const amount = Number(configured?.trim() || (tier === "unlimited" ? "55000" : "25000"));
+  const variable = tier === "unlimited" ? "MERCADO_PAGO_INFINITY_PRICE_ARS" : "MERCADO_PAGO_PRO_PRICE_ARS";
+  const configured = tier === "unlimited"
+    ? process.env.MERCADO_PAGO_INFINITY_PRICE_ARS ?? process.env.MERCADO_PAGO_UNLIMITED_PRICE_ARS
+    : process.env.MERCADO_PAGO_PRO_PRICE_ARS;
+  const amount = Number(configured?.trim() || (tier === "unlimited" ? "55000" : "30000"));
   if (!Number.isFinite(amount) || amount <= 0) throw new Error(`Invalid monthly subscription price: ${variable}.`);
   return { amount, planCode: paidPlanCodes[tier], reason: tier === "unlimited" ? "MiTurnoListo INFINITY" : "MiTurnoListo PRO" };
+}
+
+export type SubscriptionPrices = { pro: number; unlimited: number };
+
+export function getSubscriptionPrices(): SubscriptionPrices {
+  return {
+    pro: getPaidSubscriptionConfig("pro").amount,
+    unlimited: getPaidSubscriptionConfig("unlimited").amount
+  };
 }

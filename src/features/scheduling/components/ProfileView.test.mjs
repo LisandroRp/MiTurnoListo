@@ -74,7 +74,10 @@ const profile = {
 const messagesUrl = new URL("../i18n/messages.ts", import.meta.url);
 const messagesModule = new Module(messagesUrl.pathname);
 messagesModule._compile(ts.transpileModule(readFileSync(messagesUrl, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, messagesUrl.pathname);
-const messages = messagesModule.exports.messages.es;
+const pricingUrl = new URL("../subscription-pricing.ts", import.meta.url);
+const pricingModule = new Module(pricingUrl.pathname);
+pricingModule._compile(ts.transpileModule(readFileSync(pricingUrl, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, pricingUrl.pathname);
+const messages = pricingModule.exports.getPricedMessages(messagesModule.exports.messages.es, { pro: 30000, unlimited: 55000 }, "es");
 
 function render(isReferralSummaryLoading, currentProfile = profile) {
   return renderToStaticMarkup(createElement(ProfileView, {

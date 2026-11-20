@@ -16,7 +16,11 @@ function load(relativePath, mocks = {}) {
   }).outputText, url.pathname);
   return loaded.exports;
 }
-const content = load("../landing-content.ts");
+const pricing = load("../../scheduling/subscription-pricing.ts");
+const content = load("../landing-content.ts", {
+  "@/lib/subscription-plans": { getSubscriptionPrices: () => ({ pro: 30000, unlimited: 55000 }) },
+  "@/features/scheduling/subscription-pricing": pricing
+});
 const { PublicLanding } = load("./PublicLanding.tsx", {
   "next/link": { default: ({ children, ...props }) => createElement("a", props, children) },
   "@/components/composed/BrandMark": { BrandMark: () => null },
@@ -45,7 +49,7 @@ test("landing publishes all three plans with available signup and plan entry poi
   assert.match(cards[0], /15 turnos/);
   assert.match(cards[0], /href="\/login\?mode=signup"/);
   assert.match(cards[1], /PRO/);
-  assert.match(cards[1], /25\.000/);
+  assert.match(cards[1], /30\.000/);
   assert.match(cards[1], /150 turnos/);
   assert.match(cards[1], /3 integrantes/);
   assert.match(cards[1], /10 servicios/);
@@ -64,6 +68,16 @@ test("structured data only offers plans that are currently available", () => {
   const json = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
   const offers = json["@graph"].find((node) => node["@type"] === "SoftwareApplication").offers;
   assert.deepEqual(offers.map(({ name, price }) => ({ name, price })), [
-    { name: "FREE", price: "0" }, { name: "PRO", price: "25000" }, { name: "INFINITY", price: "55000" }
+    { name: "FREE", price: "0" }, { name: "PRO", price: "30000" }, { name: "INFINITY", price: "55000" }
+  ]);
+});
+
+test("landing cards use the same configured amounts as their search offers", () => {
+  const dynamic = load("../landing-content.ts", {
+    "@/lib/subscription-plans": { getSubscriptionPrices: () => ({ pro: 29000, unlimited: 62000 }) },
+    "@/features/scheduling/subscription-pricing": pricing
+  });
+  assert.deepEqual(dynamic.landingPlans.map(({ amount, price }) => ({ amount, price })), [
+    { amount: 0, price: "$0" }, { amount: 29000, price: "$29.000" }, { amount: 62000, price: "$62.000" }
   ]);
 });

@@ -11,6 +11,8 @@ import { ToastMessage } from "@/components/ui/Toast";
 import { shouldRepairWorkspaceAfterSnapshotError } from "@/features/auth/auth-bootstrap";
 import { getSubscriptionActivationFeedback, getSubscriptionVerificationFeedback } from "@/features/scheduling/subscription-feedback";
 import { useAuth } from "@/features/auth/components/AuthProvider";
+import { getPricedMessages } from "@/features/scheduling/subscription-pricing";
+import type { SubscriptionPrices } from "@/lib/subscription-plans";
 import { messages, Messages } from "@/features/scheduling/i18n/messages";
 import { getWorkspaceLoadMode, shouldShowWorkspaceLoading, withWorkspaceLoadTimeout } from "@/features/scheduling/scheduling-workspace-cache";
 import { bootstrapWorkspace } from "@/lib/networking/endpoints/auth";
@@ -171,7 +173,7 @@ function getTodayDateValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function SchedulingProvider({ children }: { children: ReactNode }) {
+export function SchedulingProvider({ children, subscriptionPrices }: { children: ReactNode; subscriptionPrices: SubscriptionPrices }) {
   const toastCounter = useRef(1);
   const didAttemptWorkspaceRepair = useRef(false);
   const didTrackPremiumStarted = useRef(false);
@@ -204,7 +206,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const copy = messages[locale];
+  const copy = useMemo(() => getPricedMessages(messages[locale], subscriptionPrices, locale), [locale, subscriptionPrices]);
   const workspaceLoadMode = getWorkspaceLoadMode({
     authStatus,
     cachedScopes: loadedSnapshotScopes,

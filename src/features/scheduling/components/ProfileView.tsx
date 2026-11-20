@@ -95,6 +95,7 @@ export function ProfileView({
   const isUnlimitedPlan = profile.subscriptionTier === "unlimited";
   const isProPlan = profile.subscriptionTier !== "free";
   const isReferralPlan = profile.subscriptionAccessSource === "referral";
+  const isPaidInfinityUpgrade = profile.subscriptionTier === "pro" && profile.subscriptionAccessSource === "paid" && pendingTier === "unlimited";
   const isManualPlan = profile.subscriptionAccessSource === "manual";
 
   useEffect(() => {
@@ -457,7 +458,7 @@ export function ProfileView({
                   <div>
                     <p className="text-sm font-semibold text-brand-strong">{messages.profile.subscribeBenefitsEyebrow}</p>
                     <h3 className="mt-1 text-lg font-bold text-primary">{pendingTier === "unlimited" ? messages.profile.unlimitedPlan : messages.profile.proPlan} · {pendingTier === "unlimited" ? messages.profile.unlimitedPlanPrice : messages.profile.proPlanPrice}</h3>
-                    <p className="mt-2 text-sm leading-6 text-muted">{messages.profile.subscribeCheckoutHint}</p>
+                    <p className="mt-2 text-sm leading-6 text-muted">{isPaidInfinityUpgrade ? messages.profile.infinityUpgradeHint : messages.profile.subscribeCheckoutHint}</p>
                   </div>
                 </div>
 
@@ -482,7 +483,7 @@ export function ProfileView({
                   isLoading={isSubmittingPlanChange}
                   onClick={() => void confirmPlanChange()}
                 >
-                  {pendingTier !== "free" ? messages.profile.subscribeAction : messages.profile.unsubscribeAction}
+                  {isPaidInfinityUpgrade ? messages.profile.confirmPlanChange : pendingTier !== "free" ? messages.profile.subscribeAction : messages.profile.unsubscribeAction}
                 </Button>
               )}
             </div>
@@ -754,6 +755,7 @@ function PlanCard({
 }
 
 function getPlanModalDescription(messages: Messages, profile: Profile, pendingTier: SubscriptionTier) {
+  if (profile.subscriptionTier === "pro" && profile.subscriptionAccessSource === "paid" && pendingTier === "unlimited") return messages.profile.infinityUpgradeDescription;
   if (profile.subscriptionAccessSource === "manual" && pendingTier === "free") return messages.profile.manualPlanDescription;
   if (pendingTier === "unlimited") return messages.profile.unlimitedSubscribeDescription;
   if (profile.subscriptionAccessSource !== "referral") {
@@ -766,6 +768,7 @@ function getPlanModalDescription(messages: Messages, profile: Profile, pendingTi
 }
 
 function getPlanModalTitle(messages: Messages, profile: Profile, pendingTier: SubscriptionTier) {
+  if (profile.subscriptionTier === "pro" && profile.subscriptionAccessSource === "paid" && pendingTier === "unlimited") return messages.profile.infinityUpgradeTitle;
   if (profile.subscriptionAccessSource === "manual" && pendingTier === "free") return messages.profile.manualPlanTitle;
   if (pendingTier === "unlimited") return messages.profile.unlimitedSubscribeTitle;
   if (profile.subscriptionAccessSource === "referral" && pendingTier === "free") {

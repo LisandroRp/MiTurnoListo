@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 
 import { ToastMessage } from "@/components/ui/Toast";
 import { shouldRepairWorkspaceAfterSnapshotError } from "@/features/auth/auth-bootstrap";
+import { getSubscriptionActivationFeedback } from "@/features/scheduling/subscription-feedback";
 import { useAuth } from "@/features/auth/components/AuthProvider";
 import { messages, Messages } from "@/features/scheduling/i18n/messages";
 import { getWorkspaceLoadMode, shouldShowWorkspaceLoading, withWorkspaceLoadTimeout } from "@/features/scheduling/scheduling-workspace-cache";
@@ -674,7 +675,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         if (didRefresh) {
           showToast({
             tone: "success",
-            title: copy.profile.subscribedToast
+            ...getSubscriptionActivationFeedback(copy, result.subscriptionTier)
           });
         }
       } else if (result.checkoutUrl) {

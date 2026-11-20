@@ -10,6 +10,7 @@ import { WorkspaceLoadingState } from "@/components/composed/WorkspaceLoadingSta
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ToastViewport } from "@/components/ui/Toast";
+import { getSubscriptionActivationFeedback } from "@/features/scheduling/subscription-feedback";
 import { useAuth } from "@/features/auth/components/AuthProvider";
 import { DashboardSetupGuide } from "@/features/scheduling/components/DashboardSetupGuide";
 import { FreePlanUsagePrompt } from "@/features/scheduling/components/FreePlanUsagePrompt";
@@ -91,8 +92,7 @@ export function AppShell({ children }: AppShellProps) {
       if (result && result.subscriptionTier !== "free") {
         showToast({
           tone: "success",
-          title: messages.profile.subscribedToast,
-          description: messages.profile.subscriptionActivatedDescription
+          ...getSubscriptionActivationFeedback(messages, result.subscriptionTier)
         });
       }
 
@@ -104,7 +104,7 @@ export function AppShell({ children }: AppShellProps) {
         });
       }
     });
-  }, [businessId, isLoading, loadError, messages.profile, profile.subscriptionTier, refreshWorkspaceSubscription, showToast]);
+  }, [businessId, isLoading, loadError, messages, profile.subscriptionTier, refreshWorkspaceSubscription, showToast]);
 
   useEffect(() => {
     if (

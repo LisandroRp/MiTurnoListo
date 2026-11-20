@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/features/auth/components/AuthProvider";
 import { ProfileView } from "@/features/scheduling/components/ProfileView";
 import { useScheduling } from "@/features/scheduling/components/SchedulingProvider";
+import { getSubscriptionActivationFeedback } from "@/features/scheduling/subscription-feedback";
 import { ReferralSummary } from "@/features/scheduling/types";
 import { getEffectiveSubscriptionTier } from "@/lib/referral-rules";
 import { getReferralSummary } from "@/lib/networking/endpoints/referrals";
@@ -112,8 +113,7 @@ export default function ProfileSectionPage() {
       if (result && result.subscriptionTier !== "free") {
         showToast({
           tone: "success",
-          title: messages.profile.subscribedToast,
-          description: messages.profile.subscriptionActivatedDescription
+          ...getSubscriptionActivationFeedback(messages, result.subscriptionTier)
         });
       } else if (result?.status === "pending") {
         showToast({
@@ -125,7 +125,7 @@ export default function ProfileSectionPage() {
 
       router.replace(pathname);
     });
-  }, [businessId, messages.profile, pathname, refreshWorkspaceSubscription, router, searchParams, showToast]);
+  }, [businessId, messages, pathname, refreshWorkspaceSubscription, router, searchParams, showToast]);
 
   async function handlePasswordReset(email: string) {
     const result = await requestPasswordReset(userEmail ?? email);

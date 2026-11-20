@@ -479,3 +479,39 @@ test("manual access explains that there is no provider subscription to cancel", 
   assert.ok(app.nodes().some((node) => node.props?.children === messages.profile.manualPlanTitle));
   assert.equal(app.button(messages.profile.unsubscribeAction), undefined);
 });
+
+test("paid PRO upgrade discloses the next monthly price before confirmation and cancel makes no request", async () => {
+  const app = interactiveProfile({ tier: "pro" });
+  app.render();
+  app.nodes().find((node) => node.props?.title === messages.profile.unlimitedPlan).props.onClick();
+  app.render();
+  assert.ok(app.nodes().some((node) => node.props?.children === messages.profile.infinityUpgradeTitle));
+  assert.ok(app.nodes().some((node) => node.props?.children === messages.profile.infinityUpgradeDescription));
+  assert.match(messages.profile.infinityUpgradeDescription, /55\.000.*próximo cobro mensual/);
+  assert.match(messages.profile.infinityUpgradeDescription, /No se cobra una diferencia ni un cargo adicional ahora/);
+  assert.ok(app.nodes().some((node) => node.props?.children === messages.profile.infinityUpgradeHint));
+  assert.equal(app.nodes().some((node) => node.props?.children === messages.profile.subscribeCheckoutHint), false);
+  assert.equal(app.checkoutCalls(), 0);
+  app.button(messages.actions.cancel).props.onClick();
+  app.render();
+  assert.equal(app.nodes().find((node) => node.type === components["@/components/ui/Modal"].Modal).props.isOpen, false);
+  assert.equal(app.checkoutCalls(), 0);
+  app.nodes().find((node) => node.props?.title === messages.profile.unlimitedPlan).props.onClick();
+  app.render();
+  await app.button(messages.profile.confirmPlanChange).props.onClick();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(app.checkoutCalls(), 1);
+});
+
+test("Free and manual PRO purchases do not promise a deferred first payment", () => {
+  for (const options of [{ tier: "free" }, { tier: "pro", accessSource: "manual" }]) {
+    const app = interactiveProfile(options);
+    app.render();
+    app.nodes().find((node) => node.props?.title === messages.profile.unlimitedPlan).props.onClick();
+    app.render();
+    assert.ok(app.button(messages.profile.subscribeAction));
+    assert.equal(app.button(messages.profile.confirmPlanChange), undefined);
+    assert.equal(app.nodes().some((node) => node.props?.children === messages.profile.infinityUpgradeDescription), false);
+    assert.equal(app.checkoutCalls(), 0);
+  }
+});

@@ -5,6 +5,11 @@ import test from "node:test";
 import ts from "typescript";
 import * as referralRules from "../../../lib/referral-rules.ts";
 
+const feedbackFile = new URL("../../../features/scheduling/subscription-feedback.ts", import.meta.url);
+const feedbackModule = new Module(feedbackFile.pathname);
+feedbackModule._compile(ts.transpileModule(readFileSync(feedbackFile, "utf8"), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+}).outputText, feedbackFile.pathname);
 const require = createRequire(import.meta.url);
 const file = new URL("./page.tsx", import.meta.url);
 const output = ts.transpileModule(readFileSync(file, "utf8"), {
@@ -26,6 +31,7 @@ function profilePage(initialProfile) {
   };
   const mocks = {
     react: hooks,
+    "@/features/scheduling/subscription-feedback": feedbackModule.exports,
     "next/navigation": { usePathname: () => "/perfil", useRouter: () => ({ replace() {} }), useSearchParams: () => new URLSearchParams() },
     "@/features/auth/components/AuthProvider": { useAuth: () => ({ userEmail: "owner@example.test" }) },
     "@/features/scheduling/components/ProfileView": { ProfileView: () => null },
